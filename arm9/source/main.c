@@ -7,6 +7,9 @@
 
 #include "font.h"
 
+//---------------------------------------------------------------------------
+// numbers
+
 inline int min(int a, int b) {
 	if (a < b) return a;
 	return b;
@@ -16,6 +19,17 @@ inline int max(int a, int b) {
 	return b;
 }
 
+// a convolution of a uniform distribution with itself is close to Gaussian
+u32 genrand_gaussian32() {
+	return (u32)((genrand_int32()>>2) + (genrand_int32()>>2) +
+			(genrand_int32()>>2) + (genrand_int32()>>2));
+}
+
+//---------------------------------------------------------------------------
+
+
+//---------------------------------------------------------------------------
+// drawing
 u16* backbuf = (u16*)BG_BMP_RAM(0);
 void swapbufs() {
 	if (backbuf == (u16*)BG_BMP_RAM(0)) {
@@ -51,7 +65,11 @@ void drawcq(u16 x, u16 y, u8 c, u16 color) { // OPAQUE version (clobbers)
 			backbuf[(y+py)*256+x+px] = fontTiles[8*8*c+8*py+px] ? color|BIT(15) : 0;
 		}
 }
+//---------------------------------------------------------------------------
 
+
+//---------------------------------------------------------------------------
+// map stuff
 typedef enum {
 	T_TREE = 0,
 	T_GROUND,
@@ -62,8 +80,7 @@ typedef struct {
 	CELL_TYPE type;
 	u8 ch;
 	u16 col;
-	u8 lit;
-	u8 recall;
+	int32 lit, recall;
 	u8 dirty;
 } cell_t;
 
@@ -105,7 +122,7 @@ void random_map(map_t *map) {
 
 	x = map->w/2; y = map->h/2;
 	u32 i;
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < 2000; i++) {
 		cell_t *cell = &map->cells[y*map->w+x];
 		cell->type = T_GROUND;
 		u32 a = genrand_int32();
@@ -149,25 +166,44 @@ void vblank_counter() {
 	vblnkDirty = 1;
 	vblnks += 1;
 }
+//---------------------------------------------------------------------------
 
+
+//---------------------------------------------------------------------------
+// libfov functions
 bool opacity_test(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
 	return map->cells[y*map->w+x].type != T_GROUND;
 }
 
-void apply_lighting(void *map_, int x, int y, int dx, int dy, void *src) {
+void apply_lighting(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
+	int32 *src = (int32*)src_;
+	int32 dx = src[0]-(x<<12),
+				dy = src[1]-(y<<12),
+				dist2 = mulf32(dx,dx)+mulf32(dy,dy),
+				dist = sqrtf32(dist2);
+	int32 rad = src[2],
+				rad2 = mulf32(rad,rad);
 	cell_t *cell = &map->cells[y*map->w+x];
-	cell->lit = min(8, 10 - sqrt32(dx*dx+dy*dy));
+	// cubic
+	/*cell->lit = mulf32(divf32(2<<12, mulf32(rad,rad2)), mulf32(dist2,dist)) -
+		mulf32(divf32(3<<12, rad2), dist2) + (1<<12);*/
+	// square root
+	int32 val = (1<<12) - divf32(dist2, rad2);
+	if (val < 0) cell->lit = 0;
+	else cell->lit = sqrtf32(val);
 	cell->recall = max(cell->lit, cell->recall);
 	cell->dirty = 2;
 }
+//---------------------------------------------------------------------------
 
-//---------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------
 int main(void) {
-//---------------------------------------------------------------------------------
+//---------------------------------------------------------------------------
 	irqInit();
 	irqSet(IRQ_VBLANK, vblank_counter);
 	irqEnable(IRQ_VBLANK);
@@ -277,7 +313,9 @@ int main(void) {
 		if (frm > 0)
 			frm--;
 
-		fov_circle(fov_settings, (void*)map, NULL, pX, pY, 8);
+		// TODO: origin jitter
+		int32 src[3] = { pX<<12, pY<<12, (7<<12)+((genrand_gaussian32()&0xfff00000)>>20) };
+		fov_circle(fov_settings, (void*)map, src, pX, pY, 8);
 
 		// XXX: more font-specific magical values
 		for (y = 0; y < 24; y++)
@@ -287,10 +325,11 @@ int main(void) {
 					int r = cell->col & 0x001f,
 							g = (cell->col & 0x03e0) >> 5,
 							b = (cell->col & 0x7c00) >> 10;
-					drawcq(x*8,y*8,cell->ch,
-							RGB15((r*max(cell->lit<<2,cell->recall))/32,
-								    (g*max(cell->lit<<2,cell->recall))/32,
-										(b*max(cell->lit<<2,cell->recall))/32));
+					int32 val = max(cell->lit, cell->recall>>1);
+					r = mulf32(r<<12, val)>>12;
+					g = mulf32(g<<12, val)>>12;
+					b = mulf32(b<<12, val)>>12;
+					drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
 					cell->lit = 0;
 				} else if (cell->recall > 0 && (cell->dirty > 0 || dirty > 0)) {
 					int r = cell->col & 0x001f,
@@ -298,10 +337,11 @@ int main(void) {
 							b = (cell->col & 0x7c00) >> 10;
 					if (cell->dirty > 0)
 						cell->dirty--;
-					drawcq(x*8,y*8,cell->ch,
-							RGB15((r*cell->recall)/32,
-								    (g*cell->recall)/32,
-										(b*cell->recall)/32));
+					int32 val = (cell->recall>>1) - (cell->recall>>3);
+					r = mulf32(r<<12, val)>>12;
+					g = mulf32(g<<12, val)>>12;
+					b = mulf32(b<<12, val)>>12;
+					drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
 				}
 			}
 		drawcq((pX-scrollX)*8,(pY-scrollY)*8,'@',RGB15(31,31,31));
