@@ -70,12 +70,30 @@ void drawcq(u16 x, u16 y, u8 c, u16 color) { // OPAQUE version (clobbers)
 
 //---------------------------------------------------------------------------
 // map stuff
+
+#define MAX_LIGHTS 32
+
 typedef enum {
 	T_TREE = 0,
 	T_GROUND,
 	T_STAIRS,
+	T_FIRE,
 	NO_TYPE
 } CELL_TYPE;
+
+typedef enum {
+	L_FIRE = 0,
+	NO_LIGHT
+} LIGHT_TYPE;
+
+/*** light ***/
+typedef struct {
+	u32 x,y;
+	u16 col;
+	u8 radius;
+	LIGHT_TYPE type : 8;
+} light_t;
+/*     ~     */
 
 /*** cell ***/
 typedef struct {
@@ -92,7 +110,10 @@ typedef struct {
 typedef struct {
 	u32 w,h;
 	cell_t* cells;
+	light_t lights[MAX_LIGHTS];
+	u8 num_lights;
 } map_t;
+/*    ~    */
 
 void reset_map(map_t* map, CELL_TYPE fill) {
 	u32 x, y, w = map->w, h = map->h;
@@ -106,6 +127,7 @@ void reset_map(map_t* map, CELL_TYPE fill) {
 			cell->recall = 0;
 			cell->dirty = 0;
 		}
+	map->num_lights = 0;
 }
 map_t *create_map(u32 w, u32 h, CELL_TYPE fill) {
 	map_t *ret = malloc(sizeof(map_t));
@@ -118,6 +140,7 @@ map_t *create_map(u32 w, u32 h, CELL_TYPE fill) {
 
 void random_map(map_t *map) {
 	s32 x,y;
+	reset_map(map, T_TREE);
 	for (y = 0; y < map->h; y++)
 		for (x = 0; x < map->w; x++) {
 			cell_t *cell = &map->cells[y*map->w+x];
@@ -126,30 +149,44 @@ void random_map(map_t *map) {
 		}
 
 	x = map->w/2; y = map->h/2;
-	u32 i;
-	for (i = 0; i < 8000; i++) {
+	u32 i = 8192;
+	u32 light = genrand_int32() >> 20; // between 0 and 4095
+	for (; i > 0; i--) {
 		cell_t *cell = &map->cells[y*map->w+x];
-		cell->type = T_GROUND;
 		u32 a = genrand_int32();
-		u8 b = a & 3; // top two bits of a
-		a >>= 2; // get rid of the used random bits
-		switch (b) {
-			case 1:
-				cell->ch = ','; break;
-			case 2:
-				cell->ch = '\''; break;
-			case 3:
-				cell->ch = '`'; break;
-			default:
-				cell->ch = '.'; break;
+		if (i == light) {
+			cell->type = T_FIRE;
+			cell->ch = 'w';
+			cell->col = RGB15(31,12,0);
+			light_t *l = &map->lights[map->num_lights];
+			l->x = x;
+			l->y = y;
+			l->col = RGB15(31,20,8);
+			l->radius = 9;
+			l->type = L_FIRE;
+			map->num_lights++;
+		} else if (cell->type == T_TREE) {
+			cell->type = T_GROUND;
+			u8 b = a & 3; // top two bits of a
+			a >>= 2; // get rid of the used random bits
+			switch (b) {
+				case 1:
+					cell->ch = ','; break;
+				case 2:
+					cell->ch = '\''; break;
+				case 3:
+					cell->ch = '`'; break;
+				default:
+					cell->ch = '.'; break;
+			}
+			b = a & 3;
+			a >>= 2;
+			u8 g = a & 7;
+			a >>= 3;
+			u8 r = a & 7;
+			a >>= 3;
+			cell->col = RGB15(17+r,9+g,6+b);
 		}
-		b = a & 3;
-		a >>= 2;
-		u8 g = a & 7;
-		a >>= 3;
-		u8 r = a & 7;
-		a >>= 3;
-		cell->col = RGB15(17+r,9+g,6+b);
 
 		if (a & 1) {
 			if (a & 2) x += 1;
@@ -172,7 +209,6 @@ void random_map(map_t *map) {
 void new_map(map_t *map) {
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds + IPC->time.rtc.minutes*60+IPC->time.rtc.hours*60*60 + IPC->time.rtc.weekday*7*24*60*60));
 	clss();
-	reset_map(map, T_TREE);
 	random_map(map);
 }
 
@@ -217,7 +253,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 				rad2 = mulf32(rad,rad);
 	cell_t *cell = &map->cells[y*map->w+x];
 	if (dist2 < rad2) {
-		cell->lit = calc_semicircle(dist2, rad2);
+		cell->lit = calc_semicircle(dist2, rad2); // NB: no addition or capping here
 		cell->recall = max(cell->lit, cell->recall);
 		cell->dirty = 2;
 	}
@@ -243,7 +279,10 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 				rad2 = mulf32(rad,rad);
 	if (dist2 < rad2) {
 		cell_t *cell = &map->cells[y*map->w+x];
-		cell->lit = calc_semicircle(dist2, rad2);
+
+		cell->lit += calc_semicircle(dist2, rad2);
+		cell->lit = min(cell->lit, 1<<12);
+
 		cell->recall = max(cell->lit, cell->recall);
 		cell->dirty = 2;
 	}
@@ -311,7 +350,7 @@ int main(void) {
 
 	u32 level = 0;
 
-	int32 src[3] = {0,0,0};
+	int32 src[3] = { 0, 0, 0 };
 
 	while (1) {
 		if (!vblnkDirty)
@@ -388,7 +427,15 @@ int main(void) {
 			src[2] = (7<<12)+((genrand_gaussian32()&0xfff00000)>>20);
 		}
 
-		fov_circle(sight, (void*)map, src, pX, pY, 24);
+		fov_circle(sight, (void*)map, (void*)src, pX, pY, 24);
+
+		u32 i;
+		for (i = 0; i < map->num_lights; i++) {
+			light_t *l = &map->lights[i];
+			// XXX: need to keep a structure for the fluctuations per-source
+			int32 source[3] = { l->x << 12, l->y << 12, l->radius << 12 };
+			fov_circle(light, (void*)map, (void*)source, l->x, l->y, l->radius);
+		}
 
 		// XXX: more font-specific magical values
 		for (y = 0; y < 24; y++)
@@ -416,6 +463,8 @@ int main(void) {
 					b = mulf32(b<<12, val)>>12;
 					drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
 				}
+				if (cell->visible)
+					cell->visible = 0;
 			}
 		drawcq((pX-scrollX)*8,(pY-scrollY)*8,'@',RGB15(31,31,31));
 		swapbufs();
