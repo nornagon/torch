@@ -49,7 +49,7 @@ void clss() {
 }
 
 void drawc(u16 x, u16 y, u8 c, u16 color) {
-	c -= ' ';
+	c -= ' '; // XXX: might want to remove this
 	u8 px,py;
 	for (py = 0; py < 8; py++)
 		for (px = 0; px < 8; px++) {
@@ -58,7 +58,7 @@ void drawc(u16 x, u16 y, u8 c, u16 color) {
 		}
 }
 void drawcq(u16 x, u16 y, u8 c, u16 color) { // OPAQUE version (clobbers)
-	c -= ' ';
+	c -= ' '; // XXX: might want to remove this
 	u8 px,py;
 	for (py = 0; py < 8; py++)
 		for (px = 0; px < 8; px++) {
@@ -73,17 +73,22 @@ void drawcq(u16 x, u16 y, u8 c, u16 color) { // OPAQUE version (clobbers)
 typedef enum {
 	T_TREE = 0,
 	T_GROUND,
+	T_STAIRS,
 	NO_TYPE
 } CELL_TYPE;
 
+/*** cell ***/
 typedef struct {
-	CELL_TYPE type;
+	CELL_TYPE type : 8;
 	u8 ch;
 	u16 col;
 	int32 lit, recall;
-	u8 dirty;
-} cell_t;
+	u8 dirty : 2;
+	bool visible : 1;
+} __attribute__((aligned(4))) cell_t;
+/*    ~~    */
 
+/*** map ***/
 typedef struct {
 	u32 w,h;
 	cell_t* cells;
@@ -122,7 +127,7 @@ void random_map(map_t *map) {
 
 	x = map->w/2; y = map->h/2;
 	u32 i;
-	for (i = 0; i < 2000; i++) {
+	for (i = 0; i < 8000; i++) {
 		cell_t *cell = &map->cells[y*map->w+x];
 		cell->type = T_GROUND;
 		u32 a = genrand_int32();
@@ -158,6 +163,17 @@ void random_map(map_t *map) {
 		if (x >= map->w) x = map->w-1;
 		if (y >= map->h) y = map->h-1;
 	}
+	cell_t *cell = &map->cells[y*map->w+x];
+	cell->type = T_STAIRS;
+	cell->ch = '>';
+	cell->col = RGB15(31,31,31);
+}
+
+void new_map(map_t *map) {
+	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds + IPC->time.rtc.minutes*60+IPC->time.rtc.hours*60*60 + IPC->time.rtc.weekday*7*24*60*60));
+	clss();
+	reset_map(map, T_TREE);
+	random_map(map);
 }
 
 u32 vblnks = 0, frames = 0;
@@ -174,29 +190,63 @@ void vblank_counter() {
 bool opacity_test(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
-	return map->cells[y*map->w+x].type != T_GROUND;
+	return map->cells[y*map->w+x].type == T_TREE;
 }
 
-void apply_lighting(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
+inline int32 calc_semicircle(int32 dist2, int32 rad2) {
+	int32 val = (1<<12) - divf32(dist2, rad2);
+	if (val < 0) return 0;
+	return sqrtf32(val);
+}
+
+inline int32 calc_cubic(int32 dist2, int32 rad, int32 rad2) {
+	int32 dist = sqrtf32(dist2);
+	// 2(d/r)³ - 3(d/r)² + 1
+	return mulf32(divf32(2<<12, mulf32(rad,rad2)), mulf32(dist2,dist)) -
+		mulf32(divf32(3<<12, rad2), dist2) + (1<<12);
+}
+
+void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
 	int32 *src = (int32*)src_;
 	int32 dx = src[0]-(x<<12),
 				dy = src[1]-(y<<12),
-				dist2 = mulf32(dx,dx)+mulf32(dy,dy),
-				dist = sqrtf32(dist2);
+				dist2 = mulf32(dx,dx)+mulf32(dy,dy);
 	int32 rad = src[2],
 				rad2 = mulf32(rad,rad);
 	cell_t *cell = &map->cells[y*map->w+x];
-	// cubic
-	/*cell->lit = mulf32(divf32(2<<12, mulf32(rad,rad2)), mulf32(dist2,dist)) -
-		mulf32(divf32(3<<12, rad2), dist2) + (1<<12);*/
-	// square root
-	int32 val = (1<<12) - divf32(dist2, rad2);
-	if (val < 0) cell->lit = 0;
-	else cell->lit = sqrtf32(val);
-	cell->recall = max(cell->lit, cell->recall);
-	cell->dirty = 2;
+	if (dist2 < rad2) {
+		cell->lit = calc_semicircle(dist2, rad2);
+		cell->recall = max(cell->lit, cell->recall);
+		cell->dirty = 2;
+	}
+	cell->visible = true;
+}
+
+void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
+	map_t *map = (map_t*)map_;
+	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
+
+	cell_t *cell = &map->cells[y*map->w+x];
+
+	// don't light the cell if we can't see it
+	if (!cell->visible) return;
+
+	// XXX: this function is pretty much identical to apply_sight... should
+	// maybe merge them.
+	int32 *src = (int32*)src_;
+	int32 dx = src[0]-(x<<12),
+				dy = src[1]-(y<<12),
+				dist2 = mulf32(dx,dx)+mulf32(dy,dy);
+	int32 rad = src[2],
+				rad2 = mulf32(rad,rad);
+	if (dist2 < rad2) {
+		cell_t *cell = &map->cells[y*map->w+x];
+		cell->lit = calc_semicircle(dist2, rad2);
+		cell->recall = max(cell->lit, cell->recall);
+		cell->dirty = 2;
+	}
 }
 //---------------------------------------------------------------------------
 
@@ -226,11 +276,17 @@ int main(void) {
 
 	consoleInitDefault((u16*)SCREEN_BASE_BLOCK_SUB(31), (u16*)CHAR_BASE_BLOCK_SUB(0), 16);
 
-	fov_settings_type *fov_settings = malloc(sizeof(fov_settings_type));
-	fov_settings_init(fov_settings);
-	fov_settings_set_shape(fov_settings, FOV_SHAPE_CIRCLE);
-	fov_settings_set_opacity_test_function(fov_settings, opacity_test);
-	fov_settings_set_apply_lighting_function(fov_settings, apply_lighting);
+	fov_settings_type *sight = malloc(sizeof(fov_settings_type));
+	fov_settings_init(sight);
+	fov_settings_set_shape(sight, FOV_SHAPE_CIRCLE);
+	fov_settings_set_opacity_test_function(sight, opacity_test);
+	fov_settings_set_apply_lighting_function(sight, apply_sight);
+
+	fov_settings_type *light = malloc(sizeof(fov_settings_type));
+	fov_settings_init(light);
+	fov_settings_set_shape(light, FOV_SHAPE_CIRCLE);
+	fov_settings_set_opacity_test_function(light, opacity_test);
+	fov_settings_set_apply_lighting_function(light, apply_light);
 	
 	swiWaitForVBlank();
 	u32 seed = IPC->time.rtc.seconds;
@@ -239,7 +295,7 @@ int main(void) {
 	seed += IPC->time.rtc.weekday*7*24*60*60;
 	init_genrand(seed); // XXX: RTC is not really a good randomness source
 
-	map_t *map = create_map(64,48, T_TREE);
+	map_t *map = create_map(128,128, T_TREE);
 	random_map(map);
 
 	s32 pX = map->w/2, pY = map->h/2;
@@ -253,6 +309,10 @@ int main(void) {
 
 	int dirty = 2; // whole screen dirty first frame
 
+	u32 level = 0;
+
+	int32 src[3] = {0,0,0};
+
 	while (1) {
 		if (!vblnkDirty)
 			swiWaitForVBlank();
@@ -260,15 +320,14 @@ int main(void) {
 		scanKeys();
 		u32 down = keysDown();
 		if (down & KEY_START) {
-			init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds + IPC->time.rtc.minutes*60+IPC->time.rtc.hours*60*60 + IPC->time.rtc.weekday*7*24*60*60));
-			clss();
-			reset_map(map, T_TREE);
-			random_map(map);
+			new_map(map);
 			pX = map->w/2; pY = map->h/2;
 			frm = 0;
 			scrollX = map->w/2 - 16; scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
 			dirty = 2;
+			level = 0;
+			//iprintf("You begin again.\n");
 			continue;
 		}
 		if (frm == 0) {
@@ -282,10 +341,20 @@ int main(void) {
 				dpY = 1;
 			if (keys & KEY_UP)
 				dpY = -1;
+			if (keys & KEY_A && map->cells[pY*map->w+pX].type == T_STAIRS) {
+				//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
+				new_map(map);
+				pX = map->w/2; pY = map->h/2;
+				// TODO: make so screen doesn't jump on down-stairs
+				scrollX = map->w/2 - 16; scrollY = map->h/2 - 12;
+				vblnkDirty = 0;
+				dirty = 2;
+				continue;
+			}
 			if (dpX || dpY) {
 				frm = 5;
 				// bumping into a wall takes some time
-				if (map->cells[(pY+dpY)*map->w+pX+dpX].type != T_GROUND) {
+				if (map->cells[(pY+dpY)*map->w+pX+dpX].type == T_TREE) { // XXX generalize bump test
 					dpX = dpY = 0;
 					frm = 2;
 				} else {
@@ -313,9 +382,13 @@ int main(void) {
 		if (frm > 0)
 			frm--;
 
-		// TODO: origin jitter
-		int32 src[3] = { pX<<12, pY<<12, (7<<12)+((genrand_gaussian32()&0xfff00000)>>20) };
-		fov_circle(fov_settings, (void*)map, src, pX, pY, 8);
+		if (frames % 4 == 0) {
+			src[0] = (pX<<12)+((genrand_gaussian32()&0xfff00000)>>20);
+			src[1] = (pY<<12)+((genrand_gaussian32()&0xfff00000)>>20);
+			src[2] = (7<<12)+((genrand_gaussian32()&0xfff00000)>>20);
+		}
+
+		fov_circle(sight, (void*)map, src, pX, pY, 24);
 
 		// XXX: more font-specific magical values
 		for (y = 0; y < 24; y++)
