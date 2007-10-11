@@ -112,6 +112,7 @@ typedef struct {
 	cell_t* cells;
 	light_t lights[MAX_LIGHTS];
 	u8 num_lights;
+	s32 pX,pY;
 } map_t;
 /*    ~    */
 
@@ -248,8 +249,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	int32 *src = (int32*)src_;
 
 	// XXX: super ick, magical fonting numbers here
-	s32 pX = src[3], pY = src[4],
-			scrollX = src[5], scrollY = src[6];
+	s32 scrollX = src[3], scrollY = src[4];
 	if (x < scrollX || y < scrollY || x > scrollX + 31 || y > scrollY + 23) return;
 
 	int32 dx = src[0]-(x<<12),
@@ -344,7 +344,8 @@ int main(void) {
 	map_t *map = create_map(128,128, T_TREE);
 	random_map(map);
 
-	s32 pX = map->w/2, pY = map->h/2;
+	map->pX = map->w/2;
+	map->pY = map->h/2;
 
 	u32 x, y;
 	u32 frm = 0;
@@ -356,7 +357,6 @@ int main(void) {
 	u32 level = 0;
 
 	int32 src[7] = { 0, 0, 0, // source x, source y, radius
-		0, 0, // player x, player y
 		0, 0  // scroll x, scroll y
 	};
 
@@ -368,7 +368,8 @@ int main(void) {
 		u32 down = keysDown();
 		if (down & KEY_START) {
 			new_map(map);
-			pX = map->w/2; pY = map->h/2;
+			map->pX = map->w/2;
+			map->pY = map->h/2;
 			frm = 0;
 			scrollX = map->w/2 - 16; scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
@@ -388,10 +389,11 @@ int main(void) {
 				dpY = 1;
 			if (keys & KEY_UP)
 				dpY = -1;
-			if (keys & KEY_A && map->cells[pY*map->w+pX].type == T_STAIRS) {
+			if (keys & KEY_A && map->cells[map->pY*map->w+map->pX].type == T_STAIRS) {
 				//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
 				new_map(map);
-				pX = map->w/2; pY = map->h/2;
+				map->pX = map->w/2;
+				map->pY = map->h/2;
 				// TODO: make so screen doesn't jump on down-stairs
 				scrollX = map->w/2 - 16; scrollY = map->h/2 - 12;
 				vblnkDirty = 0;
@@ -401,27 +403,27 @@ int main(void) {
 			if (dpX || dpY) {
 				frm = 5;
 				// bumping into a wall takes some time
-				if (map->cells[(pY+dpY)*map->w+pX+dpX].type == T_TREE) { // XXX generalize bump test
+				if (map->cells[(map->pY+dpY)*map->w+map->pX+dpX].type == T_TREE) { // XXX generalize bump test
 					dpX = dpY = 0;
 					frm = 2;
 				} else {
-					if (pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
-					if (pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
-					if (pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
-					if (pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
-					pX += dpX;
-					pY += dpY;
+					if (map->pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
+					if (map->pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
+					if (map->pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
+					if (map->pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
+					map->pX += dpX;
+					map->pY += dpY;
 
 					// XXX: beware, here be font-specific values
-					if (pX - scrollX < 8 && scrollX > 0) {
-						scrollX = pX - 8; dirty = 2; cls();
-					} else if (pX - scrollX > 24 && scrollX < map->w-32) {
-						scrollX = pX - 24; dirty = 2; cls();
+					if (map->pX - scrollX < 8 && scrollX > 0) {
+						scrollX = map->pX - 8; dirty = 2; cls();
+					} else if (map->pX - scrollX > 24 && scrollX < map->w-32) {
+						scrollX = map->pX - 24; dirty = 2; cls();
 					}
-					if (pY - scrollY < 8 && scrollY > 0) { 
-						scrollY = pY - 8; dirty = 2; cls();
-					} else if (pY - scrollY > 16 && scrollY < map->h-24) {
-						scrollY = pY - 16; dirty = 2; cls();
+					if (map->pY - scrollY < 8 && scrollY > 0) { 
+						scrollY = map->pY - 8; dirty = 2; cls();
+					} else if (map->pY - scrollY > 16 && scrollY < map->h-24) {
+						scrollY = map->pY - 16; dirty = 2; cls();
 					}
 				}
 			}
@@ -431,16 +433,14 @@ int main(void) {
 
 		if (frames % 4 == 0) {
 			// XXX: ick
-			src[0] = (pX<<12)+((genrand_gaussian32()&0xfff00000)>>20);
-			src[1] = (pY<<12)+((genrand_gaussian32()&0xfff00000)>>20);
+			src[0] = (map->pX<<12)+((genrand_gaussian32()&0xfff00000)>>20);
+			src[1] = (map->pY<<12)+((genrand_gaussian32()&0xfff00000)>>20);
 			src[2] = (7<<12)+((genrand_gaussian32()&0xfff00000)>>20);
-			src[3] = pX;
-			src[4] = pY;
 			src[5] = scrollX;
 			src[6] = scrollY;
 		}
 
-		fov_circle(sight, (void*)map, (void*)src, pX, pY, 32);
+		fov_circle(sight, (void*)map, (void*)src, map->pX, map->pY, 32);
 
 		u32 i;
 		for (i = 0; i < map->num_lights; i++) {
@@ -487,7 +487,7 @@ int main(void) {
 				if (cell->visible)
 					cell->visible = 0;
 			}
-		drawcq((pX-scrollX)*8,(pY-scrollY)*8,'@',RGB15(31,31,31));
+		drawcq((map->pX-scrollX)*8,(map->pY-scrollY)*8,'@',RGB15(31,31,31));
 		swapbufs();
 		if (dirty > 0) {
 			dirty--;
