@@ -88,7 +88,7 @@ typedef enum {
 
 /*** light ***/
 typedef struct {
-	u32 x,y;
+	s32 x,y;
 	u16 col;
 	u8 radius;
 	LIGHT_TYPE type : 8;
@@ -150,7 +150,7 @@ void random_map(map_t *map) {
 
 	x = map->w/2; y = map->h/2;
 	u32 i = 8192;
-	u32 light = genrand_int32() >> 20; // between 0 and 4095
+	u32 light = genrand_int32() >> 21; // between 0 and 2047
 	for (; i > 0; i--) {
 		cell_t *cell = &map->cells[y*map->w+x];
 		u32 a = genrand_int32();
@@ -246,11 +246,18 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
 	int32 *src = (int32*)src_;
+
+	// XXX: super ick, magical fonting numbers here
+	s32 pX = src[3], pY = src[4],
+			scrollX = src[5], scrollY = src[6];
+	if (x < scrollX || y < scrollY || x > scrollX + 31 || y > scrollY + 23) return;
+
 	int32 dx = src[0]-(x<<12),
 				dy = src[1]-(y<<12),
 				dist2 = mulf32(dx,dx)+mulf32(dy,dy);
 	int32 rad = src[2],
 				rad2 = mulf32(rad,rad);
+
 	cell_t *cell = &map->cells[y*map->w+x];
 	if (dist2 < rad2) {
 		cell->lit = calc_semicircle(dist2, rad2); // NB: no addition or capping here
@@ -339,8 +346,6 @@ int main(void) {
 
 	s32 pX = map->w/2, pY = map->h/2;
 
-	iprintf("\n\n\tHello World!\n");
-
 	u32 x, y;
 	u32 frm = 0;
 
@@ -350,7 +355,10 @@ int main(void) {
 
 	u32 level = 0;
 
-	int32 src[3] = { 0, 0, 0 };
+	int32 src[7] = { 0, 0, 0, // source x, source y, radius
+		0, 0, // player x, player y
+		0, 0  // scroll x, scroll y
+	};
 
 	while (1) {
 		if (!vblnkDirty)
@@ -422,9 +430,14 @@ int main(void) {
 			frm--;
 
 		if (frames % 4 == 0) {
+			// XXX: ick
 			src[0] = (pX<<12)+((genrand_gaussian32()&0xfff00000)>>20);
 			src[1] = (pY<<12)+((genrand_gaussian32()&0xfff00000)>>20);
 			src[2] = (7<<12)+((genrand_gaussian32()&0xfff00000)>>20);
+			src[3] = pX;
+			src[4] = pY;
+			src[5] = scrollX;
+			src[6] = scrollY;
 		}
 
 		fov_circle(sight, (void*)map, (void*)src, pX, pY, 24);
@@ -432,6 +445,8 @@ int main(void) {
 		u32 i;
 		for (i = 0; i < map->num_lights; i++) {
 			light_t *l = &map->lights[i];
+			if (l->x + l->radius < scrollX || l->x - l->radius > scrollX + 32 ||
+					l->y + l->radius < scrollY || l->y - l->radius > scrollY + 24) continue;
 			// XXX: need to keep a structure for the fluctuations per-source
 			int32 source[3] = { l->x << 12, l->y << 12, l->radius << 12 };
 			fov_circle(light, (void*)map, (void*)source, l->x, l->y, l->radius);
