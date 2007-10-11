@@ -1,4 +1,3 @@
-* fix sight radius
 * fire colour when not in sight
 * fire flickering
 * maybe keep pX/pY and scrollX/scrollY in map_t?

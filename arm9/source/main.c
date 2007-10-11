@@ -440,7 +440,7 @@ int main(void) {
 			src[6] = scrollY;
 		}
 
-		fov_circle(sight, (void*)map, (void*)src, pX, pY, 24);
+		fov_circle(sight, (void*)map, (void*)src, pX, pY, 32);
 
 		u32 i;
 		for (i = 0; i < map->num_lights; i++) {
