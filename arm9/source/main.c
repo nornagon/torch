@@ -356,7 +356,7 @@ int main(void) {
 
 	u32 level = 0;
 
-	int32 src[7] = { 0, 0, 0, // source x, source y, radius
+	int32 src[5] = { 0, 0, 0, // source x, source y, radius
 		0, 0  // scroll x, scroll y
 	};
 
@@ -436,8 +436,8 @@ int main(void) {
 			src[0] = (map->pX<<12)+((genrand_gaussian32()&0xfff00000)>>20);
 			src[1] = (map->pY<<12)+((genrand_gaussian32()&0xfff00000)>>20);
 			src[2] = (7<<12)+((genrand_gaussian32()&0xfff00000)>>20);
-			src[5] = scrollX;
-			src[6] = scrollY;
+			src[3] = scrollX;
+			src[4] = scrollY;
 		}
 
 		fov_circle(sight, (void*)map, (void*)src, map->pX, map->pY, 32);
