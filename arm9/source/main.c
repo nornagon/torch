@@ -7,6 +7,8 @@
 
 #include "font.h"
 
+#include "test_map.h"
+
 //---------------------------------------------------------------------------
 // numbers
 
@@ -113,6 +115,7 @@ typedef struct {
 	light_t lights[MAX_LIGHTS];
 	u8 num_lights;
 	s32 pX,pY;
+	bool torch_on : 1;
 } map_t;
 /*    ~    */
 
@@ -151,11 +154,12 @@ void random_map(map_t *map) {
 
 	x = map->w/2; y = map->h/2;
 	u32 i = 8192;
-	u32 light = genrand_int32() >> 21; // between 0 and 2047
+	u32 light1 = genrand_int32() >> 21, // between 0 and 2047
+			light2 = light1 + 40;
 	for (; i > 0; i--) {
 		cell_t *cell = &map->cells[y*map->w+x];
 		u32 a = genrand_int32();
-		if (i == light) {
+		if (i == light1 || i == light2) {
 			cell->type = T_FIRE;
 			cell->ch = 'w';
 			cell->col = RGB15(31,12,0);
@@ -213,6 +217,68 @@ void new_map(map_t *map) {
 	random_map(map);
 }
 
+void load_map(map_t *map, size_t len, unsigned char *desc) {
+	s32 x,y;
+	reset_map(map, T_GROUND);
+	for (y = 0; y < map->h; y++)
+		for (x = 0; x < map->w; x++) {
+			cell_t *cell = &map->cells[y*map->w+x];
+			u32 a = genrand_int32();
+			u8 b = a & 3; // top two bits of a
+			a >>= 2; // get rid of the used random bits
+			switch (b) {
+				case 1:
+					cell->ch = ','; break;
+				case 2:
+					cell->ch = '\''; break;
+				case 3:
+					cell->ch = '`'; break;
+				default:
+					cell->ch = '.'; break;
+			}
+			b = a & 3;
+			a >>= 2;
+			u8 g = a & 7;
+			a >>= 3;
+			u8 r = a & 7;
+			a >>= 3;
+			cell->col = RGB15(17+r,9+g,6+b);
+		}
+
+	for (x = 0, y = 0; len > 0; len--) {
+		u8 c = *desc++;
+		cell_t *cell = &map->cells[y*map->w+x];
+		switch (c) {
+			case '*':
+				cell->type = T_TREE;
+				cell->ch = '*';
+				cell->col = RGB15(4,31,1);
+				break;
+			case '@':
+				map->pX = x;
+				map->pY = y;
+				break;
+			case 'w':
+				cell->type = T_FIRE;
+				cell->ch = 'w';
+				cell->col = RGB15(31,12,0);
+				light_t *l = &map->lights[map->num_lights];
+				l->x = x;
+				l->y = y;
+				l->col = RGB15(31,20,8);
+				l->radius = 9;
+				l->type = L_FIRE;
+				map->num_lights++;
+				break;
+			case '\n':
+				x = -1; // gets ++'d later
+				y++;
+				break;
+		}
+		x++;
+	}
+}
+
 u32 vblnks = 0, frames = 0;
 int vblnkDirty = 0;
 void vblank_counter() {
@@ -227,7 +293,7 @@ void vblank_counter() {
 bool opacity_test(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
-	return map->cells[y*map->w+x].type == T_TREE;
+	return map->cells[y*map->w+x].type == T_TREE || (map->pX == x && map->pY == y);
 }
 
 inline int32 calc_semicircle(int32 dist2, int32 rad2) {
@@ -252,17 +318,19 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	s32 scrollX = src[3], scrollY = src[4];
 	if (x < scrollX || y < scrollY || x > scrollX + 31 || y > scrollY + 23) return;
 
-	int32 dx = src[0]-(x<<12),
-				dy = src[1]-(y<<12),
-				dist2 = mulf32(dx,dx)+mulf32(dy,dy);
-	int32 rad = src[2],
-				rad2 = mulf32(rad,rad);
-
 	cell_t *cell = &map->cells[y*map->w+x];
-	if (dist2 < rad2) {
-		cell->lit = calc_semicircle(dist2, rad2); // NB: no addition or capping here
-		cell->recall = max(cell->lit, cell->recall);
-		cell->dirty = 2;
+	if (map->torch_on) {
+		int32 dx = src[0]-(x<<12),
+					dy = src[1]-(y<<12),
+					dist2 = mulf32(dx,dx)+mulf32(dy,dy);
+		int32 rad = src[2],
+					rad2 = mulf32(rad,rad);
+
+		if (dist2 < rad2) {
+			cell->lit = calc_semicircle(dist2, rad2); // NB: no addition or capping here
+			cell->recall = max(cell->lit, cell->recall);
+			cell->dirty = 2;
+		}
 	}
 	cell->visible = true;
 }
@@ -346,6 +414,7 @@ int main(void) {
 
 	map->pX = map->w/2;
 	map->pY = map->h/2;
+	map->torch_on = true;
 
 	u32 x, y;
 	u32 frm = 0;
@@ -378,6 +447,27 @@ int main(void) {
 			//iprintf("You begin again.\n");
 			continue;
 		}
+		if (down & KEY_SELECT) {
+			load_map(map, strlen(test_map), test_map);
+			frm = 0;
+			scrollX = 0; scrollY = 0;
+			// XXX: beware, here be font-specific values
+			if (map->pX - scrollX < 8 && scrollX > 0)
+				scrollX = map->pX - 8;
+			else if (map->pX - scrollX > 24 && scrollX < map->w-32)
+				scrollX = map->pX - 24;
+			if (map->pY - scrollY < 8 && scrollY > 0)
+				scrollY = map->pY - 8;
+			else if (map->pY - scrollY > 16 && scrollY < map->h-24)
+				scrollY = map->pY - 16;
+			vblnkDirty = 0;
+			dirty = 2;
+			level = 0;
+			continue;
+		}
+		if (down & KEY_B)
+			map->torch_on = !map->torch_on;
+
 		if (frm == 0) {
 			u32 keys = keysHeld();
 			int dpX = 0, dpY = 0;
@@ -411,6 +501,7 @@ int main(void) {
 					if (map->pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
 					if (map->pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
 					if (map->pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
+					map->cells[map->pY*map->w+map->pX].dirty = 2;
 					map->pX += dpX;
 					map->pY += dpY;
 
@@ -472,17 +563,23 @@ int main(void) {
 					b = mulf32(b<<12, val)>>12;
 					drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
 					cell->lit = 0;
-				} else if (cell->recall > 0 && (cell->dirty > 0 || dirty > 0)) {
-					int r = cell->col & 0x001f,
-							g = (cell->col & 0x03e0) >> 5,
-							b = (cell->col & 0x7c00) >> 10;
-					if (cell->dirty > 0)
-						cell->dirty--;
-					int32 val = (cell->recall>>1) - (cell->recall>>3);
-					r = mulf32(r<<12, val)>>12;
-					g = mulf32(g<<12, val)>>12;
-					b = mulf32(b<<12, val)>>12;
-					drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
+				} else if (cell->dirty > 0 || dirty > 0) {
+					if (cell->recall > 0) {
+						int r = cell->col & 0x001f,
+								g = (cell->col & 0x03e0) >> 5,
+								b = (cell->col & 0x7c00) >> 10;
+						if (cell->dirty > 0)
+							cell->dirty--;
+						int32 val = (cell->recall>>1) - (cell->recall>>3);
+						r = mulf32(r<<12, val)>>12;
+						g = mulf32(g<<12, val)>>12;
+						b = mulf32(b<<12, val)>>12;
+						drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
+					} else {
+						if (cell->dirty > 0)
+							cell->dirty--;
+						drawcq(x*8,y*8, ' ', 0); // clear
+					}
 				}
 				if (cell->visible)
 					cell->visible = 0;
