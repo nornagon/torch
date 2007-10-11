@@ -450,13 +450,19 @@ int main(void) {
 			// XXX: need to keep a structure for the fluctuations per-source
 			int32 source[3] = { l->x << 12, l->y << 12, l->radius << 12 };
 			fov_circle(light, (void*)map, (void*)source, l->x, l->y, l->radius);
+			cell_t *cell = &map->cells[l->y*map->w+l->x];
+			if (cell->visible) {
+				cell->lit = 1<<12; // XXX: change for when coloured lights come
+				cell->recall = 1<<12;
+				cell->dirty = 2;
+			}
 		}
 
 		// XXX: more font-specific magical values
 		for (y = 0; y < 24; y++)
 			for (x = 0; x < 32; x++) {
 				cell_t *cell = &map->cells[(y+scrollY)*map->w+(x+scrollX)];
-				if (cell->lit > 0) {
+				if (cell->visible && cell->lit > 0) {
 					int r = cell->col & 0x001f,
 							g = (cell->col & 0x03e0) >> 5,
 							b = (cell->col & 0x7c00) >> 10;
