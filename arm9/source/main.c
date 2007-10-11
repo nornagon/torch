@@ -405,12 +405,12 @@ int main(void) {
 					dpX = dpY = 0;
 					frm = 2;
 				} else {
+					if (pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
+					if (pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
+					if (pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
+					if (pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
 					pX += dpX;
 					pY += dpY;
-					if (pX < 0) { pX = 0; frm = 2; }
-					if (pY < 0) { pY = 0; frm = 2; }
-					if (pX >= map->w) { pX = map->w-1; frm = 2; }
-					if (pY >= map->h) { pY = map->h-1; frm = 2; }
 
 					// XXX: beware, here be font-specific values
 					if (pX - scrollX < 8 && scrollX > 0) {
