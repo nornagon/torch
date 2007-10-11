@@ -9,11 +9,11 @@ unsigned char *test_map =
 " *        \n"
 " *        \n"
 " *        \n"
-" *     w  \n"
+" *        \n"
 " *        \n"
 " *                  @\n"
 " *        \n"
-" *     w  \n";
+" *        \n";
 
 #endif /* SOURCE/TEST_MAP_H */
 

@@ -4,6 +4,7 @@
 #include <malloc.h>
 #include "mt19937ar.h"
 #include "fov.h"
+#include "mem.h"
 
 #include "font.h"
 
@@ -44,28 +45,88 @@ void swapbufs() {
 }
 
 void cls() {
-	memset((void*)backbuf, 0, 256*192*2);
+	memset32((void*)backbuf, 0, (256*192*2)/4);
 }
 void clss() {
-	memset((void*)BG_BMP_RAM(0), 0, 256*192*4);
+	memset32((void*)BG_BMP_RAM(0), 0, (256*192*4)/4);
 }
 
 void drawc(u16 x, u16 y, u8 c, u16 color) {
 	c -= ' '; // XXX: might want to remove this
+	color |= BIT(15);
 	u8 px,py;
 	for (py = 0; py < 8; py++)
 		for (px = 0; px < 8; px++) {
 			if (fontTiles[8*8*c+8*py+px])
-				backbuf[(y+py)*256+x+px] = color|BIT(15);
+				backbuf[(y+py)*256+x+px] = color;
 		}
 }
-void drawcq(u16 x, u16 y, u8 c, u16 color) { // OPAQUE version (clobbers)
-	c -= ' '; // XXX: might want to remove this
+void drawcq(u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobbers)
+	asm (
+			"adr r7, 2f\n"
+			"bx r7\n"
+			".align 4\n"
+			".arm\n"
+			"2:\n"
+			"sub %2, %2, #32\n"         // c -= ' '
+			"add %1, %0, %1, lsl #8\n"  // y = x+y*256
+			"orr r8, %3, #32768\n"      // r8 <- col | BIT(15)
+			"add r6, %5, %2, lsl #6\n"  // r6 <- &fontTiles[8*8*c]
+			"add r7, %4, %1, lsl #1\n"  // r7 <- &backbuf[y*256+x]
+
+			"mov r9, #8\n"       // end vram address
+
+			"loop:\n"
+			"ldmia r6!, {r4, r5}\n"   // grab 8 bytes from the font
+
+			"eor r0, r0, r0\n"
+			"movs r4, r4, lsr #1\n"   // r4 >> 1, C flag set if that bit was 1
+			"movcs r0, r8\n"          // if C flag was set, colour low r0
+			"movs r4, r4, lsr #8\n"   // the next possible 1 is 8 bits to the left
+			"orrcs r0, r8, lsl #16\n" // if C flag was set, colour high r0
+
+			"eor r1, r1, r1\n"
+			"movs r4, r4, lsr #8\n"
+			"movcs r1, r8\n"
+			"movs r4, r4, lsr #8\n"
+			"orrcs r1, r8, lsl #16\n"
+
+			"eor r2, r2, r2\n"
+			"movs r5, r5, lsr #1\n"
+			"movcs r2, r8\n"
+			"movs r5, r5, lsr #8\n"
+			"orrcs r2, r8, lsl #16\n"
+
+			"eor r3, r3, r3\n"
+			"movs r5, r5, lsr #8\n"
+			"movcs r3, r8\n"
+			"movs r5, r5, lsr #8\n"
+			"orrcs r3, r8, lsl #16\n"
+
+			"stm r7, {r0, r1, r2, r3}\n"
+			"add r7, r7, #512\n"
+			"subs r9, r9, #1\n"
+			"bpl loop\n"
+
+			"adr r3, 3f + 1\n"
+			"bx r3\n"
+			".thumb\n"
+			"3:\n"
+
+			: /* no output */
+			: "r"(x), "r"(y), "r"(c), "r"(color), "r"(backbuf), "r"(fontTiles)
+			: "r6", "r7", "r8", "r9"
+			);
+	/*c -= ' '; // XXX: might want to remove this
+	color |= BIT(15);
 	u8 px,py;
-	for (py = 0; py < 8; py++)
+	for (py = 0; py < 8; py++) {
+		memset32(&backbuf[(y+py)*256+x], 0, 4);
 		for (px = 0; px < 8; px++) {
-			backbuf[(y+py)*256+x+px] = fontTiles[8*8*c+8*py+px] ? color|BIT(15) : 0;
+			if (fontTiles[8*8*c+8*py+px])
+				backbuf[(y+py)*256+x+px] = color;
 		}
+	}*/
 }
 //---------------------------------------------------------------------------
 
@@ -114,7 +175,7 @@ typedef struct {
 	cell_t* cells;
 	light_t lights[MAX_LIGHTS];
 	u8 num_lights;
-	s32 pX,pY;
+	s32 pX,pY, scrollX, scrollY;
 	bool torch_on : 1;
 } map_t;
 /*    ~    */
@@ -278,14 +339,17 @@ void load_map(map_t *map, size_t len, unsigned char *desc) {
 		x++;
 	}
 }
+//---------------------------------------------------------------------------
 
-u32 vblnks = 0, frames = 0;
+u32 vblnks = 0, frames = 0, hblnks = 0;
 int vblnkDirty = 0;
 void vblank_counter() {
 	vblnkDirty = 1;
 	vblnks += 1;
 }
-//---------------------------------------------------------------------------
+void hblank_counter() {
+	hblnks += 1;
+}
 
 
 //---------------------------------------------------------------------------
@@ -294,6 +358,12 @@ bool opacity_test(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
 	return map->cells[y*map->w+x].type == T_TREE || (map->pX == x && map->pY == y);
+}
+bool sight_opaque(void *map_, int x, int y) {
+	map_t *map = (map_t*)map_;
+	// XXX: beware, magical fonting numbers
+	if (y < map->scrollY || y >= map->scrollY + 24 || x < map->scrollX || x >= map->scrollX + 32) return true;
+	return map->cells[y*map->w+x].type == T_TREE;
 }
 
 inline int32 calc_semicircle(int32 dist2, int32 rad2) {
@@ -309,13 +379,17 @@ inline int32 calc_cubic(int32 dist2, int32 rad, int32 rad2) {
 		mulf32(divf32(3<<12, rad2), dist2) + (1<<12);
 }
 
+inline int32 calc_quadratic(int32 dist2, int32 rad2) {
+	return (1<<12) - max(0,divf32(dist2,rad2));
+}
+
 void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
 	int32 *src = (int32*)src_;
 
 	// XXX: super ick, magical fonting numbers here
-	s32 scrollX = src[3], scrollY = src[4];
+	s32 scrollX = map->scrollX, scrollY = map->scrollY;
 	if (x < scrollX || y < scrollY || x > scrollX + 31 || y > scrollY + 23) return;
 
 	cell_t *cell = &map->cells[y*map->w+x];
@@ -327,7 +401,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 					rad2 = mulf32(rad,rad);
 
 		if (dist2 < rad2) {
-			cell->lit = calc_semicircle(dist2, rad2); // NB: no addition or capping here
+			cell->lit = calc_quadratic(dist2, rad2); // NB: no addition or capping here
 			cell->recall = max(cell->lit, cell->recall);
 			cell->dirty = 2;
 		}
@@ -355,7 +429,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	if (dist2 < rad2) {
 		cell_t *cell = &map->cells[y*map->w+x];
 
-		cell->lit += calc_semicircle(dist2, rad2);
+		cell->lit += calc_quadratic(dist2, rad2);
 		cell->lit = min(cell->lit, 1<<12);
 
 		cell->recall = max(cell->lit, cell->recall);
@@ -370,7 +444,8 @@ int main(void) {
 //---------------------------------------------------------------------------
 	irqInit();
 	irqSet(IRQ_VBLANK, vblank_counter);
-	irqEnable(IRQ_VBLANK);
+	irqSet(IRQ_HBLANK, hblank_counter);
+	irqEnable(IRQ_VBLANK | IRQ_HBLANK);
 
 	touchPosition touchXY;
 
@@ -392,13 +467,13 @@ int main(void) {
 
 	fov_settings_type *sight = malloc(sizeof(fov_settings_type));
 	fov_settings_init(sight);
-	fov_settings_set_shape(sight, FOV_SHAPE_CIRCLE);
-	fov_settings_set_opacity_test_function(sight, opacity_test);
+	fov_settings_set_shape(sight, FOV_SHAPE_SQUARE);
+	fov_settings_set_opacity_test_function(sight, sight_opaque);
 	fov_settings_set_apply_lighting_function(sight, apply_sight);
 
 	fov_settings_type *light = malloc(sizeof(fov_settings_type));
 	fov_settings_init(light);
-	fov_settings_set_shape(light, FOV_SHAPE_CIRCLE);
+	fov_settings_set_shape(light, FOV_SHAPE_OCTAGON);
 	fov_settings_set_opacity_test_function(light, opacity_test);
 	fov_settings_set_apply_lighting_function(light, apply_light);
 	
@@ -419,7 +494,8 @@ int main(void) {
 	u32 x, y;
 	u32 frm = 0;
 
-	s32 scrollX=map->w/2 - 16, scrollY=map->h/2 - 12;
+	map->scrollX = map->w/2 - 16;
+	map->scrollY = map->h/2 - 12;
 
 	int dirty = 2; // whole screen dirty first frame
 
@@ -429,10 +505,17 @@ int main(void) {
 		0, 0  // scroll x, scroll y
 	};
 
+	u32 vc_before;
+	u32 counts[10];
+	for (vc_before = 0; vc_before < 10; vc_before++) counts[vc_before] = 0;
+
 	while (1) {
 		if (!vblnkDirty)
 			swiWaitForVBlank();
 		vblnkDirty = 0;
+
+		vc_before = hblnks;
+
 		scanKeys();
 		u32 down = keysDown();
 		if (down & KEY_START) {
@@ -440,7 +523,7 @@ int main(void) {
 			map->pX = map->w/2;
 			map->pY = map->h/2;
 			frm = 0;
-			scrollX = map->w/2 - 16; scrollY = map->h/2 - 12;
+			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
 			dirty = 2;
 			level = 0;
@@ -450,16 +533,16 @@ int main(void) {
 		if (down & KEY_SELECT) {
 			load_map(map, strlen(test_map), test_map);
 			frm = 0;
-			scrollX = 0; scrollY = 0;
+			map->scrollX = 0; map->scrollY = 0;
 			// XXX: beware, here be font-specific values
-			if (map->pX - scrollX < 8 && scrollX > 0)
-				scrollX = map->pX - 8;
-			else if (map->pX - scrollX > 24 && scrollX < map->w-32)
-				scrollX = map->pX - 24;
-			if (map->pY - scrollY < 8 && scrollY > 0)
-				scrollY = map->pY - 8;
-			else if (map->pY - scrollY > 16 && scrollY < map->h-24)
-				scrollY = map->pY - 16;
+			if (map->pX - map->scrollX < 8 && map->scrollX > 0)
+				map->scrollX = map->pX - 8;
+			else if (map->pX - map->scrollX > 24 && map->scrollX < map->w-32)
+				map->scrollX = map->pX - 24;
+			if (map->pY - map->scrollY < 8 && map->scrollY > 0)
+				map->scrollY = map->pY - 8;
+			else if (map->pY - map->scrollY > 16 && map->scrollY < map->h-24)
+				map->scrollY = map->pY - 16;
 			vblnkDirty = 0;
 			dirty = 2;
 			level = 0;
@@ -485,59 +568,65 @@ int main(void) {
 				map->pX = map->w/2;
 				map->pY = map->h/2;
 				// TODO: make so screen doesn't jump on down-stairs
-				scrollX = map->w/2 - 16; scrollY = map->h/2 - 12;
+				map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 				vblnkDirty = 0;
 				dirty = 2;
 				continue;
 			}
 			if (dpX || dpY) {
 				frm = 5;
+				s32 pX = map->pX, pY = map->pY;
 				// bumping into a wall takes some time
-				if (map->cells[(map->pY+dpY)*map->w+map->pX+dpX].type == T_TREE) { // XXX generalize bump test
+				if (map->cells[(pY+dpY)*map->w+pX+dpX].type == T_TREE) { // XXX generalize bump test
 					dpX = dpY = 0;
 					frm = 2;
 				} else {
-					if (map->pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
-					if (map->pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
-					if (map->pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
-					if (map->pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
-					map->cells[map->pY*map->w+map->pX].dirty = 2;
-					map->pX += dpX;
-					map->pY += dpY;
+					if (pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
+					if (pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
+					if (pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
+					if (pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
+					map->cells[pY*map->w+pX].dirty = 2;
+					map->pX += dpX; pX += dpX;
+					map->pY += dpY; pY += dpY;
 
 					// XXX: beware, here be font-specific values
-					if (map->pX - scrollX < 8 && scrollX > 0) {
-						scrollX = map->pX - 8; dirty = 2; cls();
-					} else if (map->pX - scrollX > 24 && scrollX < map->w-32) {
-						scrollX = map->pX - 24; dirty = 2; cls();
+					if (pX - map->scrollX < 8 && map->scrollX > 0) {
+						map->scrollX = pX - 8; dirty = 2; //cls();
+					} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
+						map->scrollX = pX - 24; dirty = 2; //cls();
 					}
-					if (map->pY - scrollY < 8 && scrollY > 0) { 
-						scrollY = map->pY - 8; dirty = 2; cls();
-					} else if (map->pY - scrollY > 16 && scrollY < map->h-24) {
-						scrollY = map->pY - 16; dirty = 2; cls();
+					if (pY - map->scrollY < 8 && map->scrollY > 0) { 
+						map->scrollY = pY - 8; dirty = 2; //cls();
+					} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
+						map->scrollY = pY - 16; dirty = 2; //cls();
 					}
 				}
 			}
 		}
 		if (frm > 0)
 			frm--;
+		counts[0] += hblnks - vc_before;
+
+		vc_before = hblnks;
 
 		if (frames % 4 == 0) {
 			// XXX: ick
 			src[0] = (map->pX<<12)+((genrand_gaussian32()&0xfff00000)>>20);
 			src[1] = (map->pY<<12)+((genrand_gaussian32()&0xfff00000)>>20);
 			src[2] = (7<<12)+((genrand_gaussian32()&0xfff00000)>>20);
-			src[3] = scrollX;
-			src[4] = scrollY;
+			src[3] = map->scrollX;
+			src[4] = map->scrollY;
 		}
 
 		fov_circle(sight, (void*)map, (void*)src, map->pX, map->pY, 32);
+		counts[1] += hblnks - vc_before;
 
+		vc_before = hblnks;
 		u32 i;
 		for (i = 0; i < map->num_lights; i++) {
 			light_t *l = &map->lights[i];
-			if (l->x + l->radius < scrollX || l->x - l->radius > scrollX + 32 ||
-					l->y + l->radius < scrollY || l->y - l->radius > scrollY + 24) continue;
+			if (l->x + l->radius < map->scrollX || l->x - l->radius > map->scrollX + 32 ||
+					l->y + l->radius < map->scrollY || l->y - l->radius > map->scrollY + 24) continue;
 			// XXX: need to keep a structure for the fluctuations per-source
 			int32 source[3] = { l->x << 12, l->y << 12, l->radius << 12 };
 			fov_circle(light, (void*)map, (void*)source, l->x, l->y, l->radius);
@@ -548,11 +637,13 @@ int main(void) {
 				cell->dirty = 2;
 			}
 		}
+		counts[2] += hblnks - vc_before;
 
 		// XXX: more font-specific magical values
+		vc_before = hblnks;
 		for (y = 0; y < 24; y++)
 			for (x = 0; x < 32; x++) {
-				cell_t *cell = &map->cells[(y+scrollY)*map->w+(x+scrollX)];
+				cell_t *cell = &map->cells[(y+map->scrollY)*map->w+(x+map->scrollX)];
 				if (cell->visible && cell->lit > 0) {
 					int r = cell->col & 0x001f,
 							g = (cell->col & 0x03e0) >> 5,
@@ -584,7 +675,8 @@ int main(void) {
 				if (cell->visible)
 					cell->visible = 0;
 			}
-		drawcq((map->pX-scrollX)*8,(map->pY-scrollY)*8,'@',RGB15(31,31,31));
+		drawcq((map->pX-map->scrollX)*8,(map->pY-map->scrollY)*8,'@',RGB15(31,31,31));
+		counts[3] += hblnks - vc_before;
 		swapbufs();
 		if (dirty > 0) {
 			dirty--;
@@ -593,7 +685,10 @@ int main(void) {
 		}
 		frames += 1;
 		if (vblnks >= 60) {
-			iprintf("\x1b[14;14H%2dfps", (frames * 64 - frames * 4) / vblnks);
+			iprintf("\x1b[14;14H%02dfps", (frames * 64 - frames * 4) / vblnks);
+			iprintf("\x1b[2;0HKeys:    %04d\nSight:   %04d\nLights:  %04d\nDrawing: %04d\n",
+					counts[0], counts[1], counts[2], counts[3]);
+			for (i = 0; i < 10; i++) counts[i] = 0;
 			vblnks = frames = 0;
 		}
 	}

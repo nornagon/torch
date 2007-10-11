@@ -181,11 +181,11 @@ void fov_settings_free(fov_settings_type *settings) {
 
 /* Slope ---------------------------------------------------------- */
 
-static int32 fov_slope(int32 dx, int32 dy) {
+static inline int32 fov_slope(int32 dx, int32 dy) {
     if (dx != 0) {
         return divf32(dy,dx);
     } else {
-        return 0.0;
+        return 0;
     }
 }
 
