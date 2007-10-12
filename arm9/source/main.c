@@ -440,39 +440,39 @@ inline DIRECTION seen_from(map_t *map, DIRECTION d, int x, int y) {
 	switch (d) {
 		case D_NORTHWEST:
 		case D_NORTH_AND_WEST:
-			opa = opaque(cell_at(map, x, y-1)),
+			opa = opaque(cell_at(map, x, y-1));
 			opb = opaque(cell_at(map, x-1, y));
 			if (opa && opb) return D_NORTHWEST;
 			if (opa)        return D_WEST;
 			if (opb)        return D_NORTH;
-											return D_NORTH_AND_WEST;
+			                return D_NORTH_AND_WEST;
 			break;
 		case D_SOUTHWEST:
 		case D_SOUTH_AND_WEST:
-			opa = opaque(cell_at(map, x, y+1)),
+			opa = opaque(cell_at(map, x, y+1));
 			opb = opaque(cell_at(map, x-1, y));
 			if (opa && opb) return D_SOUTHWEST;
 			if (opa)        return D_WEST;
 			if (opb)        return D_SOUTH;
-											return D_SOUTH_AND_WEST;
+			                return D_SOUTH_AND_WEST;
 			break;
 		case D_NORTHEAST:
 		case D_NORTH_AND_EAST:
-			opa = opaque(cell_at(map, x, y-1)),
+			opa = opaque(cell_at(map, x, y-1));
 			opb = opaque(cell_at(map, x+1, y));
 			if (opa && opb) return D_NORTHEAST;
 			if (opa)        return D_EAST;
 			if (opb)        return D_NORTH;
-											return D_NORTH_AND_EAST;
+			                return D_NORTH_AND_EAST;
 			break;
 		case D_SOUTHEAST:
 		case D_SOUTH_AND_EAST:
-			opa = opaque(cell_at(map, x, y+1)),
+			opa = opaque(cell_at(map, x, y+1));
 			opb = opaque(cell_at(map, x+1, y));
 			if (opa && opb) return D_SOUTHEAST;
 			if (opa)        return D_EAST;
 			if (opb)        return D_SOUTH;
-											return D_SOUTH_AND_EAST;
+			                return D_SOUTH_AND_EAST;
 			break;
 	}
 	return d;
@@ -496,10 +496,10 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	if (map->torch_on) {
 		int32 dx = src[0]-(x<<12),
-					dy = src[1]-(y<<12),
-					dist2 = mulf32(dx,dx)+mulf32(dy,dy);
+		      dy = src[1]-(y<<12),
+		      dist2 = mulf32(dx,dx)+mulf32(dy,dy);
 		int32 rad = src[2],
-					rad2 = mulf32(rad,rad);
+		      rad2 = mulf32(rad,rad);
 
 		if (dist2 < rad2) {
 			int32 intensity = calc_quadratic(dist2, rad2);
@@ -528,10 +528,10 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	// maybe merge them.
 	int32 *src = (int32*)src_;
 	int32 dx = src[0]-(x<<12),
-				dy = src[1]-(y<<12),
-				dist2 = mulf32(dx,dx)+mulf32(dy,dy);
+	      dy = src[1]-(y<<12),
+	      dist2 = mulf32(dx,dx)+mulf32(dy,dy);
 	int32 rad = src[2],
-				rad2 = mulf32(rad,rad);
+	      rad2 = mulf32(rad,rad);
 	if (dist2 < rad2) {
 		int32 intensity = calc_quadratic(dist2, rad2);
 
@@ -767,8 +767,8 @@ int main(void) {
 				cell_t *cell = &map->cells[(y+map->scrollY)*map->w+(x+map->scrollX)];
 				if (cell->visible && cell->light > 0) {
 					int r = cell->col & 0x001f,
-							g = (cell->col & 0x03e0) >> 5,
-							b = (cell->col & 0x7c00) >> 10;
+					    g = (cell->col & 0x03e0) >> 5,
+					    b = (cell->col & 0x7c00) >> 10;
 					int32 val = max(cell->light, cell->recall>>1);
 					r = mulf32(r<<12, val)>>12;
 					g = mulf32(g<<12, val)>>12;
@@ -778,8 +778,8 @@ int main(void) {
 				} else if (cell->dirty > 0 || dirty > 0) {
 					if (cell->recall > 0) {
 						int r = cell->col & 0x001f,
-								g = (cell->col & 0x03e0) >> 5,
-								b = (cell->col & 0x7c00) >> 10;
+						    g = (cell->col & 0x03e0) >> 5,
+						    b = (cell->col & 0x7c00) >> 10;
 						if (cell->dirty > 0)
 							cell->dirty--;
 						int32 val = (cell->recall>>1) - (cell->recall>>3);
