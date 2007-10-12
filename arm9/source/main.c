@@ -811,7 +811,7 @@ int main(void) {
 					drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
 					cell->light = 0;
 				} else if (cell->dirty > 0 || dirty > 0) {
-					if (cell->recall > 0) {
+					if (cell->recall > 0 && cell->type != T_GROUND) {
 						int r = cell->col & 0x001f,
 						    g = (cell->col & 0x03e0) >> 5,
 						    b = (cell->col & 0x7c00) >> 10;
