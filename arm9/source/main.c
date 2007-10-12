@@ -557,7 +557,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		if (opaque(cell))
 			d = seen_from(map, direction(src[0]>>12, src[1]>>12, x, y), x, y);
 
-		if (d & D_BOTH) {
+		if (d & D_BOTH || cell->seen_from & D_BOTH) {
 			intensity >>= 1;
 			d &= cell->seen_from;
 			// only two of these should be set at maximum.
@@ -566,9 +566,8 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 			if (d & D_EAST) cell->light += intensity;
 			if (d & D_WEST) cell->light += intensity;
 			cell->light = min(1<<12, cell->light);
-		} else if (cell->seen_from == d) {
+		} else if (cell->seen_from == d)
 			cell->light = min(1<<12, cell->light + intensity);
-		}
 
 		cell->recall = max(cell->recall, cell->light);
 

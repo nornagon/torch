@@ -1,4 +1,4 @@
 * fire flickering
 * invest in a screen_t structure
-* add direction, colour to light
+* add colour to light
 * think more about falloff
