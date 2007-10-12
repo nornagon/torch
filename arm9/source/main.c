@@ -496,10 +496,28 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	if (map->torch_on) {
 		int32 dx = src[0]-(x<<12),
-		      dy = src[1]-(y<<12),
-		      dist2 = mulf32(dx,dx)+mulf32(dy,dy);
-		int32 rad = src[2],
-		      rad2 = mulf32(rad,rad);
+		      dy = src[1]-(y<<12);
+		int32 rad = src[2];
+		int32 rad2;
+		asm volatile (
+		             "mul %1, %1\n"
+		             "lsr %1, %1, #12\n"
+								 "mov %0, %1\n"
+		             : "=r" (rad2)
+								 : "r" (rad)
+								 );
+		int32 dist2;
+		asm volatile (
+				"asr %1, %1, #2\n"
+				"asr %2, %2, #2\n"
+				"mul %1, %1\n"
+				"mul %2, %2\n"
+				"lsr %1, %1, #8\n"
+				"lsr %2, %2, #8\n"
+				"add %0, %1, %2\n"
+				: "=r"(dist2)
+				: "r"(dx), "r"(dy)
+				);
 
 		if (dist2 < rad2) {
 			int32 intensity = calc_quadratic(dist2, rad2);
