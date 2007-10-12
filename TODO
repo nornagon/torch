@@ -1,5 +1,4 @@
 * fire flickering
-* maybe keep pX/pY and scrollX/scrollY in map_t?
 * invest in a screen_t structure
 * add direction, colour to light
 * think more about falloff
