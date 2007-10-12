@@ -137,7 +137,7 @@ void drawcq(u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobbers)
 #define MAX_LIGHTS 32
 
 typedef enum {
-	T_TREE = 0,
+	T_TREE,
 	T_GROUND,
 	T_STAIRS,
 	T_FIRE,
@@ -145,9 +145,26 @@ typedef enum {
 } CELL_TYPE;
 
 typedef enum {
-	L_FIRE = 0,
+	L_FIRE,
 	NO_LIGHT
 } LIGHT_TYPE;
+
+#define D_NONE  0
+#define D_NORTH 1
+#define D_SOUTH 2
+#define D_EAST  4
+#define D_WEST  8
+#define D_NORTHEAST (D_NORTH|D_EAST)
+#define D_SOUTHEAST (D_SOUTH|D_EAST)
+#define D_NORTHWEST (D_NORTH|D_WEST)
+#define D_SOUTHWEST (D_SOUTH|D_WEST)
+
+#define D_BOTH 0x10
+#define D_NORTH_AND_EAST (D_NORTHEAST|D_BOTH)
+#define D_SOUTH_AND_EAST (D_SOUTHEAST|D_BOTH)
+#define D_NORTH_AND_WEST (D_NORTHWEST|D_BOTH)
+#define D_SOUTH_AND_WEST (D_SOUTHWEST|D_BOTH)
+typedef unsigned int DIRECTION;
 
 /*** light ***/
 typedef struct {
@@ -160,13 +177,15 @@ typedef struct {
 
 /*** cell ***/
 typedef struct {
-	CELL_TYPE type : 8;
 	u8 ch;
 	u16 col;
-	int32 lit, recall;
+	int32 light;
+	int32 recall;
+	CELL_TYPE type : 8;
 	u8 dirty : 2;
 	bool visible : 1;
-} __attribute__((aligned(4))) cell_t;
+	DIRECTION seen_from : 5;
+} cell_t;
 /*    ~~    */
 
 /*** map ***/
@@ -180,6 +199,10 @@ typedef struct {
 } map_t;
 /*    ~    */
 
+static inline cell_t *cell_at(map_t *map, int x, int y) {
+	return &map->cells[y*map->w+x];
+}
+
 void reset_map(map_t* map, CELL_TYPE fill) {
 	u32 x, y, w = map->w, h = map->h;
 	for (y = 0; y < h; y++)
@@ -188,7 +211,7 @@ void reset_map(map_t* map, CELL_TYPE fill) {
 			cell->type = fill;
 			cell->ch = 0;
 			cell->col = 0;
-			cell->lit = 0;
+			cell->light = 0;
 			cell->recall = 0;
 			cell->dirty = 0;
 		}
@@ -208,7 +231,7 @@ void random_map(map_t *map) {
 	reset_map(map, T_TREE);
 	for (y = 0; y < map->h; y++)
 		for (x = 0; x < map->w; x++) {
-			cell_t *cell = &map->cells[y*map->w+x];
+			cell_t *cell = cell_at(map, x, y);
 			cell->ch = '*';
 			cell->col = RGB15(4,31,1);
 		}
@@ -218,7 +241,7 @@ void random_map(map_t *map) {
 	u32 light1 = genrand_int32() >> 21, // between 0 and 2047
 			light2 = light1 + 40;
 	for (; i > 0; i--) {
-		cell_t *cell = &map->cells[y*map->w+x];
+		cell_t *cell = cell_at(map, x, y);
 		u32 a = genrand_int32();
 		if (i == light1 || i == light2) {
 			cell->type = T_FIRE;
@@ -266,7 +289,7 @@ void random_map(map_t *map) {
 		if (x >= map->w) x = map->w-1;
 		if (y >= map->h) y = map->h-1;
 	}
-	cell_t *cell = &map->cells[y*map->w+x];
+	cell_t *cell = cell_at(map, x, y);
 	cell->type = T_STAIRS;
 	cell->ch = '>';
 	cell->col = RGB15(31,31,31);
@@ -283,7 +306,7 @@ void load_map(map_t *map, size_t len, unsigned char *desc) {
 	reset_map(map, T_GROUND);
 	for (y = 0; y < map->h; y++)
 		for (x = 0; x < map->w; x++) {
-			cell_t *cell = &map->cells[y*map->w+x];
+			cell_t *cell = cell_at(map, x, y);
 			u32 a = genrand_int32();
 			u8 b = a & 3; // top two bits of a
 			a >>= 2; // get rid of the used random bits
@@ -308,7 +331,7 @@ void load_map(map_t *map, size_t len, unsigned char *desc) {
 
 	for (x = 0, y = 0; len > 0; len--) {
 		u8 c = *desc++;
-		cell_t *cell = &map->cells[y*map->w+x];
+		cell_t *cell = cell_at(map, x, y);
 		switch (c) {
 			case '*':
 				cell->type = T_TREE;
@@ -352,18 +375,41 @@ void hblank_counter() {
 }
 
 
+inline bool opaque(cell_t* cell) {
+	return cell->type == T_TREE;
+}
+
+
 //---------------------------------------------------------------------------
 // libfov functions
 bool opacity_test(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
-	return map->cells[y*map->w+x].type == T_TREE || (map->pX == x && map->pY == y);
+	return opaque(cell_at(map, x, y)) || (map->pX == x && map->pY == y);
 }
 bool sight_opaque(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
 	// XXX: beware, magical fonting numbers
 	if (y < map->scrollY || y >= map->scrollY + 24 || x < map->scrollX || x >= map->scrollX + 32) return true;
-	return map->cells[y*map->w+x].type == T_TREE;
+	return opaque(cell_at(map, x, y));
+}
+
+// the direction from (tx,ty) to (sx,sy)
+// or: the faces lit on (tx,ty) by a source at (sx,sy)
+inline DIRECTION direction(int sx, int sy, int tx, int ty) {
+	if (sx < tx) {
+		if (sy < ty) return D_NORTHWEST;
+		if (sy > ty) return D_SOUTHWEST;
+		return D_WEST;
+	}
+	if (sx > tx) {
+		if (sy < ty) return D_NORTHEAST;
+		if (sy > ty) return D_SOUTHEAST;
+		return D_EAST;
+	}
+	if (sy < ty) return D_NORTH;
+	if (sy > ty) return D_SOUTH;
+	return D_NONE;
 }
 
 inline int32 calc_semicircle(int32 dist2, int32 rad2) {
@@ -383,6 +429,55 @@ inline int32 calc_quadratic(int32 dist2, int32 rad2) {
 	return (1<<12) - max(0,divf32(dist2,rad2));
 }
 
+inline DIRECTION seen_from(map_t *map, DIRECTION d, int x, int y) {
+	// Note to self: possible optimisation:
+	//   store the 'neighbour kind' in the cell data.
+	//
+	// There are 2^4 = 16 possible neighbour combinations, and they don't change
+	// often (or at all, currently). Could recalculate relatively quickly. Only
+	// 5 bits per cell needed.
+	bool opa, opb;
+	switch (d) {
+		case D_NORTHWEST:
+		case D_NORTH_AND_WEST:
+			opa = opaque(cell_at(map, x, y-1)),
+			opb = opaque(cell_at(map, x-1, y));
+			if (opa && opb) return D_NORTHWEST;
+			if (opa)        return D_WEST;
+			if (opb)        return D_NORTH;
+											return D_NORTH_AND_WEST;
+			break;
+		case D_SOUTHWEST:
+		case D_SOUTH_AND_WEST:
+			opa = opaque(cell_at(map, x, y+1)),
+			opb = opaque(cell_at(map, x-1, y));
+			if (opa && opb) return D_SOUTHWEST;
+			if (opa)        return D_WEST;
+			if (opb)        return D_SOUTH;
+											return D_SOUTH_AND_WEST;
+			break;
+		case D_NORTHEAST:
+		case D_NORTH_AND_EAST:
+			opa = opaque(cell_at(map, x, y-1)),
+			opb = opaque(cell_at(map, x+1, y));
+			if (opa && opb) return D_NORTHEAST;
+			if (opa)        return D_EAST;
+			if (opb)        return D_NORTH;
+											return D_NORTH_AND_EAST;
+			break;
+		case D_SOUTHEAST:
+		case D_SOUTH_AND_EAST:
+			opa = opaque(cell_at(map, x, y+1)),
+			opb = opaque(cell_at(map, x+1, y));
+			if (opa && opb) return D_SOUTHEAST;
+			if (opa)        return D_EAST;
+			if (opb)        return D_SOUTH;
+											return D_SOUTH_AND_EAST;
+			break;
+	}
+	return d;
+}
+
 void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
@@ -392,7 +487,13 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	s32 scrollX = map->scrollX, scrollY = map->scrollY;
 	if (x < scrollX || y < scrollY || x > scrollX + 31 || y > scrollY + 23) return;
 
-	cell_t *cell = &map->cells[y*map->w+x];
+	cell_t *cell = cell_at(map, x, y);
+
+	DIRECTION d = D_NONE;
+	if (opaque(cell))
+		d = seen_from(map, direction(map->pX, map->pY, x, y), x, y);
+	cell->seen_from = d;
+
 	if (map->torch_on) {
 		int32 dx = src[0]-(x<<12),
 					dy = src[1]-(y<<12),
@@ -401,8 +502,13 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 					rad2 = mulf32(rad,rad);
 
 		if (dist2 < rad2) {
-			cell->lit = calc_quadratic(dist2, rad2); // NB: no addition or capping here
-			cell->recall = max(cell->lit, cell->recall);
+			int32 intensity = calc_quadratic(dist2, rad2);
+
+			cell->recall = max(intensity, cell->recall);
+
+			// NOTE: here we SET the intensity, we do not add
+			cell->light = intensity;
+
 			cell->dirty = 2;
 		}
 	}
@@ -413,7 +519,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
 
-	cell_t *cell = &map->cells[y*map->w+x];
+	cell_t *cell = cell_at(map, x, y);
 
 	// don't light the cell if we can't see it
 	if (!cell->visible) return;
@@ -427,12 +533,27 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	int32 rad = src[2],
 				rad2 = mulf32(rad,rad);
 	if (dist2 < rad2) {
-		cell_t *cell = &map->cells[y*map->w+x];
+		int32 intensity = calc_quadratic(dist2, rad2);
 
-		cell->lit += calc_quadratic(dist2, rad2);
-		cell->lit = min(cell->lit, 1<<12);
+		DIRECTION d = D_NONE;
+		if (opaque(cell))
+			d = seen_from(map, direction(src[0]>>12, src[1]>>12, x, y), x, y);
 
-		cell->recall = max(cell->lit, cell->recall);
+		if (d & D_BOTH) {
+			intensity >>= 1;
+			d &= cell->seen_from;
+			// only two of these should be set at maximum.
+			if (d & D_NORTH) cell->light += intensity;
+			if (d & D_SOUTH) cell->light += intensity;
+			if (d & D_EAST) cell->light += intensity;
+			if (d & D_WEST) cell->light += intensity;
+			cell->light = min(1<<12, cell->light);
+		} else if (cell->seen_from == d) {
+			cell->light = min(1<<12, cell->light + intensity);
+		}
+
+		cell->recall = max(cell->recall, cell->light);
+
 		cell->dirty = 2;
 	}
 }
@@ -630,9 +751,9 @@ int main(void) {
 			// XXX: need to keep a structure for the fluctuations per-source
 			int32 source[3] = { l->x << 12, l->y << 12, l->radius << 12 };
 			fov_circle(light, (void*)map, (void*)source, l->x, l->y, l->radius);
-			cell_t *cell = &map->cells[l->y*map->w+l->x];
+			cell_t *cell = cell_at(map, l->x, l->y);
 			if (cell->visible) {
-				cell->lit = 1<<12; // XXX: change for when coloured lights come
+				cell->light = 1<<12; // XXX: change for when coloured lights come
 				cell->recall = 1<<12;
 				cell->dirty = 2;
 			}
@@ -644,16 +765,16 @@ int main(void) {
 		for (y = 0; y < 24; y++)
 			for (x = 0; x < 32; x++) {
 				cell_t *cell = &map->cells[(y+map->scrollY)*map->w+(x+map->scrollX)];
-				if (cell->visible && cell->lit > 0) {
+				if (cell->visible && cell->light > 0) {
 					int r = cell->col & 0x001f,
 							g = (cell->col & 0x03e0) >> 5,
 							b = (cell->col & 0x7c00) >> 10;
-					int32 val = max(cell->lit, cell->recall>>1);
+					int32 val = max(cell->light, cell->recall>>1);
 					r = mulf32(r<<12, val)>>12;
 					g = mulf32(g<<12, val)>>12;
 					b = mulf32(b<<12, val)>>12;
 					drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
-					cell->lit = 0;
+					cell->light = 0;
 				} else if (cell->dirty > 0 || dirty > 0) {
 					if (cell->recall > 0) {
 						int r = cell->col & 0x001f,
