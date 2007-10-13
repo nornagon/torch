@@ -375,8 +375,14 @@ int main(void) {
 			if (dpX || dpY) {
 				frm = 5;
 				s32 pX = map->pX, pY = map->pY;
+				cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
 				// bumping into a wall takes some time
-				if (opaque(cell_at(map, pX+dpX, pY+dpY))) { // XXX: is opacity equivalent to solidity?
+				if (opaque(cell)) { // XXX: is opacity equivalent to solidity?
+					int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
+					if (rec != cell->recall) {
+						cell->recall = rec;
+						cell->dirty = 2;
+					}
 					dpX = dpY = 0;
 					frm = 2;
 				} else {
