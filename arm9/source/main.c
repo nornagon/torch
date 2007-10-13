@@ -485,22 +485,20 @@ int main(void) {
 		// XXX: more font-specific magical values
 		vc_before = hblnks;
 
-		u32 below_low = 0,
-		    above_high = 0;
+		s32 adjust = 0;
 		for (y = 0; y < 24; y++)
 			for (x = 0; x < 32; x++) {
 				cell_t *cell = cell_at(map, x+map->scrollX, y+map->scrollY);
 				if (cell->visible && cell->light > 0) {
+					cell->recall = min(1<<12, max(cell->light, cell->recall));
 					if (cell->light < low_luminance) {
 						cell->light = 0;
-						below_low++;
+						adjust--;
 					} else if (cell->light > low_luminance + (1<<12)) {
 						cell->light = 1<<12;
-						above_high++;
+						adjust++;
 					} else
 						cell->light -= low_luminance;
-
-					cell->recall = max(cell->light, cell->recall);
 
 					u32 r = cell->col & 0x001f,
 					    g = (cell->col & 0x03e0) >> 5,
@@ -531,9 +529,8 @@ int main(void) {
 					cell->visible = 0;
 			}
 
-		low_luminance += above_high;
-		low_luminance -= min(low_luminance, below_low);
-		iprintf("\x1b[10;0Hbelow low: %03d\nabove high: %03d\nlow luminance: %04x", below_low, above_high, low_luminance);
+		low_luminance += max(adjust*2, -low_luminance);
+		iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
 		//------------------------------------------------------------------------
 
 
