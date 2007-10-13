@@ -170,29 +170,13 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	cell->seen_from = d;
 
 	if (map->torch_on) {
-		int32 dx = src[0]-(x<<12),
-		      dy = src[1]-(y<<12);
+		// the funny bit-twiddling here is to preserve a few more bits in dx/dy
+		// during multiplication. mulf32 is a software multiply, and thus slow.
+		int32 dx = (src[0] - (x << 12)) >> 2,
+		      dy = (src[1] - (y << 12)) >> 2,
+		      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
 		int32 rad = src[2];
-		int32 rad2;
-		asm volatile (
-		             "mul %1, %1\n"
-		             "lsr %1, %1, #12\n"
-								 "mov %0, %1\n"
-		             : "=r" (rad2)
-								 : "r" (rad)
-								 );
-		int32 dist2;
-		asm volatile (
-				"asr %1, %1, #2\n"
-				"asr %2, %2, #2\n"
-				"mul %1, %1\n"
-				"mul %2, %2\n"
-				"lsr %1, %1, #8\n"
-				"lsr %2, %2, #8\n"
-				"add %0, %1, %2\n"
-				: "=r"(dist2)
-				: "r"(dx), "r"(dy)
-				);
+		int32 rad2 = (rad * rad) >> 12;
 
 		if (dist2 < rad2) {
 			int32 intensity = calc_quadratic(dist2, rad2);
@@ -220,29 +204,12 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	// XXX: this function is pretty much identical to apply_sight... should
 	// maybe merge them.
 	int32 *src = (int32*)src_;
-	int32 dx = src[0]-(x<<12),
-	      dy = src[1]-(y<<12),
-	      dist2;
+	int32 dx = (src[0] - (x << 12)) >> 2,
+	      dy = (src[1] - (y << 12)) >> 2,
+	      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
 	int32 rad = src[2],
-	      rad2;
-	asm volatile (
-							 "mul %1, %1\n"
-							 "lsr %1, %1, #12\n"
-							 "mov %0, %1\n"
-							 : "=r" (rad2)
-							 : "r" (rad)
-							 );
-	asm volatile (
-			"asr %1, %1, #2\n"
-			"asr %2, %2, #2\n"
-			"mul %1, %1\n"
-			"mul %2, %2\n"
-			"lsr %1, %1, #8\n"
-			"lsr %2, %2, #8\n"
-			"add %0, %1, %2\n"
-			: "=r"(dist2)
-			: "r"(dx), "r"(dy)
-			);
+	      rad2 = (rad * rad) >> 12;
+
 	if (dist2 < rad2) {
 		int32 intensity = calc_quadratic(dist2, rad2);
 
@@ -341,6 +308,7 @@ int main(void) {
 	for (vc_before = 0; vc_before < 10; vc_before++) counts[vc_before] = 0;
 
 	while (1) {
+		u32 vc_begin = hblnks;
 		if (!vblnkDirty)
 			swiWaitForVBlank();
 		vblnkDirty = 0;
@@ -514,11 +482,13 @@ int main(void) {
 			if (dirty > 0)
 				cls();
 		}
+		counts[4] += hblnks - vc_begin;
 		frames += 1;
 		if (vblnks >= 60) {
 			iprintf("\x1b[14;14H%02dfps", (frames * 64 - frames * 4) / vblnks);
-			iprintf("\x1b[2;0HKeys:    %04d\nSight:   %04d\nLights:  %04d\nDrawing: %04d\n",
+			iprintf("\x1b[2;0HKeys:    %05d\nSight:   %05d\nLights:  %05d\nDrawing: %05d\n",
 					counts[0], counts[1], counts[2], counts[3]);
+			iprintf("         -----\nLeft:    %05d\n", counts[4] - counts[0] - counts[1] - counts[2] - counts[3]);
 			for (i = 0; i < 10; i++) counts[i] = 0;
 			vblnks = frames = 0;
 		}
