@@ -105,7 +105,7 @@ inline int32 calc_cubic(int32 dist2, int32 rad, int32 rad2) {
 }
 
 inline int32 calc_quadratic(int32 dist2, int32 rad2) {
-	return (1<<12) - max(0,divf32(dist2,rad2));
+	return (1<<12) - divf32(dist2,rad2);
 }
 
 inline DIRECTION seen_from(map_t *map, DIRECTION d, int x, int y) {
@@ -185,9 +185,8 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		if (dist2 < rad2) {
 			int32 intensity = calc_quadratic(dist2, rad2);
 
-			cell->recall = max(intensity, cell->recall);
+			//cell->recall = max(intensity, cell->recall);
 
-			// NOTE: here we SET the intensity, we do not add
 			cell->light = intensity;
 
 			cell->dirty = 2;
@@ -204,6 +203,8 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	// don't light the cell if we can't see it
 	if (!cell->visible) return;
+	// fires light themselves
+	//if (cell->type == T_FIRE) return;
 
 	// XXX: this function is pretty much identical to apply_sight... should
 	// maybe merge them.
@@ -229,11 +230,11 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 			if (d & D_SOUTH) cell->light += intensity;
 			if (d & D_EAST) cell->light += intensity;
 			if (d & D_WEST) cell->light += intensity;
-			cell->light = min(1<<12, cell->light);
+			//cell->light = min(1<<12, cell->light);
 		} else if (cell->seen_from == d)
-			cell->light = min(1<<12, cell->light + intensity);
+			cell->light += intensity; // = min(1<<12, cell->light + intensity);
 
-		cell->recall = max(cell->recall, cell->light);
+		//cell->recall = max(cell->recall, cell->light);
 
 		cell->dirty = 2;
 	}
@@ -311,6 +312,8 @@ int main(void) {
 	u32 counts[10];
 	for (vc_before = 0; vc_before < 10; vc_before++) counts[vc_before] = 0;
 
+	u32 low_luminance = 0;
+
 	while (1) {
 		u32 vc_begin = hblnks;
 		if (!vblnkDirty)
@@ -330,6 +333,7 @@ int main(void) {
 			vblnkDirty = 0;
 			dirty = 2;
 			level = 0;
+			low_luminance = 0;
 			//iprintf("You begin again.\n");
 			continue;
 		}
@@ -349,6 +353,7 @@ int main(void) {
 			vblnkDirty = 0;
 			dirty = 2;
 			level = 0;
+			low_luminance = 0;
 			continue;
 		}
 		if (down & KEY_B)
@@ -462,22 +467,41 @@ int main(void) {
 					l->y + l->radius < map->scrollY || l->y - l->radius > map->scrollY + 24) continue;
 
 			int32 source[3] = { l->x << 12, l->y << 12 , (l->radius << 12) + l->dr };
+			cell_t *cell = cell_at(map, l->x, l->y);
 			fov_circle(light, (void*)map, (void*)source, l->x + l->dx, l->y + l->dy, l->radius + 2);
-			cell_t *cell = cell_at(map, l->x + l->dx, l->y + l->dy);
+			cell = cell_at(map, l->x + l->dx, l->y + l->dy);
 			if (cell->visible) {
-				cell->light = 1<<12; // XXX: change for when coloured lights come
+				cell->light = low_luminance + (1<<12); // XXX: change for when coloured lights come
 				cell->recall = 1<<12;
 				cell->dirty = 2;
 			}
 		}
 		counts[2] += hblnks - vc_before;
 
+
+		//------------------------------------------------------------------------
+		// draw loop
+
 		// XXX: more font-specific magical values
 		vc_before = hblnks;
+
+		u32 below_low = 0,
+		    above_high = 0;
 		for (y = 0; y < 24; y++)
 			for (x = 0; x < 32; x++) {
 				cell_t *cell = cell_at(map, x+map->scrollX, y+map->scrollY);
 				if (cell->visible && cell->light > 0) {
+					if (cell->light < low_luminance) {
+						cell->light = 0;
+						below_low++;
+					} else if (cell->light > low_luminance + (1<<12)) {
+						cell->light = 1<<12;
+						above_high++;
+					} else
+						cell->light -= low_luminance;
+
+					cell->recall = max(cell->light, cell->recall);
+
 					u32 r = cell->col & 0x001f,
 					    g = (cell->col & 0x03e0) >> 5,
 					    b = (cell->col & 0x7c00) >> 10;
@@ -506,6 +530,13 @@ int main(void) {
 				if (cell->visible)
 					cell->visible = 0;
 			}
+
+		low_luminance += above_high;
+		low_luminance -= min(low_luminance, below_low);
+		iprintf("\x1b[10;0Hbelow low: %03d\nabove high: %03d\nlow luminance: %04x", below_low, above_high, low_luminance);
+		//------------------------------------------------------------------------
+
+
 		drawcq((map->pX-map->scrollX)*8, (map->pY-map->scrollY)*8, '@', RGB15(31,31,31));
 		counts[3] += hblnks - vc_before;
 		swapbufs();
