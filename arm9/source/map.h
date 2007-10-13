@@ -38,9 +38,10 @@ typedef unsigned int DIRECTION;
 
 /*** light ***/
 typedef struct {
-	s32 x,y;
+	s32 x,y, dx,dy;
 	u16 col;
 	u8 radius;
+	s32 dr;
 	LIGHT_TYPE type : 8;
 } light_t;
 /*     ~     */

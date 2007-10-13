@@ -54,6 +54,10 @@ inline bool opaque(cell_t* cell) {
 	return cell->type == T_TREE;
 }
 
+inline bool flickers(light_t *light) {
+	return light->type == L_FIRE;
+}
+
 
 //---------------------------------------------------------------------------
 // libfov functions
@@ -414,28 +418,52 @@ int main(void) {
 
 		vc_before = hblnks;
 
+		u32 i;
+
 		if (frames % 4 == 0) {
 			// XXX: ick
-			src[0] = (map->pX<<12)+((genrand_gaussian32()&0xfff00000)>>20);
-			src[1] = (map->pY<<12)+((genrand_gaussian32()&0xfff00000)>>20);
-			src[2] = (7<<12)+((genrand_gaussian32()&0xfff00000)>>20);
+			src[0] = (map->pX<<12)+(genrand_gaussian32()>>20);
+			src[1] = (map->pY<<12)+(genrand_gaussian32()>>20);
+			src[2] = (7<<12)+(genrand_gaussian32()>>20);
 			src[3] = map->scrollX;
 			src[4] = map->scrollY;
+
+			u32 m = frames % 8 == 0;
+			for (i = 0; i < map->num_lights; i++) {
+				light_t *l = &map->lights[i];
+				l->dr = (genrand_gaussian32() >> 19) - 4096;
+				if (m) {
+					m = genrand_int32();
+					if (m < (u32)(0xffffffff*0.6)) l->dx = l->dy = 0;
+					else {
+						if (m < (u32)(0xffffffff*0.7)) {
+							l->dx = 0; l->dy = 1;
+						} else if (m < (u32)(0xffffffff*0.8)) {
+							l->dx = 0; l->dy = -1;
+						} else if (m < (u32)(0xffffffff*0.9)) {
+							l->dx = 1; l->dy = 0;
+						} else {
+							l->dx = -1; l->dy = 0;
+						}
+						if (opaque(cell_at(map, l->x + l->dx, l->y + l->dy)))
+							l->dx = l->dy = 0;
+					}
+				}
+			}
 		}
 
 		fov_circle(sight, (void*)map, (void*)src, map->pX, map->pY, 32);
 		counts[1] += hblnks - vc_before;
 
 		vc_before = hblnks;
-		u32 i;
 		for (i = 0; i < map->num_lights; i++) {
 			light_t *l = &map->lights[i];
 			if (l->x + l->radius < map->scrollX || l->x - l->radius > map->scrollX + 32 ||
 					l->y + l->radius < map->scrollY || l->y - l->radius > map->scrollY + 24) continue;
-			// XXX: need to keep a structure for the fluctuations per-source
-			int32 source[3] = { l->x << 12, l->y << 12, l->radius << 12 };
-			fov_circle(light, (void*)map, (void*)source, l->x, l->y, l->radius);
-			cell_t *cell = cell_at(map, l->x, l->y);
+
+			int32 source[3] = { l->x << 12, l->y << 12 , (l->radius << 12) + l->dr };
+			fov_circle(light, (void*)map, (void*)source, l->x + l->dx, l->y + l->dy, l->radius + 2);
+			cell_t *cell = cell_at(map, l->x + l->dx, l->y + l->dy);
 			if (cell->visible) {
 				cell->light = 1<<12; // XXX: change for when coloured lights come
 				cell->recall = 1<<12;
