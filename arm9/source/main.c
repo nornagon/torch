@@ -442,39 +442,37 @@ int main(void) {
 		vc_before = hblnks;
 		for (y = 0; y < 24; y++)
 			for (x = 0; x < 32; x++) {
-				cell_t *cell = &map->cells[(y+map->scrollY)*map->w+(x+map->scrollX)];
+				cell_t *cell = cell_at(map, x+map->scrollX, y+map->scrollY);
 				if (cell->visible && cell->light > 0) {
-					int r = cell->col & 0x001f,
+					u32 r = cell->col & 0x001f,
 					    g = (cell->col & 0x03e0) >> 5,
 					    b = (cell->col & 0x7c00) >> 10;
-					int32 val = max(cell->light, cell->recall>>1);
-					r = mulf32(r<<12, val)>>12;
-					g = mulf32(g<<12, val)>>12;
-					b = mulf32(b<<12, val)>>12;
-					drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
+					int32 val = max(cell->light, (cell->recall>>1) - (cell->recall>>3));
+					// multiply the colour through fixed-point 20.12 for a bit more accuracy
+					r = ((r<<12) * val) >> 24;
+					g = ((g<<12) * val) >> 24;
+					b = ((b<<12) * val) >> 24;
+					drawcq(x*8, y*8, cell->ch, RGB15(r,g,b));
 					cell->light = 0;
 				} else if (cell->dirty > 0 || dirty > 0) {
 					if (cell->recall > 0 && cell->type != T_GROUND) {
-						int r = cell->col & 0x001f,
+						u32 r = cell->col & 0x001f,
 						    g = (cell->col & 0x03e0) >> 5,
 						    b = (cell->col & 0x7c00) >> 10;
-						if (cell->dirty > 0)
-							cell->dirty--;
 						int32 val = (cell->recall>>1) - (cell->recall>>3);
-						r = mulf32(r<<12, val)>>12;
-						g = mulf32(g<<12, val)>>12;
-						b = mulf32(b<<12, val)>>12;
-						drawcq(x*8,y*8,cell->ch, RGB15(r,g,b));
-					} else {
-						if (cell->dirty > 0)
-							cell->dirty--;
-						drawcq(x*8,y*8, ' ', 0); // clear
-					}
+						r = ((r<<12) * val) >> 24;
+						g = ((g<<12) * val) >> 24;
+						b = ((b<<12) * val) >> 24;
+						drawcq(x*8, y*8, cell->ch, RGB15(r,g,b));
+					} else
+						drawcq(x*8, y*8, ' ', 0); // clear
+					if (cell->dirty > 0)
+						cell->dirty--;
 				}
 				if (cell->visible)
 					cell->visible = 0;
 			}
-		drawcq((map->pX-map->scrollX)*8,(map->pY-map->scrollY)*8,'@',RGB15(31,31,31));
+		drawcq((map->pX-map->scrollX)*8, (map->pY-map->scrollY)*8, '@', RGB15(31,31,31));
 		counts[3] += hblnks - vc_before;
 		swapbufs();
 		if (dirty > 0) {
