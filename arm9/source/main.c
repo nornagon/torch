@@ -408,7 +408,7 @@ int main(void) {
 				frm = 5;
 				s32 pX = map->pX, pY = map->pY;
 				// bumping into a wall takes some time
-				if (map->cells[(pY+dpY)*map->w+pX+dpX].type == T_TREE) { // XXX generalize bump test
+				if (opaque(cell_at(map, pX+dpX, pY+dpY))) { // XXX: is opacity equivalent to solidity?
 					dpX = dpY = 0;
 					frm = 2;
 				} else {
@@ -416,20 +416,20 @@ int main(void) {
 					if (pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
 					if (pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
 					if (pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
-					map->cells[pY*map->w+pX].dirty = 2;
+					cell_at(map, pX, pY)->dirty = 2;
 					map->pX += dpX; pX += dpX;
 					map->pY += dpY; pY += dpY;
 
 					// XXX: beware, here be font-specific values
 					if (pX - map->scrollX < 8 && map->scrollX > 0) {
-						map->scrollX = pX - 8; dirty = 2; //cls();
+						map->scrollX = pX - 8; dirty = 2;
 					} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
-						map->scrollX = pX - 24; dirty = 2; //cls();
+						map->scrollX = pX - 24; dirty = 2;
 					}
 					if (pY - map->scrollY < 8 && map->scrollY > 0) { 
-						map->scrollY = pY - 8; dirty = 2; //cls();
+						map->scrollY = pY - 8; dirty = 2;
 					} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
-						map->scrollY = pY - 16; dirty = 2; //cls();
+						map->scrollY = pY - 16; dirty = 2;
 					}
 				}
 			}
