@@ -1,7 +1,7 @@
-#ifndef SOURCE/TEST_MAP_H
-#define SOURCE/TEST_MAP_H 1
+#ifndef TEST_MAP_H
+#define TEST_MAP_H 1
 
-unsigned char *test_map =
+const char *test_map =
 "\n"
 "\n"
 "\n"
@@ -15,5 +15,5 @@ unsigned char *test_map =
 " *        \n"
 " *        \n";
 
-#endif /* SOURCE/TEST_MAP_H */
+#endif /* TEST_MAP_H */
 
