@@ -210,8 +210,8 @@ static inline int32 fov_slope(int32 dx, int32 dy) {
             return;                                                                             \
         }                                                                                       \
                                                                                                 \
-        dy0 = FROM_20_12(TO_20_12(0.5f) + mulf32((int32)dx<<12,start_slope));                   \
-        dy1 = FROM_20_12(TO_20_12(0.5f) + mulf32((int32)dx<<12,end_slope));                     \
+        dy0 = FROM_20_12(TO_20_12(0.5f) + (((dx<<12)*start_slope)>>12) );                       \
+        dy1 = FROM_20_12(TO_20_12(0.5f) + (((dx<<12)*end_slope)>>12) );                         \
                                                                                                 \
         rx = data->source_##rx signx dx;                                                        \
         ry = data->source_##ry signy dy0;                                                       \
