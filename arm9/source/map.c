@@ -25,6 +25,19 @@ map_t *create_map(u32 w, u32 h, CELL_TYPE fill) {
 	return ret;
 }
 
+void refresh_blockmap(map_t *map) {
+	s32 x,y;
+	for (y = 0; y < map->h; y++)
+		for (x = 0; x < map->w; x++) {
+			unsigned int blocked_from = 0;
+			if (opaque(cell_at(map, x, y-1))) blocked_from |= D_NORTH;
+			if (opaque(cell_at(map, x, y+1))) blocked_from |= D_SOUTH;
+			if (opaque(cell_at(map, x+1, y))) blocked_from |= D_EAST;
+			if (opaque(cell_at(map, x-1, y))) blocked_from |= D_WEST;
+			cell_at(map, x, y)->blocked_from = blocked_from;
+		}
+}
+
 void random_map(map_t *map) {
 	s32 x,y;
 	reset_map(map, T_TREE);
@@ -94,6 +107,7 @@ void random_map(map_t *map) {
 	cell->type = T_STAIRS;
 	cell->ch = '>';
 	cell->col = RGB15(31,31,31);
+	refresh_blockmap(map);
 }
 
 void load_map(map_t *map, size_t len, const char *desc) {
@@ -200,4 +214,5 @@ make:
 		}
 		x++;
 	}
+	refresh_blockmap(map);
 }

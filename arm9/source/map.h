@@ -57,8 +57,11 @@ typedef struct {
 	int32 lr,lg,lb;
 	int32 recall;
 	CELL_TYPE type : 8;
+	u16 last_col;
 	u8 dirty : 2;
 	bool visible : 1;
+	bool was_visible : 1;
+	unsigned int blocked_from : 4;
 	DIRECTION seen_from : 5;
 } cell_t;
 /*    ~~    */
@@ -77,6 +80,17 @@ typedef struct {
 static inline cell_t *cell_at(map_t *map, int x, int y) {
 	return &map->cells[y*map->w+x];
 }
+
+// XXX: these should probably live in another set of files again, leaving
+// map.[ch] for just the data structures
+static inline bool opaque(cell_t* cell) {
+	return cell->type == T_TREE;
+}
+
+static inline bool flickers(light_t *light) {
+	return light->type == L_FIRE;
+}
+
 
 // clear everything in the map.
 void reset_map(map_t *map, CELL_TYPE fill);

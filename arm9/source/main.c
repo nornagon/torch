@@ -11,6 +11,20 @@
 #include "draw.h"
 #include "map.h"
 
+
+//---------------------------------------------------------------------------
+// timers
+inline void start_stopwatch() {
+	TIMER_CR(0) = TIMER_DIV_1 | TIMER_ENABLE;
+}
+
+inline u16 read_stopwatch() {
+	TIMER_CR(0) = 0;
+	return TIMER_DATA(0);
+}
+//---------------------------------------------------------------------------
+
+
 //---------------------------------------------------------------------------
 // numbers
 inline int min(int a, int b) {
@@ -67,15 +81,6 @@ void hblank_counter() {
 }
 
 
-inline bool opaque(cell_t* cell) {
-	return cell->type == T_TREE;
-}
-
-inline bool flickers(light_t *light) {
-	return light->type == L_FIRE;
-}
-
-
 //---------------------------------------------------------------------------
 // libfov functions
 bool opacity_test(void *map_, int x, int y) {
@@ -125,7 +130,7 @@ inline int32 calc_quadratic(int32 dist2, int32 rad2) {
 	return (1<<12) - divf32(dist2,rad2);
 }
 
-inline DIRECTION seen_from(map_t *map, DIRECTION d, int x, int y) {
+inline DIRECTION seen_from(map_t *map, DIRECTION d, cell_t *cell) {
 	// Note to self: possible optimisation:
 	//   store the 'neighbour kind' in the cell data.
 	//
@@ -136,8 +141,8 @@ inline DIRECTION seen_from(map_t *map, DIRECTION d, int x, int y) {
 	switch (d) {
 		case D_NORTHWEST:
 		case D_NORTH_AND_WEST:
-			opa = opaque(cell_at(map, x, y-1));
-			opb = opaque(cell_at(map, x-1, y));
+			opa = cell->blocked_from & D_NORTH;
+			opb = cell->blocked_from & D_WEST;
 			if (opa && opb) return D_NORTHWEST;
 			if (opa)        return D_WEST;
 			if (opb)        return D_NORTH;
@@ -145,8 +150,8 @@ inline DIRECTION seen_from(map_t *map, DIRECTION d, int x, int y) {
 			break;
 		case D_SOUTHWEST:
 		case D_SOUTH_AND_WEST:
-			opa = opaque(cell_at(map, x, y+1));
-			opb = opaque(cell_at(map, x-1, y));
+			opa = cell->blocked_from & D_SOUTH;
+			opb = cell->blocked_from & D_WEST;
 			if (opa && opb) return D_SOUTHWEST;
 			if (opa)        return D_WEST;
 			if (opb)        return D_SOUTH;
@@ -154,8 +159,8 @@ inline DIRECTION seen_from(map_t *map, DIRECTION d, int x, int y) {
 			break;
 		case D_NORTHEAST:
 		case D_NORTH_AND_EAST:
-			opa = opaque(cell_at(map, x, y-1));
-			opb = opaque(cell_at(map, x+1, y));
+			opa = cell->blocked_from & D_NORTH;
+			opb = cell->blocked_from & D_EAST;
 			if (opa && opb) return D_NORTHEAST;
 			if (opa)        return D_EAST;
 			if (opb)        return D_NORTH;
@@ -163,8 +168,8 @@ inline DIRECTION seen_from(map_t *map, DIRECTION d, int x, int y) {
 			break;
 		case D_SOUTHEAST:
 		case D_SOUTH_AND_EAST:
-			opa = opaque(cell_at(map, x, y+1));
-			opb = opaque(cell_at(map, x+1, y));
+			opa = cell->blocked_from & D_SOUTH;
+			opb = cell->blocked_from & D_EAST;
 			if (opa && opb) return D_SOUTHEAST;
 			if (opa)        return D_EAST;
 			if (opb)        return D_SOUTH;
@@ -187,7 +192,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	DIRECTION d = D_NONE;
 	if (opaque(cell))
-		d = seen_from(map, direction(map->pX, map->pY, x, y), x, y);
+		d = seen_from(map, direction(map->pX, map->pY, x, y), cell);
 	cell->seen_from = d;
 
 	if (map->torch_on) {
@@ -210,7 +215,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 			cell->lg = 1<<12;
 			cell->lb = 1<<12;
 
-			cell->dirty = 2;
+			//cell->dirty = 2;
 		}
 	}
 	cell->visible = true;
@@ -242,7 +247,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 		DIRECTION d = D_NONE;
 		if (opaque(cell))
-			d = seen_from(map, direction(l->x, l->y, x, y), x, y);
+			d = seen_from(map, direction(l->x, l->y, x, y), cell);
 
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = (1<<12) - DIV_RESULT32;
@@ -264,7 +269,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		cell->lg += (l->g * intensity) >> 12;
 		cell->lb += (l->b * intensity) >> 12;
 
-		cell->dirty = 2;
+		//cell->dirty = 2;
 	}
 }
 //---------------------------------------------------------------------------
@@ -293,6 +298,8 @@ int main(void) {
 	vramSetBankC(VRAM_C_SUB_BG);
 	SUB_BG0_CR = BG_MAP_BASE(31);
 	BG_PALETTE_SUB[255] = RGB15(31,31,31);
+
+	TIMER_DATA(0) = 0;
 
 	consoleInitDefault((u16*)SCREEN_BASE_BLOCK_SUB(31), (u16*)CHAR_BASE_BLOCK_SUB(0), 16);
 
@@ -517,6 +524,8 @@ int main(void) {
 
 		// XXX: more font-specific magical values
 		vc_before = hblnks;
+		u32 twiddling = 0;
+		u32 drawing = 0;
 
 		s32 adjust = 0;
 		u32 max_luminance = 0;
@@ -524,6 +533,7 @@ int main(void) {
 			for (x = 0; x < 32; x++) {
 				cell_t *cell = cell_at(map, x+map->scrollX, y+map->scrollY);
 				if (cell->visible && cell->light > 0) {
+					start_stopwatch();
 					cell->recall = min(1<<12, max(cell->light, cell->recall));
 					if (cell->light > max_luminance) max_luminance = cell->light;
 					if (cell->light < low_luminance) {
@@ -555,13 +565,28 @@ int main(void) {
 					r = ((r<<12) * rval) >> 24;
 					g = ((g<<12) * gval) >> 24;
 					b = ((b<<12) * bval) >> 24;
-					drawcq(x*8, y*8, cell->ch, RGB15(r,g,b));
+					twiddling += read_stopwatch();
+					start_stopwatch();
+					u16 col_to_draw = RGB15(r,g,b);
+					u16 last_col = cell->last_col;
+					if (col_to_draw != last_col) {
+					drawcq(x*8, y*8, cell->ch, col_to_draw);
+						cell->last_col = col_to_draw;
+						cell->dirty = 2;
+					} else if (cell->dirty > 0 || dirty > 0) {
+						drawcq(x*8, y*8, cell->ch, col_to_draw);
+						if (cell->dirty > 0)
+							cell->dirty--;
+					}
+					drawing += read_stopwatch();
 					cell->light = 0;
 					cell->lr = 0;
 					cell->lg = 0;
 					cell->lb = 0;
-				} else if (cell->dirty > 0 || dirty > 0) {
+					cell->was_visible = true;
+				} else if (cell->dirty > 0 || dirty > 0 || cell->was_visible) {
 					if (cell->recall > 0 && cell->type != T_GROUND) {
+						start_stopwatch();
 						u32 r = cell->col & 0x001f,
 						    g = (cell->col & 0x03e0) >> 5,
 						    b = (cell->col & 0x7c00) >> 10;
@@ -569,20 +594,30 @@ int main(void) {
 						r = ((r<<12) * val) >> 24;
 						g = ((g<<12) * val) >> 24;
 						b = ((b<<12) * val) >> 24;
+						cell->last_col = RGB15(r,g,b);
+						twiddling += read_stopwatch();
+						start_stopwatch();
 						drawcq(x*8, y*8, cell->ch, RGB15(r,g,b));
-					} else
+						drawing += read_stopwatch();
+					} else {
 						drawcq(x*8, y*8, ' ', 0); // clear
+						cell->last_col = 0;
+					}
+					if (cell->was_visible) {
+						cell->was_visible = false;
+						cell->dirty = 2;
+					}
 					if (cell->dirty > 0)
 						cell->dirty--;
 				}
-				if (cell->visible)
-					cell->visible = 0;
+				cell->visible = 0;
 			}
 
 		low_luminance += max(adjust*2, -low_luminance);
 		if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
 			low_luminance -= min(40,low_luminance);
 		iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
+		iprintf("\x1b[13;0H           \n              \x1b[13;0Hdrawing: %04x\ntwiddling: %04x", drawing, twiddling);
 		//------------------------------------------------------------------------
 
 
@@ -597,7 +632,7 @@ int main(void) {
 		counts[4] += hblnks - vc_begin;
 		frames += 1;
 		if (vblnks >= 60) {
-			iprintf("\x1b[14;14H%02dfps", (frames * 64 - frames * 4) / vblnks);
+			iprintf("\x1b[0;19H%02dfps", (frames * 64 - frames * 4) / vblnks);
 			iprintf("\x1b[2;0HKeys:    %05d\nSight:   %05d\nLights:  %05d\nDrawing: %05d\n",
 					counts[0], counts[1], counts[2], counts[3]);
 			iprintf("         -----\nLeft:    %05d\n", counts[4] - counts[0] - counts[1] - counts[2] - counts[3]);
