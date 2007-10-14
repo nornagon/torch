@@ -1,4 +1,2 @@
 * invest in a screen_t structure
-* add colour to light
 * think more about falloff
-* fix small total luminance range bug in luminance windowing

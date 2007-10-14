@@ -27,6 +27,23 @@ u32 genrand_gaussian32() {
 	return (u32)((genrand_int32()>>2) + (genrand_int32()>>2) +
 			(genrand_int32()>>2) + (genrand_int32()>>2));
 }
+
+// raw divide, you'll have to check DIV_RESULT32 and DIV_BUSY yourself.
+static inline void div_32_32_raw(int32 num, int32 den) {
+	DIV_CR = DIV_32_32;
+
+	while (DIV_CR & DIV_BUSY);
+
+	DIV_NUMERATOR32 = num;
+	DIV_DENOMINATOR32 = den;
+}
+// beware, if your numerator can't deal with being shifted left 12, you will
+// lose bits off the left-hand side!
+static inline int32 div_32_32(int32 num, int32 den) {
+	div_32_32_raw(num << 12, den);
+	while (DIV_CR & DIV_BUSY);
+	return DIV_RESULT32;
+}
 //---------------------------------------------------------------------------
 
 
@@ -221,11 +238,14 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	      rad2 = (rad * rad) >> 12;
 
 	if (dist2 < rad2) {
-		int32 intensity = calc_quadratic(dist2, rad2);
+		div_32_32_raw(dist2<<8, rad2>>4);
 
 		DIRECTION d = D_NONE;
 		if (opaque(cell))
 			d = seen_from(map, direction(l->x, l->y, x, y), x, y);
+
+		while (DIV_CR & DIV_BUSY);
+		int32 intensity = (1<<12) - DIV_RESULT32;
 
 		if (d & D_BOTH || cell->seen_from & D_BOTH) {
 			intensity >>= 1;
@@ -481,7 +501,10 @@ int main(void) {
 			fov_circle(light, (void*)map, (void*)l, l->x + l->dx, l->y + l->dy, l->radius + 2);
 			cell = cell_at(map, l->x + l->dx, l->y + l->dy);
 			if (cell->visible) {
-				cell->light = low_luminance + (1<<12); // XXX: change for when coloured lights come
+				cell->light = low_luminance + (1<<12);
+				cell->lr = l->r;
+				cell->lg = l->g;
+				cell->lb = l->b;
 				cell->recall = 1<<12;
 				cell->dirty = 2;
 			}
@@ -522,9 +545,9 @@ int main(void) {
 					      bval = cell->lb;
 					int32 maxcol = max(rval,max(bval,gval));
 					// cap [rgb]val at 1<<12, then scale by val
-					rval = (divf32(rval,maxcol) * val) >> 12;
-					gval = (divf32(gval,maxcol) * val) >> 12;
-					bval = (divf32(bval,maxcol) * val) >> 12;
+					rval = (div_32_32(rval,maxcol) * val) >> 12;
+					gval = (div_32_32(gval,maxcol) * val) >> 12;
+					bval = (div_32_32(bval,maxcol) * val) >> 12;
 					rval = max(rval, minval);
 					gval = max(gval, minval);
 					bval = max(bval, minval);
@@ -534,6 +557,9 @@ int main(void) {
 					b = ((b<<12) * bval) >> 24;
 					drawcq(x*8, y*8, cell->ch, RGB15(r,g,b));
 					cell->light = 0;
+					cell->lr = 0;
+					cell->lg = 0;
+					cell->lb = 0;
 				} else if (cell->dirty > 0 || dirty > 0) {
 					if (cell->recall > 0 && cell->type != T_GROUND) {
 						u32 r = cell->col & 0x001f,
