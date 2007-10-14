@@ -53,8 +53,9 @@ typedef struct {
 typedef struct {
 	u8 ch;
 	u16 col;
-	int32 light;
-	int32 lr,lg,lb;
+	int32 light, last_light;
+	int32 lr,lg,lb,
+	      last_lr, last_lg, last_lb;
 	int32 recall;
 	CELL_TYPE type : 8;
 	u16 last_col;

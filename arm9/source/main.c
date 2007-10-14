@@ -553,32 +553,47 @@ int main(void) {
 					int32 rval = cell->lr,
 					      gval = cell->lg,
 					      bval = cell->lb;
-					int32 maxcol = max(rval,max(bval,gval));
-					// cap [rgb]val at 1<<12, then scale by val
-					rval = (div_32_32(rval,maxcol) * val) >> 12;
-					gval = (div_32_32(gval,maxcol) * val) >> 12;
-					bval = (div_32_32(bval,maxcol) * val) >> 12;
-					rval = max(rval, minval);
-					gval = max(gval, minval);
-					bval = max(bval, minval);
-					// multiply the colour through fixed-point 20.12 for a bit more accuracy
-					r = ((r<<12) * rval) >> 24;
-					g = ((g<<12) * gval) >> 24;
-					b = ((b<<12) * bval) >> 24;
-					twiddling += read_stopwatch();
-					start_stopwatch();
-					u16 col_to_draw = RGB15(r,g,b);
-					u16 last_col = cell->last_col;
-					if (col_to_draw != last_col) {
-					drawcq(x*8, y*8, cell->ch, col_to_draw);
-						cell->last_col = col_to_draw;
-						cell->dirty = 2;
-					} else if (cell->dirty > 0 || dirty > 0) {
-						drawcq(x*8, y*8, cell->ch, col_to_draw);
-						if (cell->dirty > 0)
-							cell->dirty--;
+					if (rval >> 8 != cell->last_lr ||
+					    gval >> 8 != cell->last_lg ||
+					    bval >> 8 != cell->last_lb ||
+					    cell->last_light != cell->light >> 8) {
+						int32 maxcol = max(rval,max(bval,gval));
+						// cap [rgb]val at 1<<12, then scale by val
+						rval = (div_32_32(rval,maxcol) * val) >> 12;
+						gval = (div_32_32(gval,maxcol) * val) >> 12;
+						bval = (div_32_32(bval,maxcol) * val) >> 12;
+						rval = max(rval, minval);
+						gval = max(gval, minval);
+						bval = max(bval, minval);
+						// multiply the colour through fixed-point 20.12 for a bit more accuracy
+						r = ((r<<12) * rval) >> 24;
+						g = ((g<<12) * gval) >> 24;
+						b = ((b<<12) * bval) >> 24;
+						twiddling += read_stopwatch();
+						start_stopwatch();
+						u16 col_to_draw = RGB15(r,g,b);
+						u16 last_col = cell->last_col;
+						if (col_to_draw != last_col) {
+							drawcq(x*8, y*8, cell->ch, col_to_draw);
+							cell->last_col = col_to_draw;
+							cell->last_lr = cell->lr >> 8;
+							cell->last_lg = cell->lg >> 8;
+							cell->last_lb = cell->lb >> 8;
+							cell->last_light = cell->light >> 8;
+							cell->dirty = 2;
+						} else if (cell->dirty > 0 || dirty > 0) {
+							drawcq(x*8, y*8, cell->ch, col_to_draw);
+							if (cell->dirty > 0)
+								cell->dirty--;
+						}
+						drawing += read_stopwatch();
+					} else {
+						if (cell->dirty > 0 || dirty > 0) {
+							drawcq(x*8, y*8, cell->ch, cell->last_col);
+							if (cell->dirty > 0)
+								cell->dirty--;
+						}
 					}
-					drawing += read_stopwatch();
 					cell->light = 0;
 					cell->lr = 0;
 					cell->lg = 0;
@@ -617,7 +632,7 @@ int main(void) {
 		if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
 			low_luminance -= min(40,low_luminance);
 		iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
-		iprintf("\x1b[13;0H           \n              \x1b[13;0Hdrawing: %04x\ntwiddling: %04x", drawing, twiddling);
+		iprintf("\x1b[13;0Hdrawing: %05x\ntwiddling: %05x", drawing, twiddling);
 		//------------------------------------------------------------------------
 
 
