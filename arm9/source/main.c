@@ -189,6 +189,10 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 			cell->light = intensity;
 
+			cell->lr = 1<<12;
+			cell->lg = 1<<12;
+			cell->lb = 1<<12;
+
 			cell->dirty = 2;
 		}
 	}
@@ -208,11 +212,12 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	// XXX: this function is pretty much identical to apply_sight... should
 	// maybe merge them.
-	int32 *src = (int32*)src_;
-	int32 dx = (src[0] - (x << 12)) >> 2,
-	      dy = (src[1] - (y << 12)) >> 2,
+	//int32 *src = (int32*)src_;
+	light_t *l = (light_t*)src_;
+	int32 dx = ((l->x << 12) - (x << 12)) >> 2, // shifting is for accuracy reasons
+	      dy = ((l->y << 12) - (y << 12)) >> 2,
 	      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
-	int32 rad = src[2],
+	int32 rad = (l->radius << 12) + l->dr,
 	      rad2 = (rad * rad) >> 12;
 
 	if (dist2 < rad2) {
@@ -220,7 +225,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 		DIRECTION d = D_NONE;
 		if (opaque(cell))
-			d = seen_from(map, direction(src[0]>>12, src[1]>>12, x, y), x, y);
+			d = seen_from(map, direction(l->x, l->y, x, y), x, y);
 
 		if (d & D_BOTH || cell->seen_from & D_BOTH) {
 			intensity >>= 1;
@@ -235,6 +240,9 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 			cell->light += intensity; // = min(1<<12, cell->light + intensity);
 
 		//cell->recall = max(cell->recall, cell->light);
+		cell->lr += (l->r * intensity) >> 12;
+		cell->lg += (l->g * intensity) >> 12;
+		cell->lb += (l->b * intensity) >> 12;
 
 		cell->dirty = 2;
 	}
@@ -436,22 +444,24 @@ int main(void) {
 			u32 m = frames % 8 == 0;
 			for (i = 0; i < map->num_lights; i++) {
 				light_t *l = &map->lights[i];
-				l->dr = (genrand_gaussian32() >> 19) - 4096;
-				if (m) {
-					m = genrand_int32();
-					if (m < (u32)(0xffffffff*0.6)) l->dx = l->dy = 0;
-					else {
-						if (m < (u32)(0xffffffff*0.7)) {
-							l->dx = 0; l->dy = 1;
-						} else if (m < (u32)(0xffffffff*0.8)) {
-							l->dx = 0; l->dy = -1;
-						} else if (m < (u32)(0xffffffff*0.9)) {
-							l->dx = 1; l->dy = 0;
-						} else {
-							l->dx = -1; l->dy = 0;
+				if (flickers(l)) {
+					l->dr = (genrand_gaussian32() >> 19) - 4096;
+					if (m) {
+						m = genrand_int32();
+						if (m < (u32)(0xffffffff*0.6)) l->dx = l->dy = 0;
+						else {
+							if (m < (u32)(0xffffffff*0.7)) {
+								l->dx = 0; l->dy = 1;
+							} else if (m < (u32)(0xffffffff*0.8)) {
+								l->dx = 0; l->dy = -1;
+							} else if (m < (u32)(0xffffffff*0.9)) {
+								l->dx = 1; l->dy = 0;
+							} else {
+								l->dx = -1; l->dy = 0;
+							}
+							if (opaque(cell_at(map, l->x + l->dx, l->y + l->dy)))
+								l->dx = l->dy = 0;
 						}
-						if (opaque(cell_at(map, l->x + l->dx, l->y + l->dy)))
-							l->dx = l->dy = 0;
 					}
 				}
 			}
@@ -466,9 +476,9 @@ int main(void) {
 			if (l->x + l->radius < map->scrollX || l->x - l->radius > map->scrollX + 32 ||
 					l->y + l->radius < map->scrollY || l->y - l->radius > map->scrollY + 24) continue;
 
-			int32 source[3] = { l->x << 12, l->y << 12 , (l->radius << 12) + l->dr };
+			//int32 source[3] = { l->x << 12, l->y << 12 , (l->radius << 12) + l->dr };
 			cell_t *cell = cell_at(map, l->x, l->y);
-			fov_circle(light, (void*)map, (void*)source, l->x + l->dx, l->y + l->dy, l->radius + 2);
+			fov_circle(light, (void*)map, (void*)l, l->x + l->dx, l->y + l->dy, l->radius + 2);
 			cell = cell_at(map, l->x + l->dx, l->y + l->dy);
 			if (cell->visible) {
 				cell->light = low_luminance + (1<<12); // XXX: change for when coloured lights come
@@ -486,11 +496,13 @@ int main(void) {
 		vc_before = hblnks;
 
 		s32 adjust = 0;
+		u32 max_luminance = 0;
 		for (y = 0; y < 24; y++)
 			for (x = 0; x < 32; x++) {
 				cell_t *cell = cell_at(map, x+map->scrollX, y+map->scrollY);
 				if (cell->visible && cell->light > 0) {
 					cell->recall = min(1<<12, max(cell->light, cell->recall));
+					if (cell->light > max_luminance) max_luminance = cell->light;
 					if (cell->light < low_luminance) {
 						cell->light = 0;
 						adjust--;
@@ -503,11 +515,23 @@ int main(void) {
 					u32 r = cell->col & 0x001f,
 					    g = (cell->col & 0x03e0) >> 5,
 					    b = (cell->col & 0x7c00) >> 10;
-					int32 val = max(cell->light, (cell->recall>>1) - (cell->recall>>3));
+					int32 minval = cell->type == T_GROUND ? 0 : ((cell->recall>>1) - (cell->recall>>3));
+					int32 val = max(minval, cell->light);
+					int32 rval = cell->lr,
+					      gval = cell->lg,
+					      bval = cell->lb;
+					int32 maxcol = max(rval,max(bval,gval));
+					// cap [rgb]val at 1<<12, then scale by val
+					rval = (divf32(rval,maxcol) * val) >> 12;
+					gval = (divf32(gval,maxcol) * val) >> 12;
+					bval = (divf32(bval,maxcol) * val) >> 12;
+					rval = max(rval, minval);
+					gval = max(gval, minval);
+					bval = max(bval, minval);
 					// multiply the colour through fixed-point 20.12 for a bit more accuracy
-					r = ((r<<12) * val) >> 24;
-					g = ((g<<12) * val) >> 24;
-					b = ((b<<12) * val) >> 24;
+					r = ((r<<12) * rval) >> 24;
+					g = ((g<<12) * gval) >> 24;
+					b = ((b<<12) * bval) >> 24;
 					drawcq(x*8, y*8, cell->ch, RGB15(r,g,b));
 					cell->light = 0;
 				} else if (cell->dirty > 0 || dirty > 0) {
@@ -530,6 +554,8 @@ int main(void) {
 			}
 
 		low_luminance += max(adjust*2, -low_luminance);
+		if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
+			low_luminance -= min(40,low_luminance);
 		iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
 		//------------------------------------------------------------------------
 

@@ -11,11 +11,13 @@ typedef enum {
 	T_GROUND,
 	T_STAIRS,
 	T_FIRE,
+	T_LIGHT,
 	NO_TYPE
 } CELL_TYPE;
 
 typedef enum {
 	L_FIRE,
+	L_GLOWER,
 	NO_LIGHT
 } LIGHT_TYPE;
 
@@ -38,10 +40,11 @@ typedef unsigned int DIRECTION;
 
 /*** light ***/
 typedef struct {
-	s32 x,y, dx,dy;
-	u16 col;
+	s32 x,y; // position in the map
+	int32 dx,dy; // position delta (for flickering)
+	int32 r,g,b;
 	u8 radius;
-	s32 dr;
+	s32 dr; // radius delta
 	LIGHT_TYPE type : 8;
 } light_t;
 /*     ~     */
@@ -51,6 +54,7 @@ typedef struct {
 	u8 ch;
 	u16 col;
 	int32 light;
+	int32 lr,lg,lb;
 	int32 recall;
 	CELL_TYPE type : 8;
 	u8 dirty : 2;

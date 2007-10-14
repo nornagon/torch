@@ -49,7 +49,9 @@ void random_map(map_t *map) {
 			light_t *l = &map->lights[map->num_lights];
 			l->x = x;
 			l->y = y;
-			l->col = RGB15(31,20,8);
+			l->r = 1.00*(1<<12);
+			l->g = 0.65*(1<<12);
+			l->b = 0.26*(1<<12);
 			l->radius = 9;
 			l->type = L_FIRE;
 			map->num_lights++;
@@ -139,13 +141,57 @@ void load_map(map_t *map, size_t len, const char *desc) {
 				cell->type = T_FIRE;
 				cell->ch = 'w';
 				cell->col = RGB15(31,12,0);
-				light_t *l = &map->lights[map->num_lights];
-				l->x = x;
-				l->y = y;
-				l->col = RGB15(31,20,8);
-				l->radius = 9;
-				l->type = L_FIRE;
-				map->num_lights++;
+				{
+					light_t *l = &map->lights[map->num_lights];
+					l->x = x;
+					l->y = y;
+					l->r = 1.00*(1<<12);
+					l->g = 0.65*(1<<12);
+					l->b = 0.26*(1<<12);
+					l->radius = 9;
+					l->type = L_FIRE;
+					map->num_lights++;
+				}
+				break;
+			case 'o':
+				cell->col = RGB15(12,0,31);
+				goto make;
+			case 'r':
+				cell->col = RGB15(31,0,0);
+				goto make;
+			case 'g':
+				cell->col = RGB15(0,31,0);
+				goto make;
+			case 'b':
+				cell->col = RGB15(0,0,31);
+make:
+				cell->type = T_LIGHT;
+				cell->ch = 'o';
+				{
+					light_t *l = &map->lights[map->num_lights];
+					l->x = x;
+					l->y = y;
+					if (c == 'o') {
+						l->r = 0.39*(1<<12);
+						l->g = 0.05*(1<<12);
+						l->b = 1.00*(1<<12);
+					} else if (c == 'r') {
+						l->r = 1.00*(1<<12);
+						l->g = 0.07*(1<<12);
+						l->b = 0.07*(1<<12);
+					} else if (c == 'g') {
+						l->r = 0.07*(1<<12);
+						l->g = 1.00*(1<<12);
+						l->b = 0.07*(1<<12);
+					} else {
+						l->r = 0.07*(1<<12);
+						l->g = 0.07*(1<<12);
+						l->b = 1.00*(1<<12);
+					}
+					l->radius = 8;
+					l->type = L_GLOWER;
+					map->num_lights++;
+				}
 				break;
 			case '\n':
 				x = -1; // gets ++'d later
