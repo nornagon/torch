@@ -495,6 +495,10 @@ int main(void) {
 			if (dpX || dpY) {
 				frm = 5;
 				s32 pX = map->pX, pY = map->pY;
+				if (pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
+				if (pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
+				if (pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
+				if (pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
 				cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
 				// bumping into a wall takes some time
 				if (opaque(cell)) { // XXX: is opacity equivalent to solidity?
@@ -506,10 +510,6 @@ int main(void) {
 					dpX = dpY = 0;
 					frm = 2;
 				} else {
-					if (pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
-					if (pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
-					if (pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
-					if (pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
 					cell_at(map, pX, pY)->dirty = 2;
 					map->pX += dpX; pX += dpX;
 					map->pY += dpY; pY += dpY;
