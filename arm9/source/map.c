@@ -11,8 +11,15 @@ void reset_map(map_t* map, CELL_TYPE fill) {
 			cell->ch = 0;
 			cell->col = 0;
 			cell->light = 0;
+			cell->last_light = 0;
+			cell->lr = cell->lg = cell->lb = 0;
+			cell->last_lr = cell->last_lg = cell->last_lb = 0;
 			cell->recall = 0;
 			cell->dirty = 0;
+			cell->visible = 0;
+			cell->was_visible = 0;
+			cell->blocked_from = 0;
+			cell->seen_from = 0;
 		}
 	map->num_lights = 0;
 }

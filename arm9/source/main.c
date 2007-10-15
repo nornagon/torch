@@ -207,15 +207,11 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		if (dist2 < rad2) {
 			int32 intensity = calc_quadratic(dist2, rad2);
 
-			//cell->recall = max(intensity, cell->recall);
-
 			cell->light = intensity;
 
 			cell->lr = 1<<12;
 			cell->lg = 1<<12;
 			cell->lb = 1<<12;
-
-			//cell->dirty = 2;
 		}
 	}
 	cell->visible = true;
@@ -229,12 +225,9 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	// don't light the cell if we can't see it
 	if (!cell->visible) return;
-	// fires light themselves
-	//if (cell->type == T_FIRE) return;
 
 	// XXX: this function is pretty much identical to apply_sight... should
 	// maybe merge them.
-	//int32 *src = (int32*)src_;
 	light_t *l = (light_t*)src_;
 	int32 dx = ((l->x << 12) - (x << 12)) >> 2, // shifting is for accuracy reasons
 	      dy = ((l->y << 12) - (y << 12)) >> 2,
@@ -260,16 +253,12 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 			if (d & D_SOUTH) cell->light += intensity;
 			if (d & D_EAST) cell->light += intensity;
 			if (d & D_WEST) cell->light += intensity;
-			//cell->light = min(1<<12, cell->light);
 		} else if (cell->seen_from == d)
-			cell->light += intensity; // = min(1<<12, cell->light + intensity);
+			cell->light += intensity;
 
-		//cell->recall = max(cell->recall, cell->light);
 		cell->lr += (l->r * intensity) >> 12;
 		cell->lg += (l->g * intensity) >> 12;
 		cell->lb += (l->b * intensity) >> 12;
-
-		//cell->dirty = 2;
 	}
 }
 //---------------------------------------------------------------------------

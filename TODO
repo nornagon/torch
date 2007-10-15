@@ -1,3 +1,4 @@
+* fix edge-case bugs in level-changing
 * invest in a screen_t structure
 * think more about falloff
 * clean up the various caching mechanisms if possible
