@@ -275,6 +275,70 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 //---------------------------------------------------------------------------
 
 
+// we copy data *away* from dir
+void scroll_screen(map_t *map, DIRECTION dir) {
+	u32 i;
+	if (dir & D_NORTH) {
+		// mark the top squares dirty
+		for (i = 0; i < 32; i++)
+			cell_at(map, i+map->scrollX, map->scrollY)->dirty = 2;
+
+		if (dir & D_EAST) {
+			for (i = 1; i < 24; i++)
+				cell_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
+			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
+			DMA_DEST(3) = (uint32)&backbuf[256*192-1-8];
+			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
+		} else if (dir & D_WEST) {
+			for (i = 1; i < 24; i++)
+				cell_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
+			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8-256*8];
+			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
+			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
+		} else {
+			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
+			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
+			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8)>>1);
+		}
+	} else if (dir & D_SOUTH) {
+		// mark the southern squares dirty
+		for (i = 0; i < 32; i++)
+			cell_at(map, i+map->scrollX, map->scrollY+23)->dirty = 2;
+		if (dir & D_EAST) {
+			for (i = 0; i < 23; i++)
+				cell_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
+			DMA_SRC(3) = (uint32)&backbuf[256*8+8];
+			DMA_DEST(3) = (uint32)&backbuf[0];
+			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
+		} else if (dir & D_WEST) {
+			for (i = 0; i < 23; i++)
+				cell_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
+			DMA_SRC(3) = (uint32)&backbuf[256*8];
+			DMA_DEST(3) = (uint32)&backbuf[8];
+			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
+		} else {
+			DMA_SRC(3) = (uint32)&backbuf[256*8];
+			DMA_DEST(3) = (uint32)&backbuf[0];
+			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8)>>1);
+		}
+	} else {
+		if (dir & D_EAST) {
+			for (i = 0; i < 24; i++)
+				cell_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
+			DMA_SRC(3) = (uint32)&backbuf[8];
+			DMA_DEST(3) = (uint32)&backbuf[0];
+			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-8)>>1);
+		} else if (dir & D_WEST) {
+			for (i = 0; i < 24; i++)
+				cell_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
+			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8];
+			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
+			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);
+		}
+	}
+}
+
+
 //---------------------------------------------------------------------------
 int main(void) {
 //---------------------------------------------------------------------------
@@ -339,6 +403,7 @@ int main(void) {
 
 	u32 level = 0;
 
+	// XXX: get rid of this abomination pls :(
 	int32 src[5] = { 0, 0, 0, // source x, source y, radius
 		0, 0  // scroll x, scroll y
 	};
@@ -349,6 +414,8 @@ int main(void) {
 
 	u32 low_luminance = 0;
 
+	DIRECTION just_scrolled = 0;
+
 	while (1) {
 		u32 vc_begin = hblnks;
 		if (!vblnkDirty)
@@ -357,13 +424,22 @@ int main(void) {
 
 		vc_before = hblnks;
 
+		// TODO: is DMA actually asynchronous?
+		bool copying = false;
+
+		if (just_scrolled) {
+			scroll_screen(map, just_scrolled);
+			copying = true;
+			just_scrolled = 0;
+		}
+
 		scanKeys();
 		u32 down = keysDown();
 		if (down & KEY_START) {
 			new_map(map);
 			map->pX = map->w/2;
 			map->pY = map->h/2;
-			frm = 0;
+			frm = 5;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
 			dirty = 2;
@@ -374,7 +450,7 @@ int main(void) {
 		}
 		if (down & KEY_SELECT) {
 			load_map(map, strlen(test_map), test_map);
-			frm = 0;
+			frm = 5;
 			map->scrollX = 0; map->scrollY = 0;
 			// XXX: beware, here be font-specific values
 			if (map->pX - map->scrollX < 8 && map->scrollX > 0)
@@ -439,15 +515,32 @@ int main(void) {
 					map->pY += dpY; pY += dpY;
 
 					// XXX: beware, here be font-specific values
-					if (pX - map->scrollX < 8 && map->scrollX > 0) {
-						map->scrollX = pX - 8; dirty = 2;
+					s32 dsX = 0, dsY = 0;
+					if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
+						dsX = (pX - 8) - map->scrollX;
+						map->scrollX = pX - 8;
 					} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
-						map->scrollX = pX - 24; dirty = 2;
+						dsX = (pX - 24) - map->scrollX;
+						map->scrollX = pX - 24;
 					}
+
 					if (pY - map->scrollY < 8 && map->scrollY > 0) { 
-						map->scrollY = pY - 8; dirty = 2;
+						dsY = (pY - 8) - map->scrollY;
+						map->scrollY = pY - 8;
 					} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
-						map->scrollY = pY - 16; dirty = 2;
+						dsY = (pY - 16) - map->scrollY;
+						map->scrollY = pY - 16;
+					}
+
+					if (dsX || dsY) {
+						// XXX: look at generalising scroll function
+						if (abs(dsX) > 1 || abs(dsY) > 1) dirty = 2;
+						else {
+							DIRECTION dir = direction(dsX, dsY, 0, 0);
+							scroll_screen(map, dir);
+							copying = true;
+							just_scrolled = dir;
+						}
 					}
 				}
 			}
@@ -455,6 +548,9 @@ int main(void) {
 		if (frm > 0)
 			frm--;
 		counts[0] += hblnks - vc_before;
+
+		if (copying)
+			while (dmaBusy(3));
 
 		vc_before = hblnks;
 
@@ -589,11 +685,14 @@ int main(void) {
 						}
 						drawing += read_stopwatch();
 					} else {
+						twiddling += read_stopwatch();
+						start_stopwatch();
 						if (cell->dirty > 0 || dirty > 0) {
 							drawcq(x*8, y*8, cell->ch, cell->last_col);
 							if (cell->dirty > 0)
 								cell->dirty--;
 						}
+						drawing += read_stopwatch();
 					}
 					cell->light = 0;
 					cell->lr = 0;
