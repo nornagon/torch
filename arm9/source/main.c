@@ -529,9 +529,10 @@ int main(void) {
 
 		s32 adjust = 0;
 		u32 max_luminance = 0;
-		for (y = 0; y < 24; y++)
+
+		cell_t *cell = cell_at(map, map->scrollX, map->scrollY);
+		for (y = 0; y < 24; y++) {
 			for (x = 0; x < 32; x++) {
-				cell_t *cell = cell_at(map, x+map->scrollX, y+map->scrollY);
 				if (cell->visible && cell->light > 0) {
 					start_stopwatch();
 					cell->recall = min(1<<12, max(cell->light, cell->recall));
@@ -610,6 +611,10 @@ int main(void) {
 						g = ((g<<12) * val) >> 24;
 						b = ((b<<12) * val) >> 24;
 						cell->last_col = RGB15(r,g,b);
+						cell->last_lr = 0;
+						cell->last_lg = 0;
+						cell->last_lb = 0;
+						cell->last_light = 0;
 						twiddling += read_stopwatch();
 						start_stopwatch();
 						drawcq(x*8, y*8, cell->ch, RGB15(r,g,b));
@@ -617,6 +622,10 @@ int main(void) {
 					} else {
 						drawcq(x*8, y*8, ' ', 0); // clear
 						cell->last_col = 0;
+						cell->last_lr = 0;
+						cell->last_lg = 0;
+						cell->last_lb = 0;
+						cell->last_light = 0;
 					}
 					if (cell->was_visible) {
 						cell->was_visible = false;
@@ -626,7 +635,11 @@ int main(void) {
 						cell->dirty--;
 				}
 				cell->visible = 0;
+
+				cell++; // takes into account the size of the structure, apparently
 			}
+			cell += map->w - 32; // XXX: font-specifics
+		}
 
 		low_luminance += max(adjust*2, -low_luminance);
 		if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
