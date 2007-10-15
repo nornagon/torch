@@ -634,7 +634,7 @@ int main(void) {
 					u32 r = cell->col & 0x001f,
 					    g = (cell->col & 0x03e0) >> 5,
 					    b = (cell->col & 0x7c00) >> 10;
-					int32 minval = cell->type == T_GROUND ? 0 : ((cell->recall>>1) - (cell->recall>>3));
+					int32 minval = cell->type == T_GROUND ? 0 : (cell->recall>>2);
 					int32 val = max(minval, cell->light);
 					int32 rval = cell->lr,
 					      gval = cell->lg,
@@ -694,7 +694,7 @@ int main(void) {
 						u32 r = cell->col & 0x001f,
 						    g = (cell->col & 0x03e0) >> 5,
 						    b = (cell->col & 0x7c00) >> 10;
-						int32 val = (cell->recall>>1) - (cell->recall>>3);
+						int32 val = (cell->recall>>2);
 						r = ((r<<12) * val) >> 24;
 						g = ((g<<12) * val) >> 24;
 						b = ((b<<12) * val) >> 24;
