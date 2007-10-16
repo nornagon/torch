@@ -185,7 +185,7 @@ inline DIRECTION seen_from(map_t *map, DIRECTION d, cell_t *cell) {
 void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
-	int32 *src = (int32*)src_;
+	light_t *l = (light_t*)src_;
 
 	// don't bother calculating if we're outside the edge of the screen
 	s32 scrollX = map->scrollX, scrollY = map->scrollY;
@@ -201,11 +201,11 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	if (map->torch_on) {
 		// the funny bit-twiddling here is to preserve a few more bits in dx/dy
 		// during multiplication. mulf32 is a software multiply, and thus slow.
-		int32 dx = (src[0] - (x << 12)) >> 2,
-		      dy = (src[1] - (y << 12)) >> 2,
+		int32 dx = ((l->x << 12) - (x << 12)) >> 2,
+		      dy = ((l->y << 12) - (y << 12)) >> 2,
 		      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
-		int32 rad = src[2];
-		int32 rad2 = (rad * rad) >> 12;
+		int32 rad = (l->radius << 12) + l->dr,
+		      rad2 = (rad * rad) >> 12;
 
 		if (dist2 < rad2) {
 			div_32_32_raw(dist2<<8, rad2>>4);
@@ -215,9 +215,9 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 			cell->light = intensity;
 
-			cache->lr = 1<<12;
-			cache->lg = 1<<12;
-			cache->lb = 1<<12;
+			cache->lr = l->r;
+			cache->lg = l->g;
+			cache->lb = l->b;
 		}
 	}
 	cell->visible = true;
@@ -401,9 +401,17 @@ int main(void) {
 
 	u32 level = 0;
 
-	// XXX: get rid of this abomination pls :(
-	int32 src[5] = { 0, 0, 0, // source x, source y, radius
-		0, 0  // scroll x, scroll y
+	light_t player_light = {
+		.x = map->pX,
+		.y = map->pY,
+		.dx = 0,
+		.dy = 0,
+		.r = 1<<12,
+		.g = 1<<12,
+		.b = 1<<12,
+		.radius = 7,
+		.dr = 0,
+		.type = T_FIRE
 	};
 
 	u32 vc_before;
@@ -560,12 +568,13 @@ int main(void) {
 		u32 i;
 
 		if (frames % 4 == 0) {
-			// XXX: ick
-			src[0] = (map->pX<<12)+(genrand_gaussian32()>>20);
-			src[1] = (map->pY<<12)+(genrand_gaussian32()>>20);
-			src[2] = (7<<12)+(genrand_gaussian32()>>20);
-			src[3] = map->scrollX;
-			src[4] = map->scrollY;
+			// have the light lag a bit behind the player
+			player_light.x = map->pX;
+			player_light.y = map->pY;
+
+			player_light.dx = genrand_gaussian32()>>20;
+			player_light.dy = genrand_gaussian32()>>20;
+			player_light.dr = genrand_gaussian32()>>20;
 
 			u32 m = frames % 8 == 0;
 			for (i = 0; i < map->num_lights; i++) {
@@ -593,7 +602,7 @@ int main(void) {
 			}
 		}
 
-		fov_circle(sight, (void*)map, (void*)src, map->pX, map->pY, 32);
+		fov_circle(sight, (void*)map, (void*)&player_light, map->pX, map->pY, 32);
 		counts[1] += hblnks - vc_before;
 
 		vc_before = hblnks;
