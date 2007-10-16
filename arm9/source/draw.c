@@ -1,6 +1,6 @@
 #include "draw.h"
-
 #include <nds/arm9/video.h>
+#include "mem.h"
 
 #include "font.h"
 

@@ -1,23 +1,34 @@
 #include "mt19937ar.h"
 #include "map.h"
 #include <malloc.h>
+#include "mem.h"
+
+void reset_cache(map_t *map) {
+	u32 x, y;
+	for (y = 0; y < 24; y++)
+		for (x = 0; x < 32; x++) {
+			cache_t* cache = &map->cache[y*32+x];
+			cache->lr = cache->lg = cache->lb = 0;
+			cache->last_lr = cache->last_lg = cache->last_lb = 0;
+			cache->last_light = 0;
+			cache->last_col = 0;
+			cache->dirty = 0;
+			cache->was_visible = 0;
+		}
+	map->cacheX = map->cacheY = 0;
+}
 
 void reset_map(map_t* map, CELL_TYPE fill) {
 	u32 x, y, w = map->w, h = map->h;
 	for (y = 0; y < h; y++)
 		for (x = 0; x < w; x++) {
-			cell_t* cell = &map->cells[y*w+x];
+			cell_t* cell = cell_at(map, x, y);
 			cell->type = fill;
 			cell->ch = 0;
 			cell->col = 0;
 			cell->light = 0;
-			cell->last_light = 0;
-			cell->lr = cell->lg = cell->lb = 0;
-			cell->last_lr = cell->last_lg = cell->last_lb = 0;
 			cell->recall = 0;
-			cell->dirty = 0;
 			cell->visible = 0;
-			cell->was_visible = 0;
 			cell->blocked_from = 0;
 			cell->seen_from = 0;
 		}
@@ -27,7 +38,9 @@ map_t *create_map(u32 w, u32 h, CELL_TYPE fill) {
 	map_t *ret = malloc(sizeof(map_t));
 	ret->w = w; ret->h = h;
 	ret->cells = malloc(w*h*sizeof(cell_t));
+	ret->cache = malloc(32*24*sizeof(cache_t));
 	reset_map(ret, fill);
+	reset_cache(ret);
 
 	return ret;
 }

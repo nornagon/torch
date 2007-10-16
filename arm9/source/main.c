@@ -67,6 +67,7 @@ void new_map(map_t *map) {
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds + IPC->time.rtc.minutes*60+IPC->time.rtc.hours*60*60 + IPC->time.rtc.weekday*7*24*60*60));
 	clss();
 	random_map(map);
+	reset_cache(map);
 }
 //---------------------------------------------------------------------------
 
@@ -90,8 +91,10 @@ bool opacity_test(void *map_, int x, int y) {
 }
 bool sight_opaque(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
-	// XXX: beware, magical fonting numbers
-	if (y < map->scrollY || y >= map->scrollY + 24 || x < map->scrollX || x >= map->scrollX + 32) return true;
+	// stop at the edge of the screen
+	if (y < map->scrollY || y >= map->scrollY + 24
+	    || x < map->scrollX || x >= map->scrollX + 32)
+		return true;
 	return opaque(cell_at(map, x, y));
 }
 
@@ -184,7 +187,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
 	int32 *src = (int32*)src_;
 
-	// XXX: super ick, magical fonting numbers here
+	// don't bother calculating if we're outside the edge of the screen
 	s32 scrollX = map->scrollX, scrollY = map->scrollY;
 	if (x < scrollX || y < scrollY || x > scrollX + 31 || y > scrollY + 23) return;
 
@@ -205,13 +208,16 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		int32 rad2 = (rad * rad) >> 12;
 
 		if (dist2 < rad2) {
-			int32 intensity = calc_quadratic(dist2, rad2);
+			div_32_32_raw(dist2<<8, rad2>>4);
+			cache_t *cache = cache_at(map, x, y); // load the cache while waiting for the division
+			while (DIV_CR & DIV_BUSY);
+			int32 intensity = (1<<12) - DIV_RESULT32;
 
 			cell->light = intensity;
 
-			cell->lr = 1<<12;
-			cell->lg = 1<<12;
-			cell->lb = 1<<12;
+			cache->lr = 1<<12;
+			cache->lg = 1<<12;
+			cache->lb = 1<<12;
 		}
 	}
 	cell->visible = true;
@@ -241,6 +247,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		DIRECTION d = D_NONE;
 		if (opaque(cell))
 			d = seen_from(map, direction(l->x, l->y, x, y), cell);
+		cache_t *cache = cache_at(map, x, y);
 
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = (1<<12) - DIV_RESULT32;
@@ -256,9 +263,9 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		} else if (cell->seen_from == d)
 			cell->light += intensity;
 
-		cell->lr += (l->r * intensity) >> 12;
-		cell->lg += (l->g * intensity) >> 12;
-		cell->lb += (l->b * intensity) >> 12;
+		cache->lr += (l->r * intensity) >> 12;
+		cache->lg += (l->g * intensity) >> 12;
+		cache->lb += (l->b * intensity) >> 12;
 	}
 }
 //---------------------------------------------------------------------------
@@ -267,20 +274,22 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 // we copy data *away* from dir
 void scroll_screen(map_t *map, DIRECTION dir) {
 	u32 i;
+	// TODO: generalise?
 	if (dir & D_NORTH) {
 		// mark the top squares dirty
+		// TODO: slower than not going through cache_at?
 		for (i = 0; i < 32; i++)
-			cell_at(map, i+map->scrollX, map->scrollY)->dirty = 2;
+			cache_at(map, i+map->scrollX, map->scrollY)->dirty = 2;
 
 		if (dir & D_EAST) {
 			for (i = 1; i < 24; i++)
-				cell_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
+				cache_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 1; i < 24; i++)
-				cell_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
+				cache_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
@@ -292,16 +301,16 @@ void scroll_screen(map_t *map, DIRECTION dir) {
 	} else if (dir & D_SOUTH) {
 		// mark the southern squares dirty
 		for (i = 0; i < 32; i++)
-			cell_at(map, i+map->scrollX, map->scrollY+23)->dirty = 2;
+			cache_at(map, i+map->scrollX, map->scrollY+23)->dirty = 2;
 		if (dir & D_EAST) {
 			for (i = 0; i < 23; i++)
-				cell_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
+				cache_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8+8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 23; i++)
-				cell_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
+				cache_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8];
 			DMA_DEST(3) = (uint32)&backbuf[8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
@@ -313,13 +322,13 @@ void scroll_screen(map_t *map, DIRECTION dir) {
 	} else {
 		if (dir & D_EAST) {
 			for (i = 0; i < 24; i++)
-				cell_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
+				cache_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 24; i++)
-				cell_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
+				cache_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);
@@ -373,7 +382,7 @@ int main(void) {
 	seed += IPC->time.rtc.minutes*60;
 	seed += IPC->time.rtc.hours*60*60;
 	seed += IPC->time.rtc.weekday*7*24*60*60;
-	init_genrand(seed); // XXX: RTC is not really a good randomness source
+	init_genrand(seed);
 
 	map_t *map = create_map(128,128, T_TREE);
 	random_map(map);
@@ -431,6 +440,7 @@ int main(void) {
 			frm = 5;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
+			reset_cache(map);
 			dirty = 2;
 			level = 0;
 			low_luminance = 0;
@@ -441,7 +451,6 @@ int main(void) {
 			load_map(map, strlen(test_map), test_map);
 			frm = 5;
 			map->scrollX = 0; map->scrollY = 0;
-			// XXX: beware, here be font-specific values
 			if (map->pX - map->scrollX < 8 && map->scrollX > 0)
 				map->scrollX = map->pX - 8;
 			else if (map->pX - map->scrollX > 24 && map->scrollX < map->w-32)
@@ -451,6 +460,7 @@ int main(void) {
 			else if (map->pY - map->scrollY > 16 && map->scrollY < map->h-24)
 				map->scrollY = map->pY - 16;
 			vblnkDirty = 0;
+			reset_cache(map); // cache is origin-agnostic
 			dirty = 2;
 			level = 0;
 			low_luminance = 0;
@@ -478,28 +488,29 @@ int main(void) {
 				// TODO: make so screen doesn't jump on down-stairs
 				map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 				vblnkDirty = 0;
+				reset_cache(map);
 				dirty = 2;
 				continue;
 			}
+			s32 pX = map->pX, pY = map->pY;
+			// bumping into a wall takes some time
+			if (pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
+			if (pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
+			if (pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
+			if (pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
 			if (dpX || dpY) {
 				frm = 5;
-				s32 pX = map->pX, pY = map->pY;
-				if (pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
-				if (pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
-				if (pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
-				if (pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
 				cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
-				// bumping into a wall takes some time
 				if (opaque(cell)) { // XXX: is opacity equivalent to solidity?
 					int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
 					if (rec != cell->recall) {
 						cell->recall = rec;
-						cell->dirty = 2;
+						cache_at(map, pX + dpX, pY + dpY)->dirty = 2;
 					}
 					dpX = dpY = 0;
 					frm = 2;
 				} else {
-					cell_at(map, pX, pY)->dirty = 2;
+					cache_at(map, pX, pY)->dirty = 2;
 					map->pX += dpX; pX += dpX;
 					map->pY += dpY; pY += dpY;
 
@@ -523,13 +534,19 @@ int main(void) {
 
 					if (dsX || dsY) {
 						// XXX: look at generalising scroll function
-						if (abs(dsX) > 1 || abs(dsY) > 1) dirty = 2;
-						else {
-							DIRECTION dir = direction(dsX, dsY, 0, 0);
-							scroll_screen(map, dir);
-							copying = true;
-							just_scrolled = dir;
-						}
+
+						//if (abs(dsX) > 1 || abs(dsY) > 1) dirty = 2;
+						// the above should never be the case. if it ever is, make sure
+						// scrolling doesn't happen *as well as* full-screen dirtying.
+
+						map->cacheX += dsX;
+						map->cacheY += dsY;
+						if (map->cacheX < 0) map->cacheX += 32;
+						if (map->cacheY < 0) map->cacheY += 24;
+						DIRECTION dir = direction(dsX, dsY, 0, 0);
+						scroll_screen(map, dir);
+						copying = true;
+						just_scrolled = dir;
 					}
 				}
 			}
@@ -537,9 +554,6 @@ int main(void) {
 		if (frm > 0)
 			frm--;
 		counts[0] += hblnks - vc_before;
-
-		if (copying)
-			while (dmaBusy(3));
 
 		vc_before = hblnks;
 
@@ -585,29 +599,32 @@ int main(void) {
 		vc_before = hblnks;
 		for (i = 0; i < map->num_lights; i++) {
 			light_t *l = &map->lights[i];
+
+			// don't bother if it's completely outside the screen.
+			// TODO: consider dr
 			if (l->x + l->radius < map->scrollX || l->x - l->radius > map->scrollX + 32 ||
 					l->y + l->radius < map->scrollY || l->y - l->radius > map->scrollY + 24) continue;
 
-			//int32 source[3] = { l->x << 12, l->y << 12 , (l->radius << 12) + l->dr };
-			cell_t *cell = cell_at(map, l->x, l->y);
 			fov_circle(light, (void*)map, (void*)l, l->x + l->dx, l->y + l->dy, l->radius + 2);
-			cell = cell_at(map, l->x + l->dx, l->y + l->dy);
+			cell_t *cell = cell_at(map, l->x + l->dx, l->y + l->dy);
 			if (cell->visible) {
 				cell->light = low_luminance + (1<<12);
-				cell->lr = l->r;
-				cell->lg = l->g;
-				cell->lb = l->b;
+				cache_t *cache = cache_at(map, l->x + l->dx, l->y + l->dy);
+				cache->lr = l->r;
+				cache->lg = l->g;
+				cache->lb = l->b;
 				cell->recall = 1<<12;
-				cell->dirty = 2;
+				cache->dirty = 2; // TODO: necessary?
 			}
 		}
 		counts[2] += hblnks - vc_before;
 
+		if (copying)
+			while (dmaBusy(3));
 
 		//------------------------------------------------------------------------
 		// draw loop
 
-		// XXX: more font-specific magical values
 		vc_before = hblnks;
 		u32 twiddling = 0;
 		u32 drawing = 0;
@@ -618,6 +635,8 @@ int main(void) {
 		cell_t *cell = cell_at(map, map->scrollX, map->scrollY);
 		for (y = 0; y < 24; y++) {
 			for (x = 0; x < 32; x++) {
+				cache_t *cache = cache_at(map, map->scrollX + x, map->scrollY + y);
+
 				if (cell->visible && cell->light > 0) {
 					start_stopwatch();
 					cell->recall = min(1<<12, max(cell->light, cell->recall));
@@ -636,13 +655,13 @@ int main(void) {
 					    b = (cell->col & 0x7c00) >> 10;
 					int32 minval = cell->type == T_GROUND ? 0 : (cell->recall>>2);
 					int32 val = max(minval, cell->light);
-					int32 rval = cell->lr,
-					      gval = cell->lg,
-					      bval = cell->lb;
-					if (rval >> 8 != cell->last_lr ||
-					    gval >> 8 != cell->last_lg ||
-					    bval >> 8 != cell->last_lb ||
-					    cell->last_light != cell->light >> 8) {
+					int32 rval = cache->lr,
+					      gval = cache->lg,
+					      bval = cache->lb;
+					if (rval >> 8 != cache->last_lr ||
+					    gval >> 8 != cache->last_lg ||
+					    bval >> 8 != cache->last_lb ||
+					    cache->last_light != cell->light >> 8) {
 						int32 maxcol = max(rval,max(bval,gval));
 						// cap [rgb]val at 1<<12, then scale by val
 						rval = (div_32_32(rval,maxcol) * val) >> 12;
@@ -658,37 +677,37 @@ int main(void) {
 						twiddling += read_stopwatch();
 						start_stopwatch();
 						u16 col_to_draw = RGB15(r,g,b);
-						u16 last_col = cell->last_col;
+						u16 last_col = cache->last_col;
 						if (col_to_draw != last_col) {
 							drawcq(x*8, y*8, cell->ch, col_to_draw);
-							cell->last_col = col_to_draw;
-							cell->last_lr = cell->lr >> 8;
-							cell->last_lg = cell->lg >> 8;
-							cell->last_lb = cell->lb >> 8;
-							cell->last_light = cell->light >> 8;
-							cell->dirty = 2;
-						} else if (cell->dirty > 0 || dirty > 0) {
+							cache->last_col = col_to_draw;
+							cache->last_lr = cache->lr >> 8;
+							cache->last_lg = cache->lg >> 8;
+							cache->last_lb = cache->lb >> 8;
+							cache->last_light = cell->light >> 8;
+							cache->dirty = 2;
+						} else if (cache->dirty > 0 || dirty > 0) {
 							drawcq(x*8, y*8, cell->ch, col_to_draw);
-							if (cell->dirty > 0)
-								cell->dirty--;
+							if (cache->dirty > 0)
+								cache->dirty--;
 						}
 						drawing += read_stopwatch();
 					} else {
 						twiddling += read_stopwatch();
 						start_stopwatch();
-						if (cell->dirty > 0 || dirty > 0) {
-							drawcq(x*8, y*8, cell->ch, cell->last_col);
-							if (cell->dirty > 0)
-								cell->dirty--;
+						if (cache->dirty > 0 || dirty > 0) {
+							drawcq(x*8, y*8, cell->ch, cache->last_col);
+							if (cache->dirty > 0)
+								cache->dirty--;
 						}
 						drawing += read_stopwatch();
 					}
 					cell->light = 0;
-					cell->lr = 0;
-					cell->lg = 0;
-					cell->lb = 0;
-					cell->was_visible = true;
-				} else if (cell->dirty > 0 || dirty > 0 || cell->was_visible) {
+					cache->lr = 0;
+					cache->lg = 0;
+					cache->lb = 0;
+					cache->was_visible = true;
+				} else if (cache->dirty > 0 || dirty > 0 || cache->was_visible) {
 					if (cell->recall > 0 && cell->type != T_GROUND) {
 						start_stopwatch();
 						u32 r = cell->col & 0x001f,
@@ -698,35 +717,35 @@ int main(void) {
 						r = ((r<<12) * val) >> 24;
 						g = ((g<<12) * val) >> 24;
 						b = ((b<<12) * val) >> 24;
-						cell->last_col = RGB15(r,g,b);
-						cell->last_lr = 0;
-						cell->last_lg = 0;
-						cell->last_lb = 0;
-						cell->last_light = 0;
+						cache->last_col = RGB15(r,g,b);
+						cache->last_lr = 0;
+						cache->last_lg = 0;
+						cache->last_lb = 0;
+						cache->last_light = 0;
 						twiddling += read_stopwatch();
 						start_stopwatch();
 						drawcq(x*8, y*8, cell->ch, RGB15(r,g,b));
 						drawing += read_stopwatch();
 					} else {
 						drawcq(x*8, y*8, ' ', 0); // clear
-						cell->last_col = 0;
-						cell->last_lr = 0;
-						cell->last_lg = 0;
-						cell->last_lb = 0;
-						cell->last_light = 0;
+						cache->last_col = 0;
+						cache->last_lr = 0;
+						cache->last_lg = 0;
+						cache->last_lb = 0;
+						cache->last_light = 0;
 					}
-					if (cell->was_visible) {
-						cell->was_visible = false;
-						cell->dirty = 2;
+					if (cache->was_visible) {
+						cache->was_visible = false;
+						cache->dirty = 2;
 					}
-					if (cell->dirty > 0)
-						cell->dirty--;
+					if (cache->dirty > 0)
+						cache->dirty--;
 				}
 				cell->visible = 0;
 
 				cell++; // takes into account the size of the structure, apparently
 			}
-			cell += map->w - 32; // XXX: font-specifics
+			cell += map->w - 32;
 		}
 
 		low_luminance += max(adjust*2, -low_luminance);

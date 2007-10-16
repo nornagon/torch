@@ -38,6 +38,7 @@ typedef enum {
 #define D_SOUTH_AND_WEST (D_SOUTHWEST|D_BOTH)
 typedef unsigned int DIRECTION;
 
+/*************/
 /*** light ***/
 typedef struct {
 	s32 x,y; // position in the map
@@ -47,39 +48,58 @@ typedef struct {
 	s32 dr; // radius delta
 	LIGHT_TYPE type : 8;
 } light_t;
-/*     ~     */
 
+/************/
 /*** cell ***/
 typedef struct {
 	u8 ch;
 	u16 col;
-	int32 light, last_light;
-	int32 lr,lg,lb,
-	      last_lr, last_lg, last_lb;
 	int32 recall;
+	int32 light;
 	CELL_TYPE type : 8;
-	u16 last_col;
-	u8 dirty : 2;
-	bool visible : 1;
-	bool was_visible : 1;
 	unsigned int blocked_from : 4;
+	bool visible : 1;
 	DIRECTION seen_from : 5;
 } cell_t;
-/*    ~~    */
 
+/*************/
+/*** cache ***/
+typedef struct {
+	int32 lr,lg,lb, // TODO: do these really belong in the cache?
+	      last_lr, last_lg, last_lb;
+	int32 last_light;
+	u16 last_col;
+	u8 dirty : 2;
+	bool was_visible : 1;
+} cache_t;
+
+/***********/
 /*** map ***/
 typedef struct {
 	u32 w,h;
 	cell_t* cells;
+	cache_t* cache;
+	int cacheX, cacheY; // top-left corner of cache. Should be kept positive.
 	light_t lights[MAX_LIGHTS];
 	u8 num_lights;
 	s32 pX,pY, scrollX, scrollY;
 	bool torch_on : 1;
 } map_t;
-/*    ~    */
 
+// cell at (x,y)
 static inline cell_t *cell_at(map_t *map, int x, int y) {
 	return &map->cells[y*map->w+x];
+}
+
+// cache for map cell at (x,y)
+static inline cache_t *cache_at(map_t *map, int x, int y) {
+	x -= map->scrollX;
+	y -= map->scrollY;
+	x += map->cacheX;
+	y += map->cacheY;
+	if (x >= 32) x -= 32;
+	if (y >= 24) y -= 24;
+	return &map->cache[y*32+x];
 }
 
 // XXX: these should probably live in another set of files again, leaving
@@ -92,6 +112,8 @@ static inline bool flickers(light_t *light) {
 	return light->type == L_FIRE;
 }
 
+// reset the cache
+void reset_cache(map_t *map);
 
 // clear everything in the map.
 void reset_map(map_t *map, CELL_TYPE fill);
