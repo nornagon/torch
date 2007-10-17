@@ -65,7 +65,7 @@ static inline int32 div_32_32(int32 num, int32 den) {
 // map stuff
 void new_map(map_t *map) {
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds + IPC->time.rtc.minutes*60+IPC->time.rtc.hours*60*60 + IPC->time.rtc.weekday*7*24*60*60));
-	clss();
+	clss(); // TODO: necessary?
 	random_map(map);
 	reset_cache(map);
 }
@@ -399,8 +399,6 @@ int main(void) {
 
 	int dirty = 2; // whole screen dirty first frame
 
-	u32 level = 0;
-
 	light_t player_light = {
 		.x = map->pX,
 		.y = map->pY,
@@ -442,21 +440,23 @@ int main(void) {
 		scanKeys();
 		u32 down = keysDown();
 		if (down & KEY_START) {
-			new_map(map);
+			new_map(map); // resets cache
 			map->pX = map->w/2;
 			map->pY = map->h/2;
+			player_light.x = map->pX;
+			player_light.y = map->pY;
 			frm = 5;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
-			reset_cache(map);
 			dirty = 2;
-			level = 0;
 			low_luminance = 0;
 			//iprintf("You begin again.\n");
 			continue;
 		}
 		if (down & KEY_SELECT) {
 			load_map(map, strlen(test_map), test_map);
+			player_light.x = map->pX;
+			player_light.y = map->pY;
 			frm = 5;
 			map->scrollX = 0; map->scrollY = 0;
 			if (map->pX - map->scrollX < 8 && map->scrollX > 0)
@@ -469,8 +469,8 @@ int main(void) {
 				map->scrollY = map->pY - 16;
 			vblnkDirty = 0;
 			reset_cache(map); // cache is origin-agnostic
+			clss(); // TODO: necessary?
 			dirty = 2;
-			level = 0;
 			low_luminance = 0;
 			continue;
 		}
@@ -493,9 +493,10 @@ int main(void) {
 				new_map(map);
 				map->pX = map->w/2;
 				map->pY = map->h/2;
+				player_light.x = map->pX;
+				player_light.y = map->pY;
 				map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 				vblnkDirty = 0;
-				reset_cache(map);
 				dirty = 2;
 				continue;
 			}

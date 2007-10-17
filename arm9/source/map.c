@@ -176,7 +176,7 @@ void load_map(map_t *map, size_t len, const char *desc) {
 				cell->ch = 'w';
 				cell->col = RGB15(31,12,0);
 				{
-					light_t *l = &map->lights[map->num_lights];
+					light_t *l = &map->lights[map->num_lights++];
 					l->x = x;
 					l->y = y;
 					l->r = 1.00*(1<<12);
@@ -184,7 +184,6 @@ void load_map(map_t *map, size_t len, const char *desc) {
 					l->b = 0.26*(1<<12);
 					l->radius = 9;
 					l->type = L_FIRE;
-					map->num_lights++;
 				}
 				break;
 			case 'o':
