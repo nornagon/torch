@@ -201,8 +201,8 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	if (map->torch_on) {
 		// the funny bit-twiddling here is to preserve a few more bits in dx/dy
 		// during multiplication. mulf32 is a software multiply, and thus slow.
-		int32 dx = ((l->x << 12) - (x << 12)) >> 2,
-		      dy = ((l->y << 12) - (y << 12)) >> 2,
+		int32 dx = ((l->x << 12) + l->dx - (x << 12)) >> 2,
+		      dy = ((l->y << 12) + l->dy - (y << 12)) >> 2,
 		      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
 		int32 rad = (l->radius << 12) + l->dr,
 		      rad2 = (rad * rad) >> 12;
@@ -404,9 +404,9 @@ int main(void) {
 		.y = map->pY,
 		.dx = 0,
 		.dy = 0,
-		.r = 1<<12,
-		.g = 1<<12,
-		.b = 1<<12,
+		.r = 1.00*(1<<12),
+		.g = 0.90*(1<<12),
+		.b = 0.85*(1<<12),
 		.radius = 7,
 		.dr = 0,
 		.type = T_FIRE
@@ -571,11 +571,14 @@ int main(void) {
 			player_light.x = map->pX;
 			player_light.y = map->pY;
 
-			player_light.dx = genrand_gaussian32()>>20;
-			player_light.dy = genrand_gaussian32()>>20;
-			player_light.dr = genrand_gaussian32()>>20;
-
 			u32 m = frames % 8 == 0;
+
+			if (m) {
+				player_light.dx = (genrand_gaussian32()>>21) - (1<<10);
+				player_light.dy = (genrand_gaussian32()>>21) - (1<<10);
+				player_light.dr = (genrand_gaussian32()>>20) - (1<<11);
+			}
+
 			for (i = 0; i < map->num_lights; i++) {
 				light_t *l = &map->lights[i];
 				if (flickers(l)) {
