@@ -493,7 +493,6 @@ int main(void) {
 				new_map(map);
 				map->pX = map->w/2;
 				map->pY = map->h/2;
-				// TODO: make so screen doesn't jump on down-stairs
 				map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 				vblnkDirty = 0;
 				reset_cache(map);
@@ -522,7 +521,6 @@ int main(void) {
 					map->pX += dpX; pX += dpX;
 					map->pY += dpY; pY += dpY;
 
-					// XXX: beware, here be font-specific values
 					s32 dsX = 0, dsY = 0;
 					if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
 						dsX = (pX - 8) - map->scrollX;
@@ -610,9 +608,10 @@ int main(void) {
 			light_t *l = &map->lights[i];
 
 			// don't bother if it's completely outside the screen.
-			// TODO: consider dr
-			if (l->x + l->radius < map->scrollX || l->x - l->radius > map->scrollX + 32 ||
-					l->y + l->radius < map->scrollY || l->y - l->radius > map->scrollY + 24) continue;
+			if (l->x + l->radius + (l->dr >> 12) < map->scrollX ||
+			    l->x - l->radius - (l->dr >> 12) > map->scrollX + 32 ||
+			    l->y + l->radius + (l->dr >> 12) < map->scrollY ||
+			    l->y - l->radius - (l->dr >> 12) > map->scrollY + 24) continue;
 
 			fov_circle(light, (void*)map, (void*)l, l->x + l->dx, l->y + l->dy, l->radius + 2);
 			cell_t *cell = cell_at(map, l->x + l->dx, l->y + l->dy);
@@ -623,7 +622,6 @@ int main(void) {
 				cache->lg = l->g;
 				cache->lb = l->b;
 				cell->recall = 1<<12;
-				cache->dirty = 2; // TODO: necessary?
 			}
 		}
 		counts[2] += hblnks - vc_before;
