@@ -562,6 +562,8 @@ int main(void) {
 						// wrap the cache origin
 						if (map->cacheX < 0) map->cacheX += 32;
 						if (map->cacheY < 0) map->cacheY += 24;
+						if (map->cacheX >= 32) map->cacheX -= 32;
+						if (map->cacheY >= 24) map->cacheY -= 24;
 						DIRECTION dir = direction(dsX, dsY, 0, 0);
 						scroll_screen(map, dir); // DMA the map data around so we don't have to redraw
 						copying = true;
