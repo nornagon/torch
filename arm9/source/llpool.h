@@ -42,6 +42,10 @@ static inline node_t *request_node(llpool_t *pool) {
 	return ret;
 }
 
+// walks the list and updates pointers in order to remove the node from the list
+// (and free_node() it)
+void remove_node(llpool_t *pool, node_t *list, node_t *node);
+
 static inline node_t *push_node(node_t *head, node_t *node) {
 	node->next = head;
 	return node;

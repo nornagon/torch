@@ -24,3 +24,17 @@ void flush_free(llpool_t *pool) {
 		pool->free = next;
 	}
 }
+
+void remove_node(llpool_t *pool, node_t *list, node_t *node) {
+	// walk the list
+	node_t *prev = NULL;
+	while (list != node) {
+		prev = list;
+		list = list->next;
+	}
+	// update the pointer of the node before the target if necessary
+	if (prev)
+		prev->next = node->next;
+	// add to the free pool
+	free_node(pool, node);
+}
