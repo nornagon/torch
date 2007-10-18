@@ -1,4 +1,4 @@
 * generalise scroll_screen
-* think more about falloff
+* think more about falloff - cubic is too slow, I think.
 * move by touchscreen
 * pulsating lights

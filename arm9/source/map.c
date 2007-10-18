@@ -2,6 +2,8 @@
 #include "map.h"
 #include <malloc.h>
 #include "mem.h"
+#include "process.h"
+#include "mt19937ar.h"
 
 void reset_cache(map_t *map) {
 	u32 x, y;
@@ -32,13 +34,23 @@ void reset_map(map_t* map, CELL_TYPE fill) {
 			cell->blocked_from = 0;
 			cell->seen_from = 0;
 		}
-	map->num_lights = 0;
+
+	while (map->processes) {
+		node_t *next = map->processes->next;
+		((process_t*)node_data(map->processes))->end(node_data(map->processes));
+		free_node(map->process_pool, map->processes);
+		map->processes = next;
+	}
+	flush_free(map->process_pool);
+	alloc_space(map->process_pool, 32);
 }
 map_t *create_map(u32 w, u32 h, CELL_TYPE fill) {
 	map_t *ret = malloc(sizeof(map_t));
 	ret->w = w; ret->h = h;
 	ret->cells = malloc(w*h*sizeof(cell_t));
 	ret->cache = malloc(32*24*sizeof(cache_t));
+	ret->processes = NULL;
+	ret->process_pool = new_llpool(sizeof(process_t));
 	reset_map(ret, fill);
 	reset_cache(ret);
 
@@ -56,6 +68,61 @@ void refresh_blockmap(map_t *map) {
 			if (opaque(cell_at(map, x-1, y))) blocked_from |= D_WEST;
 			cell_at(map, x, y)->blocked_from = blocked_from;
 		}
+}
+
+
+//--------------------------------XXX-----------------------------------------
+// everything below here is game-specific, and should be moved to another file
+
+void process_light(process_t *process, map_t *map) {
+	light_t *l = (light_t*)process->data;
+
+	if (l->type == L_FIRE) {
+		if (l->flickered == 4 || l->flickered == 0)
+			l->dr = (genrand_gaussian32() >> 19) - 4096;
+
+		if (l->flickered == 0) {
+			u32 m = genrand_int32();
+			if (m < (u32)(0xffffffff*0.6)) l->dx = l->dy = 0;
+			else {
+				if (m < (u32)(0xffffffff*0.7)) {
+					l->dx = 0; l->dy = 1;
+				} else if (m < (u32)(0xffffffff*0.8)) {
+					l->dx = 0; l->dy = -1;
+				} else if (m < (u32)(0xffffffff*0.9)) {
+					l->dx = 1; l->dy = 0;
+				} else {
+					l->dx = -1; l->dy = 0;
+				}
+				if (opaque(cell_at(map, l->x + l->dx, l->y + l->dy)))
+					l->dx = l->dy = 0;
+			}
+			l->flickered = 8; // flicker every 8 frames
+		} else {
+			l->flickered--;
+		}
+	}
+
+	// don't bother if it's completely outside the screen.
+	if (l->x + l->radius + (l->dr >> 12) < map->scrollX ||
+			l->x - l->radius - (l->dr >> 12) > map->scrollX + 32 ||
+			l->y + l->radius + (l->dr >> 12) < map->scrollY ||
+			l->y - l->radius - (l->dr >> 12) > map->scrollY + 24) return;
+
+	fov_circle(map->fov_light, (void*)map, (void*)l, l->x + l->dx, l->y + l->dy, l->radius + 2);
+	cell_t *cell = cell_at(map, l->x + l->dx, l->y + l->dy);
+	if (cell->visible) {
+		cell->light += (1<<12);
+		cache_t *cache = cache_at(map, l->x + l->dx, l->y + l->dy);
+		cache->lr = l->r;
+		cache->lg = l->g;
+		cache->lb = l->b;
+		cell->recall = 1<<12;
+	}
+}
+
+void end_light(process_t *process) {
+	free(process->data);
 }
 
 void random_map(map_t *map) {
@@ -79,7 +146,7 @@ void random_map(map_t *map) {
 			cell->type = T_FIRE;
 			cell->ch = 'w';
 			cell->col = RGB15(31,12,0);
-			light_t *l = &map->lights[map->num_lights];
+			light_t *l = (light_t*)malloc(sizeof(light_t));
 			l->x = x;
 			l->y = y;
 			l->r = 1.00*(1<<12);
@@ -87,7 +154,12 @@ void random_map(map_t *map) {
 			l->b = 0.26*(1<<12);
 			l->radius = 9;
 			l->type = L_FIRE;
-			map->num_lights++;
+			node_t *node = request_node(map->process_pool);
+			process_t *process = node_data(node);
+			process->process = process_light;
+			process->end = end_light;
+			process->data = (void*)l;
+			map->processes = push_node(map->processes, node);
 		} else if (cell->type == T_TREE) {
 			cell->type = T_GROUND;
 			u8 b = a & 3; // top two bits of a
@@ -176,7 +248,7 @@ void load_map(map_t *map, size_t len, const char *desc) {
 				cell->ch = 'w';
 				cell->col = RGB15(31,12,0);
 				{
-					light_t *l = &map->lights[map->num_lights++];
+					light_t *l = (light_t*)malloc(sizeof(light_t));
 					l->x = x;
 					l->y = y;
 					l->r = 1.00*(1<<12);
@@ -184,6 +256,12 @@ void load_map(map_t *map, size_t len, const char *desc) {
 					l->b = 0.26*(1<<12);
 					l->radius = 9;
 					l->type = L_FIRE;
+					node_t *node = request_node(map->process_pool);
+					process_t *process = node_data(node);
+					process->process = process_light;
+					process->end = end_light;
+					process->data = (void*)l;
+					map->processes = push_node(map->processes, node);
 				}
 				break;
 			case 'o':
@@ -201,7 +279,7 @@ make:
 				cell->type = T_LIGHT;
 				cell->ch = 'o';
 				{
-					light_t *l = &map->lights[map->num_lights];
+					light_t *l = malloc(sizeof(light_t));
 					l->x = x;
 					l->y = y;
 					if (c == 'o') {
@@ -223,7 +301,12 @@ make:
 					}
 					l->radius = 8;
 					l->type = L_GLOWER;
-					map->num_lights++;
+					node_t *node = request_node(map->process_pool);
+					process_t *process = node_data(node);
+					process->process = process_light;
+					process->end = end_light;
+					process->data = (void*)l;
+					map->processes = push_node(map->processes, node);
 				}
 				break;
 			case '\n':

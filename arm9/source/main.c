@@ -11,6 +11,8 @@
 #include "draw.h"
 #include "map.h"
 
+#include "llpool.h"
+#include "process.h"
 
 //---------------------------------------------------------------------------
 // timers
@@ -34,12 +36,6 @@ inline int min(int a, int b) {
 inline int max(int a, int b) {
 	if (a > b) return a;
 	return b;
-}
-
-// a convolution of a uniform distribution with itself is close to Gaussian
-u32 genrand_gaussian32() {
-	return (u32)((genrand_int32()>>2) + (genrand_int32()>>2) +
-			(genrand_int32()>>2) + (genrand_int32()>>2));
 }
 
 // raw divide, you'll have to check DIV_RESULT32 and DIV_BUSY yourself.
@@ -337,6 +333,8 @@ void scroll_screen(map_t *map, DIRECTION dir) {
 }
 
 
+
+
 //---------------------------------------------------------------------------
 int main(void) {
 //---------------------------------------------------------------------------
@@ -371,12 +369,6 @@ int main(void) {
 	fov_settings_set_opacity_test_function(sight, sight_opaque);
 	fov_settings_set_apply_lighting_function(sight, apply_sight);
 
-	fov_settings_type *light = malloc(sizeof(fov_settings_type));
-	fov_settings_init(light);
-	fov_settings_set_shape(light, FOV_SHAPE_OCTAGON);
-	fov_settings_set_opacity_test_function(light, opacity_test);
-	fov_settings_set_apply_lighting_function(light, apply_light);
-	
 	swiWaitForVBlank();
 	u32 seed = IPC->time.rtc.seconds;
 	seed += IPC->time.rtc.minutes*60;
@@ -385,7 +377,15 @@ int main(void) {
 	init_genrand(seed);
 
 	map_t *map = create_map(128,128, T_TREE);
+
 	random_map(map);
+
+	fov_settings_type *light = malloc(sizeof(fov_settings_type));
+	fov_settings_init(light);
+	fov_settings_set_shape(light, FOV_SHAPE_OCTAGON);
+	fov_settings_set_opacity_test_function(light, opacity_test);
+	fov_settings_set_apply_lighting_function(light, apply_light);
+	map->fov_light = light;
 
 	map->pX = map->w/2;
 	map->pY = map->h/2;
@@ -571,36 +571,10 @@ int main(void) {
 			player_light.x = map->pX;
 			player_light.y = map->pY;
 
-			u32 m = frames % 8 == 0;
-
-			if (m) {
+			if (frames % 8 == 0) {
 				player_light.dx = (genrand_gaussian32()>>21) - (1<<10);
 				player_light.dy = (genrand_gaussian32()>>21) - (1<<10);
 				player_light.dr = (genrand_gaussian32()>>20) - (1<<11);
-			}
-
-			for (i = 0; i < map->num_lights; i++) {
-				light_t *l = &map->lights[i];
-				if (flickers(l)) {
-					l->dr = (genrand_gaussian32() >> 19) - 4096;
-					if (m) {
-						m = genrand_int32();
-						if (m < (u32)(0xffffffff*0.6)) l->dx = l->dy = 0;
-						else {
-							if (m < (u32)(0xffffffff*0.7)) {
-								l->dx = 0; l->dy = 1;
-							} else if (m < (u32)(0xffffffff*0.8)) {
-								l->dx = 0; l->dy = -1;
-							} else if (m < (u32)(0xffffffff*0.9)) {
-								l->dx = 1; l->dy = 0;
-							} else {
-								l->dx = -1; l->dy = 0;
-							}
-							if (opaque(cell_at(map, l->x + l->dx, l->y + l->dy)))
-								l->dx = l->dy = 0;
-						}
-					}
-				}
 			}
 		}
 
@@ -608,25 +582,11 @@ int main(void) {
 		counts[1] += hblnks - vc_before;
 
 		vc_before = hblnks;
-		for (i = 0; i < map->num_lights; i++) {
-			light_t *l = &map->lights[i];
-
-			// don't bother if it's completely outside the screen.
-			if (l->x + l->radius + (l->dr >> 12) < map->scrollX ||
-			    l->x - l->radius - (l->dr >> 12) > map->scrollX + 32 ||
-			    l->y + l->radius + (l->dr >> 12) < map->scrollY ||
-			    l->y - l->radius - (l->dr >> 12) > map->scrollY + 24) continue;
-
-			fov_circle(light, (void*)map, (void*)l, l->x + l->dx, l->y + l->dy, l->radius + 2);
-			cell_t *cell = cell_at(map, l->x + l->dx, l->y + l->dy);
-			if (cell->visible) {
-				cell->light = low_luminance + (1<<12);
-				cache_t *cache = cache_at(map, l->x + l->dx, l->y + l->dy);
-				cache->lr = l->r;
-				cache->lg = l->g;
-				cache->lb = l->b;
-				cell->recall = 1<<12;
-			}
+		node_t *node = map->processes;
+		while (node) {
+			process_t *proc = node_data(node);
+			proc->process(proc, map);
+			node = node->next;
 		}
 		counts[2] += hblnks - vc_before;
 

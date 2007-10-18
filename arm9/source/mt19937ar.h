@@ -1,3 +1,5 @@
+#ifndef MT19937AR_H
+#define MT19937AR_H 1
 /* 
    A C-program for MT19937, with initialization improved 2002/1/26.
    Coded by Takuji Nishimura and Makoto Matsumoto.
@@ -77,3 +79,11 @@ unsigned long ITCM_CODE genrand_int32(void);
 
 /* generates a random number on [0,1) with 53-bit resolution*/
 //double genrand_res53(void);
+
+// a convolution of a uniform distribution with itself is close to Gaussian
+static inline unsigned long genrand_gaussian32() {
+	return (u32)((genrand_int32()>>2) + (genrand_int32()>>2) +
+			(genrand_int32()>>2) + (genrand_int32()>>2));
+}
+
+#endif /* MT19937AR_H */

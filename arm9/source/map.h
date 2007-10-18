@@ -4,7 +4,8 @@
 #include <nds.h>
 #include <string.h>
 
-#define MAX_LIGHTS 32
+#include "llpool.h"
+#include "fov.h"
 
 typedef enum {
 	T_TREE,
@@ -41,12 +42,13 @@ typedef unsigned int DIRECTION;
 /*************/
 /*** light ***/
 typedef struct {
+	LIGHT_TYPE type : 8;
 	s32 x,y; // position in the map
 	int32 dx,dy; // position delta (for flickering)
 	int32 r,g,b;
 	u8 radius;
 	s32 dr; // radius delta
-	LIGHT_TYPE type : 8;
+	u8 flickered;
 } light_t;
 
 /************/
@@ -80,8 +82,9 @@ typedef struct {
 	cell_t* cells;
 	cache_t* cache;
 	int cacheX, cacheY; // top-left corner of cache. Should be kept positive.
-	light_t lights[MAX_LIGHTS];
-	u8 num_lights;
+	llpool_t *process_pool;
+	node_t *processes;
+	fov_settings_type *fov_light;
 	s32 pX,pY, scrollX, scrollY;
 	bool torch_on : 1;
 } map_t;
