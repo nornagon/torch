@@ -81,6 +81,12 @@ void refresh_blockmap(map_t *map) {
 		}
 }
 
+process_t *new_process(map_t *map) {
+	node_t *node = request_node(map->process_pool);
+	map->processes = push_node(map->processes, node);
+	return node_data(node);
+}
+
 
 //--------------------------------XXX-----------------------------------------
 // everything below here is game-specific, and should be moved to another file
@@ -179,13 +185,11 @@ void random_map(map_t *map) {
 			l->radius = 9;
 			l->type = L_FIRE;
 
-			// add the fire to the process list (TODO: make this prettier)
-			node_t *node = request_node(map->process_pool);
-			process_t *process = node_data(node);
+			// add the fire to the process list
+			process_t *process = new_process(map);
 			process->process = process_light;
 			process->end = end_light;
 			process->data = (void*)l;
-			map->processes = push_node(map->processes, node);
 		} else if (cell->type == T_TREE) { // clear away some tree
 			cell->type = T_GROUND;
 			unsigned int b = a & 3; // top two bits of a
@@ -293,12 +297,10 @@ void load_map(map_t *map, size_t len, const char *desc) {
 					l->radius = 9;
 					l->type = L_FIRE;
 					// add the light to the process list
-					node_t *node = request_node(map->process_pool);
-					process_t *process = node_data(node);
+					process_t *process = new_process(map);
 					process->process = process_light;
 					process->end = end_light;
 					process->data = (void*)l;
-					map->processes = push_node(map->processes, node);
 				}
 				break;
 			case 'o':
@@ -339,12 +341,10 @@ make:
 					l->radius = 8;
 					l->type = L_GLOWER;
 
-					node_t *node = request_node(map->process_pool);
-					process_t *process = node_data(node);
+					process_t *process = new_process(map);
 					process->process = process_light;
 					process->end = end_light;
 					process->data = (void*)l;
-					map->processes = push_node(map->processes, node);
 				}
 				break;
 			case '\n': // reached the end of the line, so move down

@@ -6,6 +6,7 @@
 
 #include "llpool.h"
 #include "fov.h"
+#include "process.h"
 
 typedef enum {
 	T_TREE,
@@ -85,7 +86,7 @@ typedef struct {
 
 // map_t holds map information as well as game state. TODO: perhaps general game
 // state should be seperated out into a game_t? Maybe also a player_t.
-typedef struct {
+typedef struct map_s {
 	u32 w,h;
 
 	llpool_t *process_pool;
@@ -141,6 +142,9 @@ static inline bool opaque(cell_t* cell) {
 static inline bool flickers(light_t *light) {
 	return light->type == L_FIRE;
 }
+
+// request a new process node and add it to the list, returning the process.
+process_t *new_process(map_t *map);
 
 // reset the cache
 void reset_cache(map_t *map);
