@@ -241,7 +241,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		div_32_32_raw(dist2<<8, rad2>>4);
 
 		DIRECTION d = D_NONE;
-		if (opaque(cell))
+		if (opaque(cell)) // XXX: opacity checks need to be outsourced to game
 			d = seen_from(map, direction(l->x, l->y, x, y), cell);
 		cache_t *cache = cache_at(map, x, y);
 
@@ -363,23 +363,25 @@ int main(void) {
 
 	consoleInitDefault((u16*)SCREEN_BASE_BLOCK_SUB(31), (u16*)CHAR_BASE_BLOCK_SUB(0), 16);
 
+	// XXX: move into game
 	fov_settings_type *sight = malloc(sizeof(fov_settings_type));
 	fov_settings_init(sight);
 	fov_settings_set_shape(sight, FOV_SHAPE_SQUARE);
 	fov_settings_set_opacity_test_function(sight, sight_opaque);
 	fov_settings_set_apply_lighting_function(sight, apply_sight);
 
-	swiWaitForVBlank();
+	swiWaitForVBlank(); // sync with arm7
 	u32 seed = IPC->time.rtc.seconds;
 	seed += IPC->time.rtc.minutes*60;
 	seed += IPC->time.rtc.hours*60*60;
 	seed += IPC->time.rtc.weekday*7*24*60*60;
 	init_genrand(seed);
 
-	map_t *map = create_map(128,128, T_TREE);
+	map_t *map = create_map(128, 128);
 
 	random_map(map);
 
+	// the fov_settings_type that will be used for non-player-held lights.
 	fov_settings_type *light = malloc(sizeof(fov_settings_type));
 	fov_settings_init(light);
 	fov_settings_set_shape(light, FOV_SHAPE_OCTAGON);
@@ -389,16 +391,18 @@ int main(void) {
 
 	map->pX = map->w/2;
 	map->pY = map->h/2;
-	map->torch_on = true;
+	map->torch_on = true; // XXX: move into game
 
 	u32 x, y;
 	u32 frm = 0;
 
+	// centre the player on the screen
 	map->scrollX = map->w/2 - 16;
 	map->scrollY = map->h/2 - 12;
 
 	int dirty = 2; // whole screen dirty first frame
 
+	// XXX: move into game
 	light_t player_light = {
 		.x = map->pX,
 		.y = map->pY,
@@ -412,12 +416,15 @@ int main(void) {
 		.type = T_FIRE
 	};
 
+	// profiling stuff (for counting hblanks)
 	u32 vc_before;
 	u32 counts[10];
 	for (vc_before = 0; vc_before < 10; vc_before++) counts[vc_before] = 0;
 
+	// for luminance window stuff
 	u32 low_luminance = 0;
 
+	// we need to keep track of where we scroll due to double-buffering.
 	DIRECTION just_scrolled = 0;
 
 	while (1) {
@@ -432,11 +439,13 @@ int main(void) {
 		bool copying = false;
 
 		if (just_scrolled) {
+			// update the new backbuffer
 			scroll_screen(map, just_scrolled);
 			copying = true;
 			just_scrolled = 0;
 		}
 
+		// TODO: outsource key handling to game
 		scanKeys();
 		u32 down = keysDown();
 		if (down & KEY_START) {
@@ -477,18 +486,9 @@ int main(void) {
 		if (down & KEY_B)
 			map->torch_on = !map->torch_on;
 
-		if (frm == 0) {
+		if (frm == 0) { // we don't check these things every frame; that's way too fast.
 			u32 keys = keysHeld();
-			int dpX = 0, dpY = 0;
-			if (keys & KEY_RIGHT)
-				dpX = 1;
-			if (keys & KEY_LEFT)
-				dpX = -1;
-			if (keys & KEY_DOWN)
-				dpY = 1;
-			if (keys & KEY_UP)
-				dpY = -1;
-			if (keys & KEY_A && map->cells[map->pY*map->w+map->pX].type == T_STAIRS) {
+			if (keys & KEY_A && cell_at(map, map->pX, map->pY)->type == T_STAIRS) {
 				//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
 				new_map(map);
 				map->pX = map->w/2;
@@ -500,6 +500,16 @@ int main(void) {
 				dirty = 2;
 				continue;
 			}
+
+			int dpX = 0, dpY = 0;
+			if (keys & KEY_RIGHT)
+				dpX = 1;
+			if (keys & KEY_LEFT)
+				dpX = -1;
+			if (keys & KEY_DOWN)
+				dpY = 1;
+			if (keys & KEY_UP)
+				dpY = -1;
 			s32 pX = map->pX, pY = map->pY;
 			// bumping into a wall takes some time
 			if (pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
@@ -518,11 +528,12 @@ int main(void) {
 					dpX = dpY = 0;
 					frm = 2;
 				} else {
-					cache_at(map, pX, pY)->dirty = 2;
-					map->pX += dpX; pX += dpX;
-					map->pY += dpY; pY += dpY;
+					cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
+					pX += dpX; map->pX = pX;
+					pY += dpY; map->pY = pY;
 
 					s32 dsX = 0, dsY = 0;
+					// keep the screen vaguely centred on the player (gap of 8 cells)
 					if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
 						dsX = (pX - 8) - map->scrollX;
 						map->scrollX = pX - 8;
@@ -548,17 +559,18 @@ int main(void) {
 
 						map->cacheX += dsX;
 						map->cacheY += dsY;
+						// wrap the cache origin
 						if (map->cacheX < 0) map->cacheX += 32;
 						if (map->cacheY < 0) map->cacheY += 24;
 						DIRECTION dir = direction(dsX, dsY, 0, 0);
-						scroll_screen(map, dir);
+						scroll_screen(map, dir); // DMA the map data around so we don't have to redraw
 						copying = true;
 						just_scrolled = dir;
 					}
 				}
 			}
 		}
-		if (frm > 0)
+		if (frm > 0) // await the players command (we check every frame if frm == 0)
 			frm--;
 		counts[0] += hblnks - vc_before;
 
@@ -582,6 +594,7 @@ int main(void) {
 		counts[1] += hblnks - vc_before;
 
 		vc_before = hblnks;
+		// run all the game processes
 		node_t *node = map->processes;
 		while (node) {
 			process_t *proc = node_data(node);
@@ -590,6 +603,7 @@ int main(void) {
 		}
 		counts[2] += hblnks - vc_before;
 
+		// wait for DMA to finish
 		if (copying)
 			while (dmaBusy(3));
 
@@ -600,13 +614,15 @@ int main(void) {
 		u32 twiddling = 0;
 		u32 drawing = 0;
 
+		// adjust is a war between values above the top of the luminance window and
+		// values below the bottom
 		s32 adjust = 0;
 		u32 max_luminance = 0;
 
 		cell_t *cell = cell_at(map, map->scrollX, map->scrollY);
 		for (y = 0; y < 24; y++) {
 			for (x = 0; x < 32; x++) {
-				cache_t *cache = cache_at(map, map->scrollX + x, map->scrollY + y);
+				cache_t *cache = cache_at_s(map, x, y);
 
 				if (cell->visible && cell->light > 0) {
 					start_stopwatch();
@@ -621,20 +637,25 @@ int main(void) {
 					} else
 						cell->light -= low_luminance;
 
+					// eke out the colour values from the 15-bit colour
 					u32 r = cell->col & 0x001f,
 					    g = (cell->col & 0x03e0) >> 5,
 					    b = (cell->col & 0x7c00) >> 10;
+					// fade out to the recalled colour (or 0 for ground)
 					int32 minval = cell->type == T_GROUND ? 0 : (cell->recall>>2);
 					int32 val = max(minval, cell->light);
 					int32 rval = cache->lr,
 					      gval = cache->lg,
 					      bval = cache->lb;
+					// if the values are pretty close to what they were before, don't
+					// bother recalculating.
 					if (rval >> 8 != cache->last_lr ||
 					    gval >> 8 != cache->last_lg ||
 					    bval >> 8 != cache->last_lb ||
 					    cache->last_light != cell->light >> 8) {
 						int32 maxcol = max(rval,max(bval,gval));
-						// cap [rgb]val at 1<<12, then scale by val
+						// scale [rgb]val by the luminance, and keep the ratio between the
+						// colours the same
 						rval = (div_32_32(rval,maxcol) * val) >> 12;
 						gval = (div_32_32(gval,maxcol) * val) >> 12;
 						bval = (div_32_32(bval,maxcol) * val) >> 12;
@@ -679,6 +700,7 @@ int main(void) {
 					cache->lb = 0;
 					cache->was_visible = true;
 				} else if (cache->dirty > 0 || dirty > 0 || cache->was_visible) {
+					// dirty or it was visible last frame and now isn't.
 					if (cell->recall > 0 && cell->type != T_GROUND) {
 						start_stopwatch();
 						u32 r = cell->col & 0x001f,
@@ -707,7 +729,7 @@ int main(void) {
 					}
 					if (cache->was_visible) {
 						cache->was_visible = false;
-						cache->dirty = 2;
+						cache->dirty = 2; // TODO: should this be 1 or 2? Or even here at all?
 					}
 					if (cache->dirty > 0)
 						cache->dirty--;
@@ -716,10 +738,11 @@ int main(void) {
 
 				cell++; // takes into account the size of the structure, apparently
 			}
-			cell += map->w - 32;
+			cell += map->w - 32; // the next cell down
 		}
 
-		low_luminance += max(adjust*2, -low_luminance);
+		low_luminance += max(adjust*2, -low_luminance); // adjust to fit at twice the difference
+		// drift towards having luminance values on-screen placed at maximum brightness.
 		if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
 			low_luminance -= min(40,low_luminance);
 		iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
@@ -739,9 +762,10 @@ int main(void) {
 		frames += 1;
 		if (vblnks >= 60) {
 			iprintf("\x1b[0;19H%02dfps", (frames * 64 - frames * 4) / vblnks);
-			iprintf("\x1b[2;0HKeys:    %05d\nSight:   %05d\nLights:  %05d\nDrawing: %05d\n",
+			iprintf("\x1b[2;0HKeys:    %05d\nSight:   %05d\nProcess: %05d\nDrawing: %05d\n",
 					counts[0], counts[1], counts[2], counts[3]);
-			iprintf("         -----\nLeft:    %05d\n", counts[4] - counts[0] - counts[1] - counts[2] - counts[3]);
+			iprintf("         -----\nLeft:    %05d\n",
+					counts[4] - counts[0] - counts[1] - counts[2] - counts[3]);
 			for (i = 0; i < 10; i++) counts[i] = 0;
 			vblnks = frames = 0;
 		}

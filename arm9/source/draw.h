@@ -3,6 +3,7 @@
 
 #include <nds.h>
 
+// pointer to vram that is not being drawn currently
 extern u16* backbuf;
 
 // swap the back buffer out to be displayed next drawing time
