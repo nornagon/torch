@@ -149,6 +149,26 @@ void end_light(process_t *process) {
 	free(process->data); // the light_t struct we were keeping
 }
 
+void lake(map_t *map, s32 x, s32 y) {
+	u32 i;
+	for (i = 0; i < 64; i++) {
+		cell_t *cell = cell_at(map, x, y);
+		if (cell->type != T_FIRE) {
+			cell->type = T_WATER;
+			cell->ch = '~';
+			cell->col = RGB15(6,9,31);
+		}
+		u32 a = genrand_int32();
+		if (a & 1) {
+			if (a & 2) x += 1;
+			else x -= 1;
+		} else {
+			if (a & 2) y += 1;
+			else y -= 1;
+		}
+	}
+}
+
 void random_map(map_t *map) {
 	s32 x,y;
 	reset_map(map);
@@ -167,6 +187,8 @@ void random_map(map_t *map) {
 	// place some fires
 	u32 light1 = genrand_int32() >> 21, // between 0 and 2047
 			light2 = light1 + 40;
+
+	u32 lakepos = (genrand_int32()>>21) + 4096; // hopefully away from the fires
 
 	u32 i;
 	for (i = 8192; i > 0; i--) { // 8192 steps of the drunkard's walk
@@ -190,6 +212,8 @@ void random_map(map_t *map) {
 			process->process = process_light;
 			process->end = end_light;
 			process->data = (void*)l;
+		} else if (i == lakepos) {
+			lake(map, x, y);
 		} else if (cell->type == T_TREE) { // clear away some tree
 			cell->type = T_GROUND;
 			unsigned int b = a & 3; // top two bits of a
