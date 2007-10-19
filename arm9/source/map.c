@@ -140,20 +140,29 @@ void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
 //--------------------------------XXX-----------------------------------------
 // everything below here is game-specific, and should be moved to another file
 
-u32 random_colour(object_t *obj, map_t *map) {
-	return ((map->objtypes[obj->type].ch)<<16) | (genrand_int32()&0xffff);
+void draw_light(light_t *l, map_t *map) {
+	// don't bother calculating if the light's completely outside the screen.
+	if (l->x + l->radius + (l->dr >> 12) < map->scrollX ||
+	    l->x - l->radius - (l->dr >> 12) > map->scrollX + 32 ||
+	    l->y + l->radius + (l->dr >> 12) < map->scrollY ||
+	    l->y - l->radius - (l->dr >> 12) > map->scrollY + 24) return;
+
+	// calculate lighting values
+	fov_circle(map->fov_light, (void*)map, (void*)l,
+			l->x + (l->dx>>12), l->y + (l->dy>>12), l->radius + 2);
+
+	// since fov_circle doesn't touch the origin tile, we'll do its lighting
+	// manually here.
+	cell_t *cell = cell_at(map, l->x + (l->dx>>12), l->y + (l->dy>>12));
+	if (cell->visible) {
+		cell->light += (1<<12);
+		cache_t *cache = cache_at(map, l->x + (l->dx>>12), l->y + (l->dy>>12));
+		cache->lr = l->r;
+		cache->lg = l->g;
+		cache->lb = l->b;
+		cell->recall = 1<<12;
+	}
 }
-
-objecttype_t objects[] = {
-	// 0: unknown object
-	{ .ch = '?',
-	  .col = RGB15(31,31,31),
-	  .importance = 3,
-	  .display = random_colour,
-	  .end = NULL
-	},
-};
-
 
 void process_light(process_t *process, map_t *map) {
 	light_t *l = (light_t*)process->data;
@@ -186,32 +195,87 @@ void process_light(process_t *process, map_t *map) {
 		}
 	}
 
-	// don't bother calculating if the light's completely outside the screen.
-	if (l->x + l->radius + (l->dr >> 12) < map->scrollX ||
-	    l->x - l->radius - (l->dr >> 12) > map->scrollX + 32 ||
-	    l->y + l->radius + (l->dr >> 12) < map->scrollY ||
-	    l->y - l->radius - (l->dr >> 12) > map->scrollY + 24) return;
-
-	// calculate lighting values
-	fov_circle(map->fov_light, (void*)map, (void*)l,
-			l->x + (l->dx>>12), l->y + (l->dy>>12), l->radius + 2);
-
-	// since fov_circle doesn't touch the origin tile, we'll do its lighting
-	// manually here.
-	cell_t *cell = cell_at(map, l->x + (l->dx>>12), l->y + (l->dy>>12));
-	if (cell->visible) {
-		cell->light += (1<<12);
-		cache_t *cache = cache_at(map, l->x + (l->dx>>12), l->y + (l->dy>>12));
-		cache->lr = l->r;
-		cache->lg = l->g;
-		cache->lb = l->b;
-		cell->recall = 1<<12;
-	}
+	draw_light(l, map);
 }
 
 void end_light(process_t *process) {
 	free(process->data); // the light_t struct we were keeping
 }
+
+u32 random_colour(object_t *obj, map_t *map) {
+	return ((map->objtypes[obj->type].ch)<<16) | (genrand_int32()&0xffff);
+}
+
+// TODO: preprocessor magic to make this easier
+typedef struct {
+	process_t *light_proc;
+	process_t *thought_proc;
+	light_t *light;
+} mon_WillOWisp_t;
+
+void mon_WillOWisp_light(process_t *process, map_t *map) {
+	mon_WillOWisp_t *wisp = process->data;
+	draw_light(wisp->light, map);
+}
+
+void mon_WillOWisp_thought(process_t *process, map_t *map) {
+}
+
+void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
+	mon_WillOWisp_t *wisp = malloc(sizeof(mon_WillOWisp_t));
+
+	process_t *light_proc = new_process(map);
+	light_proc->process = mon_WillOWisp_light;
+	light_proc->data = wisp;
+
+	process_t *thought_proc = new_process(map);
+	thought_proc->process = mon_WillOWisp_thought;
+	thought_proc->data = wisp;
+
+	wisp->light_proc = light_proc;
+	wisp->thought_proc = thought_proc;
+
+	light_t *light = malloc(sizeof(light_t));
+	light->type = L_GLOWER;
+	light->x = x;
+	light->y = y;
+	light->dx = 0;
+	light->dy = 0;
+	light->dr = 0;
+
+	// TODO: magic to make this easier
+	light->r = 0.23*(1<<12);
+	light->g = 0.87*(1<<12);
+	light->b = 1.00*(1<<12);
+
+	light->radius = 4;
+
+	wisp->light = light;
+
+  node_t *obj_node = request_node(map->object_pool);
+  object_t *obj = node_data(obj_node);
+  obj->type = 1;
+  insert_object(map, obj_node, x, y);
+}
+
+
+objecttype_t objects[] = {
+	// 0: unknown object
+	{ .ch = '?',
+	  .col = RGB15(31,31,31),
+	  .importance = 3,
+	  .display = random_colour,
+	  .end = NULL
+	},
+	// 1: will o' wisp
+	{ .ch = 'o',
+	  .col = RGB15(7,31,27),
+	  .importance = 128,
+	  .display = NULL,
+	  .end = NULL,
+	}
+};
+
 
 void lake(map_t *map, s32 x, s32 y) {
 	u32 i;
@@ -266,6 +330,9 @@ void random_map(map_t *map) {
 	for (i = 8192; i > 0; i--) { // 8192 steps of the drunkard's walk
 		cell_t *cell = cell_at(map, x, y);
 		u32 a = genrand_int32();
+		if (i == 8191) {
+			new_mon_WillOWisp(map, x, y);
+		}
 		if (i == light1 || i == light2) { // place a fire here
 			cell->type = T_FIRE;
 			cell->ch = 'w';

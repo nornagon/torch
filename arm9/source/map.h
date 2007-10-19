@@ -54,7 +54,7 @@ typedef unsigned int DIRECTION;
 typedef struct {
 	LIGHT_TYPE type : 8;
 	s32 x,y; // position in the map
-	int32 dx,dy; // position delta (for flickering)
+	int32 dx,dy; // position delta (for flickering) (TODO: move to process state)
 	int32 r,g,b;
 	u8 radius;
 	s32 dr; // radius delta
