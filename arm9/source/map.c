@@ -141,7 +141,7 @@ void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
 // everything below here is game-specific, and should be moved to another file
 
 u32 random_colour(object_t *obj, map_t *map) {
-	return ('%'<<16) | (genrand_int32()&0xffff);
+	return ((map->objtypes[obj->type].ch)<<16) | (genrand_int32()&0xffff);
 }
 
 objecttype_t objects[] = {
