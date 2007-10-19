@@ -305,9 +305,13 @@ objecttype_t objects[] = {
 
 
 void lake(map_t *map, s32 x, s32 y) {
+	u32 wisppos = genrand_int32()&0x3f; // between 0 and 63
 	u32 i;
 	for (i = 0; i < 64; i++) {
 		cell_t *cell = cell_at(map, x, y);
+		if (i == wisppos) {
+			new_mon_WillOWisp(map, x, y);
+		}
 		if (cell->type != T_FIRE) {
 			cell->type = T_WATER;
 			cell->ch = '~';
@@ -357,9 +361,6 @@ void random_map(map_t *map) {
 	for (i = 8192; i > 0; i--) { // 8192 steps of the drunkard's walk
 		cell_t *cell = cell_at(map, x, y);
 		u32 a = genrand_int32();
-		if (i == 8191) {
-			new_mon_WillOWisp(map, x, y);
-		}
 		if (i == light1 || i == light2) { // place a fire here
 			cell->type = T_FIRE;
 			cell->ch = 'w';
