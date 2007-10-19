@@ -212,6 +212,8 @@ typedef struct {
 	node_t *thought_node;
 	light_t *light;
 	node_t *obj_node;
+	s32 homeX, homeY;
+	u32 counter;
 } mon_WillOWisp_t;
 
 void mon_WillOWisp_light(process_t *process, map_t *map) {
@@ -220,28 +222,67 @@ void mon_WillOWisp_light(process_t *process, map_t *map) {
 }
 
 void mon_WillOWisp_thought(process_t *process, map_t *map) {
+	mon_WillOWisp_t *wisp = process->data;
+	if (wisp->counter == 0) {
+		int dir = genrand_int32() % 4;
+		int dX = 0, dY = 0;
+		switch (dir) {
+			case 0: dX = 1; dY = 0; break;
+			case 1: dX = -1; dY = 0; break;
+			case 2: dX = 0; dY = 1; break;
+			case 3: dX = 0; dY = -1; break;
+		}
+
+		object_t *obj = node_data(wisp->obj_node);
+
+		// stay within a Manhattan distance of 20 of the home.
+		if (obj->x + dX < 0 || obj->x + dX >= map->w ||
+				obj->y + dY < 0 || obj->y + dY >= map->h ||
+				opaque(cell_at(map, obj->x + dX, obj->y + dY)) ||
+		    abs(obj->x + dX - wisp->homeX) + abs(obj->y + dY - wisp->homeY) > 20)
+			dX = dY = 0;
+
+		if (dX || dY) {
+			cell_t *cell = cell_at(map, obj->x, obj->y);
+			cell->objects = remove_node(cell->objects, wisp->obj_node);
+			insert_object(map, wisp->obj_node, obj->x + dX, obj->y + dY);
+			wisp->light->x = obj->x;
+			wisp->light->y = obj->y;
+		}
+		wisp->counter = 40;
+	} else
+		wisp->counter--;
 }
 
 void mon_WillOWisp_obj_end(object_t *object, map_t *map) {
 	mon_WillOWisp_t *wisp = object->data;
-	remove_node(map->process_pool, map->processes, wisp->light_node);
-	remove_node(map->process_pool, map->processes, wisp->thought_node);
+	map->processes = remove_node(map->processes, wisp->light_node);
+	free_node(map->process_pool, wisp->light_node);
+	map->processes = remove_node(map->processes, wisp->thought_node);
+	free_node(map->process_pool, wisp->thought_node);
 	free(wisp->light);
 	free(wisp);
 }
 
 void mon_WillOWisp_proc_end(process_t *process, map_t *map) {
 	mon_WillOWisp_t *wisp = process->data;
-	if (process == node_data(wisp->light_node))
-		remove_node(map->process_pool, map->processes, wisp->thought_node);
-	else
-		remove_node(map->process_pool, map->processes, wisp->light_node);
+	if (process == node_data(wisp->light_node)) {
+		map->processes = remove_node(map->processes, wisp->thought_node);
+		free_node(map->process_pool, wisp->thought_node);
+	} else {
+		map->processes = remove_node(map->processes, wisp->light_node);
+		free_node(map->process_pool, wisp->light_node);
+	}
 	free(wisp->light);
 	free(wisp);
 }
 
 void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 	mon_WillOWisp_t *wisp = malloc(sizeof(mon_WillOWisp_t));
+
+	wisp->homeX = x;
+	wisp->homeY = y;
+	wisp->counter = 0;
 
 	node_t *light_node = request_node(map->process_pool);
 	map->processes = push_node(map->processes, light_node);

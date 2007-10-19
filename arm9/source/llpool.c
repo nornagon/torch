@@ -25,16 +25,20 @@ void flush_free(llpool_t *pool) {
 	}
 }
 
-void remove_node(llpool_t *pool, node_t *list, node_t *node) {
+node_t *remove_node(node_t *list, node_t *node) {
 	// walk the list
 	node_t *prev = NULL;
-	while (list != node) {
-		prev = list;
-		list = list->next;
+	node_t *k = list;
+	while (k != node) {
+		prev = k;
+		k = k->next;
 	}
 	// update the pointer of the node before the target if necessary
 	if (prev)
 		prev->next = node->next;
-	// add to the free pool
-	free_node(pool, node);
+	else
+		return k->next;
+	return list;
+	// don't free it; the caller might want to add it to another list.
+	// if not, it's their responsibility to free the node.
 }
