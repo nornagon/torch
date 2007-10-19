@@ -14,6 +14,7 @@ void reset_cache(map_t *map) {
 			cache->last_lr = cache->last_lg = cache->last_lb = 0;
 			cache->last_light = 0;
 			cache->last_col = 0;
+			cache->last_col_final = 0;
 			cache->dirty = 0;
 			cache->was_visible = 0;
 		}
@@ -76,6 +77,8 @@ map_t *create_map(u32 w, u32 h) {
 	ret->processes = NULL;
 	ret->process_pool = new_llpool(sizeof(process_t));
 
+	ret->object_pool = new_llpool(sizeof(object_t));
+
 	reset_map(ret);
 	reset_cache(ret);
 
@@ -137,13 +140,17 @@ void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
 //--------------------------------XXX-----------------------------------------
 // everything below here is game-specific, and should be moved to another file
 
+u32 random_colour(object_t *obj, map_t *map) {
+	return ('%'<<16) | (genrand_int32()&0xffff);
+}
 
 objecttype_t objects[] = {
 	// 0: unknown object
 	{ .ch = '?',
 	  .col = RGB15(31,31,31),
 	  .importance = 3,
-	  .display = NULL
+	  .display = random_colour,
+	  .end = NULL
 	},
 };
 

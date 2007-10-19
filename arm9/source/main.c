@@ -642,11 +642,27 @@ int main(void) {
 					u16 ch = cell->ch;
 					u16 col = cell->col;
 
+					// if there are objects in the cell, we want to draw them instead of
+					// the terrain.
 					if (cell->objects) {
+						// we'll only draw the head of the list. since the object list is
+						// maintained as sorted, this will be the most recently added most
+						// important object in the cell.
 						object_t *obj = node_data(cell->objects);
 						objecttype_t *objtype = &map->objtypes[obj->type];
-						ch = objtype->ch;
-						col = objtype->col;
+
+						// if the object has a custom display function, we'll ask that.
+						if (objtype->display) {
+							u32 disp = objtype->display(obj, map);
+							// the character should be in the high bytes
+							ch = disp >> 16;
+							// and the colour in the low bytes
+							col = disp & 0xffff;
+						} else {
+							// otherwise we just use what's default for the object type.
+							ch = objtype->ch;
+							col = objtype->col;
+						}
 					}
 
 					// eke out the colour values from the 15-bit colour
@@ -659,12 +675,14 @@ int main(void) {
 					int32 rval = cache->lr,
 					      gval = cache->lg,
 					      bval = cache->lb;
-					// if the values are pretty close to what they were before, don't
-					// bother recalculating.
+					// if the values have changed significantly from last time (by 7 bits
+					// or more, i guess) we'll recalculate the colour. Otherwise, we won't
+					// bother.
 					if (rval >> 8 != cache->last_lr ||
 					    gval >> 8 != cache->last_lg ||
 					    bval >> 8 != cache->last_lb ||
-					    cache->last_light != cell->light >> 8) {
+					    cache->last_light != cell->light >> 8 ||
+					    col != cache->last_col) {
 						int32 maxcol = max(rval,max(bval,gval));
 						// scale [rgb]val by the luminance, and keep the ratio between the
 						// colours the same
@@ -681,10 +699,10 @@ int main(void) {
 						twiddling += read_stopwatch();
 						start_stopwatch();
 						u16 col_to_draw = RGB15(r,g,b);
-						u16 last_col = cache->last_col;
-						if (col_to_draw != last_col) {
+						u16 last_col_final = cache->last_col_final;
+						if (col_to_draw != last_col_final) {
 							drawcq(x*8, y*8, ch, col_to_draw);
-							cache->last_col = col_to_draw;
+							cache->last_col_final = col_to_draw;
 							cache->last_lr = cache->lr >> 8;
 							cache->last_lg = cache->lg >> 8;
 							cache->last_lb = cache->lb >> 8;
@@ -700,7 +718,7 @@ int main(void) {
 						twiddling += read_stopwatch();
 						start_stopwatch();
 						if (cache->dirty > 0 || dirty > 0) {
-							drawcq(x*8, y*8, ch, cache->last_col);
+							drawcq(x*8, y*8, ch, cache->last_col_final);
 							if (cache->dirty > 0)
 								cache->dirty--;
 						}
@@ -722,17 +740,19 @@ int main(void) {
 						r = ((r<<12) * val) >> 24;
 						g = ((g<<12) * val) >> 24;
 						b = ((b<<12) * val) >> 24;
-						cache->last_col = RGB15(r,g,b);
+						cache->last_col_final = RGB15(r,g,b);
+						cache->last_col = cache->last_col_final; // not affected by light, so they're the same
 						cache->last_lr = 0;
 						cache->last_lg = 0;
 						cache->last_lb = 0;
 						cache->last_light = 0;
 						twiddling += read_stopwatch();
 						start_stopwatch();
-						drawcq(x*8, y*8, cell->ch, RGB15(r,g,b));
+						drawcq(x*8, y*8, cell->ch, cache->last_col_final);
 						drawing += read_stopwatch();
 					} else {
 						drawcq(x*8, y*8, ' ', 0); // clear
+						cache->last_col_final = 0;
 						cache->last_col = 0;
 						cache->last_lr = 0;
 						cache->last_lg = 0;
