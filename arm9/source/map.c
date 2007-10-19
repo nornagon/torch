@@ -46,7 +46,7 @@ void reset_map(map_t* map) {
 				object_t *obj = (object_t*)node_data(cell->objects);
 				objecttype_t *type = &map->objtypes[obj->type];
 				if (type->end)
-					type->end(obj);
+					type->end(obj, map);
 				free_node(map->object_pool, cell->objects);
 				cell->objects = next;
 			}
@@ -59,7 +59,7 @@ void reset_map(map_t* map) {
 		node_t *next = map->processes->next;
 		process_t *p = (process_t*)node_data(map->processes);
 		if (p->end)
-			p->end(p);
+			p->end(p, map);
 		free_node(map->process_pool, map->processes);
 		map->processes = next;
 	}
@@ -198,7 +198,7 @@ void process_light(process_t *process, map_t *map) {
 	draw_light(l, map);
 }
 
-void end_light(process_t *process) {
+void end_light(process_t *process, map_t *map) {
 	free(process->data); // the light_t struct we were keeping
 }
 
@@ -208,9 +208,10 @@ u32 random_colour(object_t *obj, map_t *map) {
 
 // TODO: preprocessor magic to make this easier
 typedef struct {
-	process_t *light_proc;
-	process_t *thought_proc;
+	node_t *light_node;
+	node_t *thought_node;
 	light_t *light;
+	node_t *obj_node;
 } mon_WillOWisp_t;
 
 void mon_WillOWisp_light(process_t *process, map_t *map) {
@@ -221,19 +222,43 @@ void mon_WillOWisp_light(process_t *process, map_t *map) {
 void mon_WillOWisp_thought(process_t *process, map_t *map) {
 }
 
+void mon_WillOWisp_obj_end(object_t *object, map_t *map) {
+	mon_WillOWisp_t *wisp = object->data;
+	remove_node(map->process_pool, map->processes, wisp->light_node);
+	remove_node(map->process_pool, map->processes, wisp->thought_node);
+	free(wisp->light);
+	free(wisp);
+}
+
+void mon_WillOWisp_proc_end(process_t *process, map_t *map) {
+	mon_WillOWisp_t *wisp = process->data;
+	if (process == node_data(wisp->light_node))
+		remove_node(map->process_pool, map->processes, wisp->thought_node);
+	else
+		remove_node(map->process_pool, map->processes, wisp->light_node);
+	free(wisp->light);
+	free(wisp);
+}
+
 void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 	mon_WillOWisp_t *wisp = malloc(sizeof(mon_WillOWisp_t));
 
-	process_t *light_proc = new_process(map);
+	node_t *light_node = request_node(map->process_pool);
+	map->processes = push_node(map->processes, light_node);
+	process_t *light_proc = node_data(light_node);
 	light_proc->process = mon_WillOWisp_light;
+	light_proc->end = mon_WillOWisp_proc_end;
 	light_proc->data = wisp;
 
-	process_t *thought_proc = new_process(map);
+	node_t *thought_node = request_node(map->process_pool);
+	map->processes = push_node(map->processes, thought_node);
+	process_t *thought_proc = node_data(thought_node);
 	thought_proc->process = mon_WillOWisp_thought;
+	thought_proc->end = mon_WillOWisp_proc_end;
 	thought_proc->data = wisp;
 
-	wisp->light_proc = light_proc;
-	wisp->thought_proc = thought_proc;
+	wisp->light_node = light_node;
+	wisp->thought_node = thought_node;
 
 	light_t *light = malloc(sizeof(light_t));
 	light->type = L_GLOWER;
@@ -253,8 +278,10 @@ void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 	wisp->light = light;
 
   node_t *obj_node = request_node(map->object_pool);
+  wisp->obj_node = obj_node;
   object_t *obj = node_data(obj_node);
   obj->type = 1;
+  obj->data = wisp;
   insert_object(map, obj_node, x, y);
 }
 
@@ -272,7 +299,7 @@ objecttype_t objects[] = {
 	  .col = RGB15(7,31,27),
 	  .importance = 128,
 	  .display = NULL,
-	  .end = NULL,
+	  .end = mon_WillOWisp_obj_end,
 	}
 };
 

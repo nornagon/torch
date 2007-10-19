@@ -86,7 +86,7 @@ typedef struct {
 	u32 (*display)(object_t *obj, struct map_s *map);
 
 	// called when an object of this type is about to be destroyed.
-	void (*end)(object_t *obj);
+	void (*end)(object_t *obj, struct map_s *map);
 } objecttype_t;
 
 // cell_t

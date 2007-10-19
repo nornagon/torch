@@ -7,7 +7,7 @@ typedef struct process_s process_t;
 
 struct process_s {
 	void (*process)(process_t *process, struct map_s *map);
-	void (*end)(process_t *process);
+	void (*end)(process_t *process, struct map_s *map);
 	void *data;
 };
 
