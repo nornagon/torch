@@ -639,10 +639,20 @@ int main(void) {
 					} else
 						cell->light -= low_luminance;
 
+					u16 ch = cell->ch;
+					u16 col = cell->col;
+
+					if (cell->objects) {
+						object_t *obj = node_data(cell->objects);
+						objecttype_t *objtype = &map->objtypes[obj->type];
+						ch = objtype->ch;
+						col = objtype->col;
+					}
+
 					// eke out the colour values from the 15-bit colour
-					u32 r = cell->col & 0x001f,
-					    g = (cell->col & 0x03e0) >> 5,
-					    b = (cell->col & 0x7c00) >> 10;
+					u32 r = col & 0x001f,
+					    g = (col & 0x03e0) >> 5,
+					    b = (col & 0x7c00) >> 10;
 					// fade out to the recalled colour (or 0 for ground)
 					int32 minval = cell->type == T_GROUND ? 0 : (cell->recall>>2);
 					int32 val = max(minval, cell->light);
@@ -673,7 +683,7 @@ int main(void) {
 						u16 col_to_draw = RGB15(r,g,b);
 						u16 last_col = cache->last_col;
 						if (col_to_draw != last_col) {
-							drawcq(x*8, y*8, cell->ch, col_to_draw);
+							drawcq(x*8, y*8, ch, col_to_draw);
 							cache->last_col = col_to_draw;
 							cache->last_lr = cache->lr >> 8;
 							cache->last_lg = cache->lg >> 8;
@@ -681,7 +691,7 @@ int main(void) {
 							cache->last_light = cell->light >> 8;
 							cache->dirty = 2;
 						} else if (cache->dirty > 0 || dirty > 0) {
-							drawcq(x*8, y*8, cell->ch, col_to_draw);
+							drawcq(x*8, y*8, ch, col_to_draw);
 							if (cache->dirty > 0)
 								cache->dirty--;
 						}
@@ -690,7 +700,7 @@ int main(void) {
 						twiddling += read_stopwatch();
 						start_stopwatch();
 						if (cache->dirty > 0 || dirty > 0) {
-							drawcq(x*8, y*8, cell->ch, cache->last_col);
+							drawcq(x*8, y*8, ch, cache->last_col);
 							if (cache->dirty > 0)
 								cache->dirty--;
 						}

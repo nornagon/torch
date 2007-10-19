@@ -61,6 +61,34 @@ typedef struct {
 	u8 flickered;
 } light_t;
 
+// object_t is for things that need to be drawn on the map, e.g. NPCs, dynamic
+// bits of landscape, items
+typedef struct {
+	s32 x,y;
+	u16 type; // index into array of objecttype_ts
+	void* data;
+} object_t;
+
+// objecttype_ts are kept in an array, and define various properties of
+// particular objects.
+typedef struct {
+	u8 ch;
+	u16 col;
+
+	// when we draw stuff on the map, we need to know which character should be
+	// drawn on top. Stuff with a higher importance is drawn over stuff with less
+	// importance.
+	u8 importance;
+
+	// if non-NULL, this will be called prior to drawing the object. It should
+	// return both a colour and a character, with the character in the high bytes.
+	// i.e: return (ch << 16) | col;
+	u32 (*display)(object_t *obj, struct map_s *map);
+
+	// called when an object of this type is about to be destroyed.
+	void (*end)(object_t *obj);
+} objecttype_t;
+
 // cell_t
 typedef struct {
 	u8 ch;
@@ -71,13 +99,14 @@ typedef struct {
 	unsigned int blocked_from : 4;
 	bool visible : 1;
 	DIRECTION seen_from : 5;
+	node_t *objects;
 } cell_t;
 
 // a cache_t corresponds to a tile currently being shown on the screen. It's
 // used for holding information about what pixels are already there on the
 // screen, for purposes of not having to draw it again.
 typedef struct {
-	int32 lr,lg,lb, // TODO: do these really belong in the cache?
+	int32 lr,lg,lb, // light colour
 	      last_lr, last_lg, last_lb;
 	int32 last_light;
 	u16 last_col;
@@ -93,6 +122,9 @@ typedef struct map_s {
 	llpool_t *process_pool;
 	node_t *processes;
 	fov_settings_type *fov_light;
+
+	llpool_t *object_pool;
+	objecttype_t *objtypes;
 
 	cell_t* cells;
 
@@ -144,8 +176,16 @@ static inline bool flickers(light_t *light) {
 	return light->type == L_FIRE;
 }
 
-// request a new process node and add it to the list, returning the process.
+// request a new process node and push it on the list, returning the process.
 process_t *new_process(map_t *map);
+
+// perform an insert of obj into the map cell at (x,y) sorted by importance.
+// this is primarily for *moving* objects, not creating new ones, due to the
+// fact that we want the caller to stuff the passed object into a node itself.
+// insert_object walks the list, so it's O(n), but it's better in the case of
+// inserting a high-importance object (because only one comparison of importance
+// has to be made)
+void insert_object(map_t *map, node_t *obj, s32 x, s32 y);
 
 // reset the cache
 void reset_cache(map_t *map);

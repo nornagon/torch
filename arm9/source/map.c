@@ -38,16 +38,33 @@ void reset_map(map_t* map) {
 			cell->visible = 0;
 			cell->blocked_from = 0;
 			cell->seen_from = 0;
+
+			// clear and the object list
+			while (cell->objects) {
+				node_t *next = cell->objects->next;
+				object_t *obj = (object_t*)node_data(cell->objects);
+				objecttype_t *type = &map->objtypes[obj->type];
+				if (type->end)
+					type->end(obj);
+				free_node(map->object_pool, cell->objects);
+				cell->objects = next;
+			}
 		}
+	// free all the objects
+	flush_free(map->object_pool);
 
 	// clear and free the process list
 	while (map->processes) {
 		node_t *next = map->processes->next;
-		((process_t*)node_data(map->processes))->end(node_data(map->processes));
+		process_t *p = (process_t*)node_data(map->processes);
+		if (p->end)
+			p->end(p);
 		free_node(map->process_pool, map->processes);
 		map->processes = next;
 	}
 	flush_free(map->process_pool);
+
+	// clear and free
 }
 
 map_t *create_map(u32 w, u32 h) {
@@ -87,9 +104,49 @@ process_t *new_process(map_t *map) {
 	return node_data(node);
 }
 
+void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
+	cell_t *target = cell_at(map, x, y);
+	object_t *obj = node_data(obj_node);
+	objecttype_t *objtype = &map->objtypes[obj->type];
+	obj->x = x;
+	obj->y = y;
+	node_t *prev = NULL;
+	node_t *head = target->objects;
+	// walk through the list
+	while (head) {
+		object_t *k = node_data(head);
+		// if this object k is of less importance than the object we're inserting,
+		// we want to insert obj before k.
+		// We use <= rather than < to reduce insert time in the case where there are
+		// a large number of objects of equal importance. In such a case, a new
+		// insertion will come closer to the beggining of the list.
+		if (map->objtypes[k->type].importance <= objtype->importance)
+			break;
+		prev = head;
+		head = head->next;
+	}
+	// head is either NULL or something less important than the inserted object.
+	obj_node->next = head;
+	if (prev)
+		prev->next = obj_node;
+	else
+		target->objects = obj_node;
+}
+
 
 //--------------------------------XXX-----------------------------------------
 // everything below here is game-specific, and should be moved to another file
+
+
+objecttype_t objects[] = {
+	// 0: unknown object
+	{ .ch = '?',
+	  .col = RGB15(31,31,31),
+	  .importance = 3,
+	  .display = NULL
+	},
+};
+
 
 void process_light(process_t *process, map_t *map) {
 	light_t *l = (light_t*)process->data;
@@ -172,6 +229,7 @@ void lake(map_t *map, s32 x, s32 y) {
 void random_map(map_t *map) {
 	s32 x,y;
 	reset_map(map);
+	map->objtypes = objects;
 
 	// clear out the map to a backdrop of trees
 	for (y = 0; y < map->h; y++)
@@ -184,6 +242,13 @@ void random_map(map_t *map) {
 
 	// start in the centre
 	x = map->w/2; y = map->h/2;
+
+	node_t *something = request_node(map->object_pool);
+	object_t *obj = node_data(something);
+	obj->type = 0;
+	insert_object(map, something, x, y);
+
+
 	// place some fires
 	u32 light1 = genrand_int32() >> 21, // between 0 and 2047
 			light2 = light1 + 40;
@@ -265,6 +330,7 @@ void random_map(map_t *map) {
 void load_map(map_t *map, size_t len, const char *desc) {
 	s32 x,y;
 	reset_map(map);
+	map->objtypes = objects;
 
 	// clear the map out to ground
 	for (y = 0; y < map->h; y++)
