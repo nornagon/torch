@@ -10,10 +10,9 @@ llpool_t *new_llpool(unsigned int size) {
 }
 
 void alloc_space(llpool_t *pool, unsigned int n) {
-	while (n > 0) {
+	for (;n > 0; n--) {
 		node_t *node = malloc(pool->size + sizeof(node_t));
 		free_node(pool, node);
-		n--;
 	}
 }
 
@@ -26,19 +25,15 @@ void flush_free(llpool_t *pool) {
 }
 
 node_t *remove_node(node_t *list, node_t *node) {
-	// walk the list
-	node_t *prev = NULL;
-	node_t *k = list;
-	while (k != node) {
+	if (list == NULL) return NULL;
+	if (node == list) return list->next;
+	node_t *prev = list;
+	node_t *k = prev->next;
+	while (k && k != node) {
 		prev = k;
 		k = k->next;
 	}
-	// update the pointer of the node before the target if necessary
-	if (prev)
-		prev->next = node->next;
-	else
-		return k->next;
+	if (k) // we didn't hit the end of the list
+		prev->next = k->next;
 	return list;
-	// don't free it; the caller might want to add it to another list.
-	// if not, it's their responsibility to free the node.
 }

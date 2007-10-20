@@ -64,15 +64,16 @@ void reset_map(map_t* map) {
 		map->processes = next;
 	}
 	flush_free(map->process_pool);
-
-	// clear and free
 }
 
 map_t *create_map(u32 w, u32 h) {
 	map_t *ret = malloc(sizeof(map_t));
+	memset(ret, 0, sizeof(map_t));
 	ret->w = w; ret->h = h;
 	ret->cells = malloc(w*h*sizeof(cell_t));
+	memset(ret->cells, 0, w*h*sizeof(cell_t));
 	ret->cache = malloc(32*24*sizeof(cache_t)); // screen sized
+	memset(ret->cache, 0, 32*24*sizeof(cache_t));
 
 	ret->processes = NULL;
 	ret->process_pool = new_llpool(sizeof(process_t));
@@ -93,10 +94,10 @@ void refresh_blockmap(map_t *map) {
 	for (y = 0; y < map->h; y++)
 		for (x = 0; x < map->w; x++) {
 			unsigned int blocked_from = 0;
-			if (opaque(cell_at(map, x, y-1))) blocked_from |= D_NORTH;
-			if (opaque(cell_at(map, x, y+1))) blocked_from |= D_SOUTH;
-			if (opaque(cell_at(map, x+1, y))) blocked_from |= D_EAST;
-			if (opaque(cell_at(map, x-1, y))) blocked_from |= D_WEST;
+			if (y != 0 && opaque(cell_at(map, x, y-1))) blocked_from |= D_NORTH;
+			if (y != map->h - 1 && opaque(cell_at(map, x, y+1))) blocked_from |= D_SOUTH;
+			if (x != map->w - 1 && opaque(cell_at(map, x+1, y))) blocked_from |= D_EAST;
+			if (x != 0 && opaque(cell_at(map, x-1, y))) blocked_from |= D_WEST;
 			cell_at(map, x, y)->blocked_from = blocked_from;
 		}
 }
@@ -135,7 +136,6 @@ void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
 	else
 		target->objects = obj_node;
 }
-
 
 //--------------------------------XXX-----------------------------------------
 // everything below here is game-specific, and should be moved to another file
@@ -529,6 +529,7 @@ void load_map(map_t *map, size_t len, const char *desc) {
 					l->b = 0.26*(1<<12);
 					l->radius = 9;
 					l->type = L_FIRE;
+					l->dx = l->dy = l->dr = 0;
 					// add the light to the process list
 					process_t *process = new_process(map);
 					process->process = process_light;
@@ -573,6 +574,7 @@ make:
 					}
 					l->radius = 8;
 					l->type = L_GLOWER;
+					l->dx = l->dy = l->dr = 0;
 
 					process_t *process = new_process(map);
 					process->process = process_light;

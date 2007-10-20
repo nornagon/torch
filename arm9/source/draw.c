@@ -45,7 +45,7 @@ void drawcq(u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobbers)
 			"add r6, %5, %2, lsl #6\n"  // r6 <- &fontTiles[8*8*c]
 			"add r7, %4, %1, lsl #1\n"  // r7 <- &backbuf[y*256+x]
 
-			"mov r9, #8\n"       // end vram address
+			"mov r9, #7\n"            // we want to draw 8 lines
 
 			"loop:\n"
 			"ldmia r6!, {r4, r5}\n"   // grab 8 bytes from the font
@@ -88,14 +88,4 @@ void drawcq(u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobbers)
 			: "r"(x), "r"(y), "r"(c), "r"(color), "r"(backbuf), "r"(fontTiles)
 			: "r6", "r7", "r8", "r9"
 			);
-	/*c -= ' '; // XXX: might want to remove this
-	color |= BIT(15);
-	u8 px,py;
-	for (py = 0; py < 8; py++) {
-		memset32(&backbuf[(y+py)*256+x], 0, 4);
-		for (px = 0; px < 8; px++) {
-			if (fontTiles[8*8*c+8*py+px])
-				backbuf[(y+py)*256+x+px] = color;
-		}
-	}*/
 }
