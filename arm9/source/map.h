@@ -9,6 +9,13 @@
 #include "process.h"
 #include "direction.h"
 
+#include <stdlib.h>
+
+// the manhattan distance between two points
+static inline unsigned int manhdist(int x1, int y1, int x2, int y2) {
+	return abs(x1-x2)+abs(y1-y2);
+}
+
 typedef enum {
 	T_TREE,
 	T_GROUND,
@@ -155,8 +162,19 @@ static inline bool flickers(light_t *light) {
 	return light->type == L_FIRE;
 }
 
-// request a new process node and push it on the list, returning the process.
-process_t *new_process(map_t *map);
+// allocate some space for a new light structure. You will be responsible for
+// freeing the light.
+light_t *new_light(LIGHT_TYPE type, u8 radius, int32 r, int32 g, int32 b);
+
+// request a new process node and push it on the list, returning the node.
+node_t *new_process(map_t *map);
+
+// push a new process on the process stack, returning the new process node.
+node_t *push_process(map_t *map, process_func process, process_func end, void* data);
+
+// create a new object. push_object doesn't add the object to any lists, so
+// you'd better do it yourself. returns the object node created.
+node_t *new_object(map_t *map, u16 type, void* data);
 
 // perform an insert of obj into the map cell at (x,y) sorted by importance.
 // this is primarily for *moving* objects, not creating new ones, due to the
@@ -165,6 +183,9 @@ process_t *new_process(map_t *map);
 // inserting a high-importance object (because only one comparison of importance
 // has to be made)
 void insert_object(map_t *map, node_t *obj, s32 x, s32 y);
+
+// remove obj from cell and add it to the cell at (x,y).
+void move_object(map_t *map, cell_t *loc, node_t *obj, s32 x, s32 y);
 
 // reset the cache
 void reset_cache(map_t *map);

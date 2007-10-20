@@ -5,9 +5,10 @@ struct map_s;
 struct process_s;
 typedef struct process_s process_t;
 
+typedef void (*process_func)(process_t *process, struct map_s *map);
+
 struct process_s {
-	void (*process)(process_t *process, struct map_s *map);
-	void (*end)(process_t *process, struct map_s *map);
+	process_func process, end;
 	void *data;
 };
 

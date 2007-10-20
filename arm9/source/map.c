@@ -102,10 +102,39 @@ void refresh_blockmap(map_t *map) {
 		}
 }
 
-process_t *new_process(map_t *map) {
+light_t *new_light(LIGHT_TYPE type, u8 radius, int32 r, int32 g, int32 b) {
+	light_t *light = malloc(sizeof(light_t));
+	memset32(light, 0, sizeof(light_t)/4);
+	light->type = type;
+	light->radius = radius;
+	light->r = r;
+	light->g = g;
+	light->b = b;
+	return light;
+};
+
+node_t *new_process(map_t *map) {
 	node_t *node = request_node(map->process_pool);
 	map->processes = push_node(map->processes, node);
-	return node_data(node);
+	return node;
+}
+
+node_t *push_process(map_t *map, process_func process, process_func end, void* data) {
+	node_t *node = request_node(map->process_pool);
+	process_t *proc = node_data(node);
+	proc->process = process;
+	proc->end = end;
+	proc->data = data;
+	map->processes = push_node(map->processes, node);
+	return node;
+}
+
+node_t *new_object(map_t *map, u16 type, void* data) {
+  node_t *node = request_node(map->object_pool);
+  object_t *obj = node_data(node);
+  obj->type = type;
+  obj->data = data;
+  return node;
 }
 
 void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
@@ -135,6 +164,35 @@ void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
 		prev->next = obj_node;
 	else
 		target->objects = obj_node;
+}
+
+void move_object(map_t *map, cell_t *loc, node_t *obj, s32 x, s32 y) {
+	loc->objects = remove_node(loc->objects, obj);
+	insert_object(map, obj, x, y);
+}
+
+// free processes that aren't the one specified.
+// procs should be a pointer to an *array* of nodes, not the head of a list. num
+// should be the number of nodes in the array.
+void free_other_processes(map_t *map, process_t *this_proc, node_t *procs[], unsigned int num) {
+	for (; num > 0; procs++, num--) {
+		if (node_data(*procs) != this_proc) {
+			map->processes = remove_node(map->processes, *procs);
+			free_node(map->process_pool, *procs);
+		}
+	}
+}
+
+// free all the processes
+inline void free_processes(map_t *map, node_t *procs[], unsigned int num) {
+	free_other_processes(map, NULL, procs, num);
+}
+
+void free_object(map_t *map, node_t *obj_node) {
+	object_t *obj = node_data(obj_node);
+	cell_t *cell = cell_at(map, obj->x, obj->y);
+	cell->objects = remove_node(cell->objects, obj_node);
+	free_node(map->object_pool, obj_node);
 }
 
 //--------------------------------XXX-----------------------------------------
@@ -206,30 +264,45 @@ u32 random_colour(object_t *obj, map_t *map) {
 	return ((map->objtypes[obj->type].ch)<<16) | (genrand_int32()&0xffff);
 }
 
-void move_obj(node_t *obj_node, map_t *map, int dX, int dY) {
-	if (!dX && !dY) return;
+// move an object by (dX,dY). Will pay attention to opaque cells, map edges,
+// etc.
+void displace_object(node_t *obj_node, map_t *map, int dX, int dY) {
+	if (!dX && !dY) return; // nothing to see here
 
 	object_t *obj = node_data(obj_node);
 
+	// keep it in the map!
 	if (obj->x + dX < 0 || obj->x + dX >= map->w ||
 			obj->y + dY < 0 || obj->y + dY >= map->h ||
 			opaque(cell_at(map, obj->x + dX, obj->y + dY)))
 		dX = dY = 0;
 
 	if (dX || dY) {
+		// move the object
 		cell_t *cell = cell_at(map, obj->x, obj->y);
-		cell->objects = remove_node(cell->objects, obj_node);
-		insert_object(map, obj_node, obj->x + dX, obj->y + dY);
+		move_object(map, cell, obj_node, obj->x + dX, obj->y + dY);
 	}
 }
 
-// TODO: preprocessor magic to make this easier
+// the Will-O'-Wisp state structure
 typedef struct {
+	// light_node and thought_node are next to each other so we can free them
+	// later if we need to using free_processes or free_other_processes (which
+	// take an *array* of processes)
 	node_t *light_node;
 	node_t *thought_node;
-	light_t *light;
+	// we need to keep track of the object in case we need to free it (from the
+	// end process handler)
 	node_t *obj_node;
+
+	// the wisp will emit a glow
+	light_t *light;
+
+	// the wisp will try to stay close to its home
 	s32 homeX, homeY;
+
+	// the wisp shouldn't move too fast, so we keep a counter.
+	// TODO: maybe allow processes to be called at longer intervals?
 	u32 counter;
 } mon_WillOWisp_t;
 
@@ -241,98 +314,49 @@ void mon_WillOWisp_light(process_t *process, map_t *map) {
 void mon_WillOWisp_wander(process_t *process, map_t *map);
 void mon_WillOWisp_follow(process_t *process, map_t *map);
 
-void mon_WillOWisp_follow(process_t *process, map_t *map) {
-	mon_WillOWisp_t *wisp = process->data;
-	object_t *obj = node_data(wisp->obj_node);
-	cell_t *cell = cell_at(map, obj->x, obj->y);
-	if (!cell->visible) {
-		process->process = mon_WillOWisp_wander;
-	} else if (wisp->counter == 0) {
-		unsigned int mdist = abs(obj->x - map->pX) + abs(obj->y - map->pY);
-		if (mdist < 4) { // don't get too close
-			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
-			u32 a = genrand_int32();
-			int dX = 0, dY = 0;
-			switch (dir) {
-				case D_NORTH: // the player is to the north
-					dY = 1; break; // move away
-				case D_SOUTH:
-					dY = -1; break;
-				case D_WEST:
-					dX = 1; break;
-				case D_EAST:
-					dX = -1; break;
-				case D_NORTHEAST:
-					if (a&1) dX = -1;
-					else     dY = 1;
-					break;
-				case D_NORTHWEST:
-					if (a&1) dX = 1;
-					else     dY = 1;
-					break;
-				case D_SOUTHEAST:
-					if (a&1) dX = -1;
-					else     dY = -1;
-					break;
-				case D_SOUTHWEST:
-					if (a&1) dX = 1;
-					else     dY = -1;
-					break;
-			}
-			move_obj(wisp->obj_node, map, dX, dY);
-			wisp->light->x = obj->x;
-			wisp->light->y = obj->y;
-			wisp->counter = 10;
-		} else if (mdist > 5) { // don't get too far away either
-			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
-			u32 a = genrand_int32();
-			int dX = 0, dY = 0;
-			switch (dir) {
-				case D_NORTH: // the player is to the north
-					dY = -1; break;
-				case D_SOUTH:
-					dY = 1; break;
-				case D_WEST:
-					dX = -1; break;
-				case D_EAST:
-					dX = 1; break;
-				case D_NORTHEAST:
-					if (a&1) dX = 1;
-					else     dY = -1;
-					break;
-				case D_NORTHWEST:
-					if (a&1) dX = -1;
-					else     dY = -1;
-					break;
-				case D_SOUTHEAST:
-					if (a&1) dX = 1;
-					else     dY = 1;
-					break;
-				case D_SOUTHWEST:
-					if (a&1) dX = -1;
-					else     dY = 1;
-					break;
-			}
-			move_obj(wisp->obj_node, map, dX, dY);
-			wisp->light->x = obj->x;
-			wisp->light->y = obj->y;
-			wisp->counter = 10;
-		} else {
-			u32 a = genrand_int32();
-			int dX = 0, dY = 0;
-			switch (a&3) {
-				case 0: dX = 1; dY = 0; break;
-				case 1: dX = -1; dY = 0; break;
-				case 2: dX = 0; dY = 1; break;
-				case 3: dX = 0; dY = -1; break;
-			}
-			move_obj(wisp->obj_node, map, dX, dY);
-			wisp->light->x = obj->x;
-			wisp->light->y = obj->y;
-			wisp->counter = 20;
-		}
-	} else
-		wisp->counter--;
+// return (dX, dY) as a position delta in the direction of dir. Will wander
+// around a bit, not just straight in that direction.
+void mon_WillOWisp_randdir(DIRECTION dir, int *dX, int *dY) {
+	u32 a = genrand_int32();
+	switch (dir) {
+		case D_NORTH: // the player is to the north
+			*dY = -1;
+			if (a&1) *dX = -1;
+			else if (a&2) *dX = 1;
+			break;
+		case D_SOUTH:
+			if (a&1) *dX = -1;
+			else if (a&2) *dX = 1;
+			*dY = 1; break;
+		case D_WEST:
+			if (a&1) *dY = -1;
+			else if (a&2) *dY = 1;
+			*dX = -1; break;
+		case D_EAST:
+			if (a&1)      *dY = -1;
+			else if (a&2) *dY = 1;
+			*dX = 1; break;
+		case D_NORTHEAST:
+			if (a&1)      *dX = 1;
+			else if (a&2) *dY = -1;
+			else          { *dX = 1; *dY = -1; }
+			break;
+		case D_NORTHWEST:
+			if (a&1)      *dX = -1;
+			else if (a&2) *dY = -1;
+			else          { *dX = -1; *dY = -1; }
+			break;
+		case D_SOUTHEAST:
+			if (a&1)      *dX = 1;
+			else if (a&2) *dY = 1;
+			else          { *dX = 1; *dY = 1; }
+			break;
+		case D_SOUTHWEST:
+			if (a&1)      *dX = -1;
+			else if (a&2) *dY = 1;
+			else          { *dX = -1; *dY = 1; }
+			break;
+	}
 }
 
 void mon_WillOWisp_wander(process_t *process, map_t *map) {
@@ -364,7 +388,7 @@ void mon_WillOWisp_wander(process_t *process, map_t *map) {
 		else if (dY > 0 && obj->y + dY > wisp->homeY + 20) // too far south
 			dY = -1;
 
-		move_obj(wisp->obj_node, map, dX, dY);
+		displace_object(wisp->obj_node, map, dX, dY);
 
 		wisp->light->x = obj->x;
 		wisp->light->y = obj->y;
@@ -373,25 +397,68 @@ void mon_WillOWisp_wander(process_t *process, map_t *map) {
 		wisp->counter--;
 }
 
+void mon_WillOWisp_follow(process_t *process, map_t *map) {
+	mon_WillOWisp_t *wisp = process->data;
+	object_t *obj = node_data(wisp->obj_node);
+	cell_t *cell = cell_at(map, obj->x, obj->y);
+	if (!cell->visible) {
+		// if we can't see the player, go back to wandering
+		process->process = mon_WillOWisp_wander;
+	} else if (wisp->counter == 0) { // time to do something
+		unsigned int mdist = manhdist(obj->x, obj->y, map->pX, map->pY);
+		if (mdist < 4) { // don't get too close
+			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
+			// the player is in the direction dir (direction from obj to player)
+			int dX = 0, dY = 0;
+			mon_WillOWisp_randdir(dir, &dX, &dY);
+			// randdir returns a position delta *towards* the player, so invert it
+			dX = -dX;
+			dY = -dY;
+			displace_object(wisp->obj_node, map, dX, dY);
+			wisp->counter = 10;
+		} else if (mdist > 5) { // don't get too far away either
+			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
+			int dX = 0, dY = 0;
+			mon_WillOWisp_randdir(dir, &dX, &dY);
+			displace_object(wisp->obj_node, map, dX, dY);
+			wisp->counter = 10;
+		} else { // meander around
+			u32 a = genrand_int32();
+			int dX = 0, dY = 0;
+			// move randomly in one of four directions.
+			switch (a&3) {
+				case 0: dX = 1; dY = 0; break;
+				case 1: dX = -1; dY = 0; break;
+				case 2: dX = 0; dY = 1; break;
+				case 3: dX = 0; dY = -1; break;
+			}
+			displace_object(wisp->obj_node, map, dX, dY);
+			wisp->counter = 20;
+		}
+		wisp->light->x = obj->x;
+		wisp->light->y = obj->y;
+	} else
+		wisp->counter--;
+}
+
+// these ending functions are complicated because we want to free all the bits
+// of the wisp any time a single one of them is freed.
 void mon_WillOWisp_obj_end(object_t *object, map_t *map) {
 	mon_WillOWisp_t *wisp = object->data;
-	map->processes = remove_node(map->processes, wisp->light_node);
-	free_node(map->process_pool, wisp->light_node);
-	map->processes = remove_node(map->processes, wisp->thought_node);
-	free_node(map->process_pool, wisp->thought_node);
+	free_processes(map, &wisp->light_node, 2);
+	// free the state data
 	free(wisp->light);
 	free(wisp);
 }
 
 void mon_WillOWisp_proc_end(process_t *process, map_t *map) {
 	mon_WillOWisp_t *wisp = process->data;
-	if (process == node_data(wisp->light_node)) {
-		map->processes = remove_node(map->processes, wisp->thought_node);
-		free_node(map->process_pool, wisp->thought_node);
-	} else {
-		map->processes = remove_node(map->processes, wisp->light_node);
-		free_node(map->process_pool, wisp->light_node);
-	}
+	// the below use of wisp->light_node as an array is sort of hackish, but it
+	// works. free_other_processes will free whichever process isn't this one.
+	free_other_processes(map, process, &wisp->light_node, 2);
+	free_object(map, wisp->obj_node);
+	// all of those things above refer to the same data (the wisp state), so we
+	// just free the state.
 	free(wisp->light);
 	free(wisp);
 }
@@ -403,46 +470,22 @@ void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 	wisp->homeY = y;
 	wisp->counter = 0;
 
-	node_t *light_node = request_node(map->process_pool);
-	map->processes = push_node(map->processes, light_node);
-	process_t *light_proc = node_data(light_node);
-	light_proc->process = mon_WillOWisp_light;
-	light_proc->end = mon_WillOWisp_proc_end;
-	light_proc->data = wisp;
+	// set up lighting and AI processes
+	wisp->light_node = push_process(map,
+			mon_WillOWisp_light, mon_WillOWisp_proc_end, wisp);
+	wisp->thought_node = push_process(map,
+			mon_WillOWisp_wander, mon_WillOWisp_proc_end, wisp);
 
-	node_t *thought_node = request_node(map->process_pool);
-	map->processes = push_node(map->processes, thought_node);
-	process_t *thought_proc = node_data(thought_node);
-	thought_proc->process = mon_WillOWisp_wander;
-	thought_proc->end = mon_WillOWisp_proc_end;
-	thought_proc->data = wisp;
-
-	wisp->light_node = light_node;
-	wisp->thought_node = thought_node;
-
-	light_t *light = malloc(sizeof(light_t));
-	light->type = L_GLOWER;
+	// a light cyan glow
+	light_t *light = new_light(L_GLOWER, 4, 0.23*(1<<12), 0.87*(1<<12), 1.00*(1<<12));
 	light->x = x;
 	light->y = y;
-	light->dx = 0;
-	light->dy = 0;
-	light->dr = 0;
-
-	// TODO: magic to make this easier
-	light->r = 0.23*(1<<12);
-	light->g = 0.87*(1<<12);
-	light->b = 1.00*(1<<12);
-
-	light->radius = 4;
 
 	wisp->light = light;
 
-  node_t *obj_node = request_node(map->object_pool);
-  wisp->obj_node = obj_node;
-  object_t *obj = node_data(obj_node);
-  obj->type = 1;
-  obj->data = wisp;
-  insert_object(map, obj_node, x, y);
+	// the object to represent the wisp on the map
+  wisp->obj_node = new_object(map, 1, wisp);
+  insert_object(map, wisp->obj_node, x, y);
 }
 
 
@@ -460,7 +503,7 @@ objecttype_t objects[] = {
 	  .importance = 128,
 	  .display = NULL,
 	  .end = mon_WillOWisp_obj_end,
-	}
+	},
 };
 
 
@@ -535,10 +578,7 @@ void random_map(map_t *map) {
 			l->type = L_FIRE;
 
 			// add the fire to the process list
-			process_t *process = new_process(map);
-			process->process = process_light;
-			process->end = end_light;
-			process->data = (void*)l;
+			push_process(map, process_light, end_light, l);
 		} else if (i == lakepos) {
 			lake(map, x, y);
 		} else if (cell->type == T_TREE) { // clear away some tree
@@ -650,10 +690,7 @@ void load_map(map_t *map, size_t len, const char *desc) {
 					l->type = L_FIRE;
 					l->dx = l->dy = l->dr = 0;
 					// add the light to the process list
-					process_t *process = new_process(map);
-					process->process = process_light;
-					process->end = end_light;
-					process->data = (void*)l;
+					push_process(map, process_light, end_light, l);
 				}
 				break;
 			case 'o':
@@ -695,10 +732,7 @@ make:
 					l->type = L_GLOWER;
 					l->dx = l->dy = l->dr = 0;
 
-					process_t *process = new_process(map);
-					process->process = process_light;
-					process->end = end_light;
-					process->data = (void*)l;
+					push_process(map, process_light, end_light, l);
 				}
 				break;
 			case '\n': // reached the end of the line, so move down
