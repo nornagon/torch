@@ -94,24 +94,6 @@ bool sight_opaque(void *map_, int x, int y) {
 	return opaque(cell_at(map, x, y));
 }
 
-// the direction from (tx,ty) to (sx,sy)
-// or: the faces lit on (tx,ty) by a source at (sx,sy)
-inline DIRECTION direction(int sx, int sy, int tx, int ty) {
-	if (sx < tx) {
-		if (sy < ty) return D_NORTHWEST;
-		if (sy > ty) return D_SOUTHWEST;
-		return D_WEST;
-	}
-	if (sx > tx) {
-		if (sy < ty) return D_NORTHEAST;
-		if (sy > ty) return D_SOUTHEAST;
-		return D_EAST;
-	}
-	if (sy < ty) return D_NORTH;
-	if (sy > ty) return D_SOUTH;
-	return D_NONE;
-}
-
 inline int32 calc_semicircle(int32 dist2, int32 rad2) {
 	int32 val = (1<<12) - divf32(dist2, rad2);
 	if (val < 0) return 0;

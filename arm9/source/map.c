@@ -206,6 +206,23 @@ u32 random_colour(object_t *obj, map_t *map) {
 	return ((map->objtypes[obj->type].ch)<<16) | (genrand_int32()&0xffff);
 }
 
+void move_obj(node_t *obj_node, map_t *map, int dX, int dY) {
+	if (!dX && !dY) return;
+
+	object_t *obj = node_data(obj_node);
+
+	if (obj->x + dX < 0 || obj->x + dX >= map->w ||
+			obj->y + dY < 0 || obj->y + dY >= map->h ||
+			opaque(cell_at(map, obj->x + dX, obj->y + dY)))
+		dX = dY = 0;
+
+	if (dX || dY) {
+		cell_t *cell = cell_at(map, obj->x, obj->y);
+		cell->objects = remove_node(cell->objects, obj_node);
+		insert_object(map, obj_node, obj->x + dX, obj->y + dY);
+	}
+}
+
 // TODO: preprocessor magic to make this easier
 typedef struct {
 	node_t *light_node;
@@ -221,9 +238,111 @@ void mon_WillOWisp_light(process_t *process, map_t *map) {
 	draw_light(wisp->light, map);
 }
 
-void mon_WillOWisp_thought(process_t *process, map_t *map) {
+void mon_WillOWisp_wander(process_t *process, map_t *map);
+void mon_WillOWisp_follow(process_t *process, map_t *map);
+
+void mon_WillOWisp_follow(process_t *process, map_t *map) {
 	mon_WillOWisp_t *wisp = process->data;
-	if (wisp->counter == 0) {
+	object_t *obj = node_data(wisp->obj_node);
+	cell_t *cell = cell_at(map, obj->x, obj->y);
+	if (!cell->visible) {
+		process->process = mon_WillOWisp_wander;
+	} else if (wisp->counter == 0) {
+		unsigned int mdist = abs(obj->x - map->pX) + abs(obj->y - map->pY);
+		if (mdist < 4) { // don't get too close
+			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
+			u32 a = genrand_int32();
+			int dX = 0, dY = 0;
+			switch (dir) {
+				case D_NORTH: // the player is to the north
+					dY = 1; break; // move away
+				case D_SOUTH:
+					dY = -1; break;
+				case D_WEST:
+					dX = 1; break;
+				case D_EAST:
+					dX = -1; break;
+				case D_NORTHEAST:
+					if (a&1) dX = -1;
+					else     dY = 1;
+					break;
+				case D_NORTHWEST:
+					if (a&1) dX = 1;
+					else     dY = 1;
+					break;
+				case D_SOUTHEAST:
+					if (a&1) dX = -1;
+					else     dY = -1;
+					break;
+				case D_SOUTHWEST:
+					if (a&1) dX = 1;
+					else     dY = -1;
+					break;
+			}
+			move_obj(wisp->obj_node, map, dX, dY);
+			wisp->light->x = obj->x;
+			wisp->light->y = obj->y;
+			wisp->counter = 10;
+		} else if (mdist > 5) { // don't get too far away either
+			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
+			u32 a = genrand_int32();
+			int dX = 0, dY = 0;
+			switch (dir) {
+				case D_NORTH: // the player is to the north
+					dY = -1; break;
+				case D_SOUTH:
+					dY = 1; break;
+				case D_WEST:
+					dX = -1; break;
+				case D_EAST:
+					dX = 1; break;
+				case D_NORTHEAST:
+					if (a&1) dX = 1;
+					else     dY = -1;
+					break;
+				case D_NORTHWEST:
+					if (a&1) dX = -1;
+					else     dY = -1;
+					break;
+				case D_SOUTHEAST:
+					if (a&1) dX = 1;
+					else     dY = 1;
+					break;
+				case D_SOUTHWEST:
+					if (a&1) dX = -1;
+					else     dY = 1;
+					break;
+			}
+			move_obj(wisp->obj_node, map, dX, dY);
+			wisp->light->x = obj->x;
+			wisp->light->y = obj->y;
+			wisp->counter = 10;
+		} else {
+			u32 a = genrand_int32();
+			int dX = 0, dY = 0;
+			switch (a&3) {
+				case 0: dX = 1; dY = 0; break;
+				case 1: dX = -1; dY = 0; break;
+				case 2: dX = 0; dY = 1; break;
+				case 3: dX = 0; dY = -1; break;
+			}
+			move_obj(wisp->obj_node, map, dX, dY);
+			wisp->light->x = obj->x;
+			wisp->light->y = obj->y;
+			wisp->counter = 20;
+		}
+	} else
+		wisp->counter--;
+}
+
+void mon_WillOWisp_wander(process_t *process, map_t *map) {
+	mon_WillOWisp_t *wisp = process->data;
+	object_t *obj = node_data(wisp->obj_node);
+	cell_t *cell = cell_at(map, obj->x, obj->y);
+	if (cell->visible) { // if they can see us, we can see them...
+		process->process = mon_WillOWisp_follow;
+		wisp->counter = 0;
+	} else if (wisp->counter == 0) {
 		int dir = genrand_int32() % 4;
 		int dX = 0, dY = 0;
 		switch (dir) {
@@ -235,20 +354,20 @@ void mon_WillOWisp_thought(process_t *process, map_t *map) {
 
 		object_t *obj = node_data(wisp->obj_node);
 
-		// stay within a Manhattan distance of 20 of the home.
-		if (obj->x + dX < 0 || obj->x + dX >= map->w ||
-				obj->y + dY < 0 || obj->y + dY >= map->h ||
-				opaque(cell_at(map, obj->x + dX, obj->y + dY)) ||
-		    abs(obj->x + dX - wisp->homeX) + abs(obj->y + dY - wisp->homeY) > 20)
-			dX = dY = 0;
+		// try to stay close to the home
+		if (dX < 0 && obj->x + dX < wisp->homeX - 20) // too far west
+			dX = 1;
+		else if (dX > 0 && obj->x + dX > wisp->homeX + 20) // too far east
+			dX = -1;
+		else if (dY < 0 && obj->y + dY < wisp->homeY - 20) // too far north
+			dY = 1;
+		else if (dY > 0 && obj->y + dY > wisp->homeY + 20) // too far south
+			dY = -1;
 
-		if (dX || dY) {
-			cell_t *cell = cell_at(map, obj->x, obj->y);
-			cell->objects = remove_node(cell->objects, wisp->obj_node);
-			insert_object(map, wisp->obj_node, obj->x + dX, obj->y + dY);
-			wisp->light->x = obj->x;
-			wisp->light->y = obj->y;
-		}
+		move_obj(wisp->obj_node, map, dX, dY);
+
+		wisp->light->x = obj->x;
+		wisp->light->y = obj->y;
 		wisp->counter = 40;
 	} else
 		wisp->counter--;
@@ -294,7 +413,7 @@ void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 	node_t *thought_node = request_node(map->process_pool);
 	map->processes = push_node(map->processes, thought_node);
 	process_t *thought_proc = node_data(thought_node);
-	thought_proc->process = mon_WillOWisp_thought;
+	thought_proc->process = mon_WillOWisp_wander;
 	thought_proc->end = mon_WillOWisp_proc_end;
 	thought_proc->data = wisp;
 
