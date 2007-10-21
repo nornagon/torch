@@ -576,9 +576,20 @@ int main(void) {
 		vc_before = hblnks;
 		// run all the game processes
 		node_t *node = map->processes;
+		node_t *prev = NULL;
 		while (node) {
 			process_t *proc = node_data(node);
-			proc->process(proc, map);
+			if (proc->process) {
+				proc->process(proc, map);
+				prev = node;
+			} else { // a NULL process callback means free the process
+				if (proc->end)
+					proc->end(proc, map);
+				if (prev) // heal the list
+					prev->next = node->next;
+				// add the dead process to the free pool
+				free_node(map->process_pool, node);
+			}
 			node = node->next;
 		}
 		counts[2] += hblnks - vc_before;

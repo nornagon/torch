@@ -439,9 +439,18 @@ objecttype_t objects[] = {
 // XXX: could be optimised by looking at importance and finishing early
 bool has_objtype(cell_t *cell, u16 objtype) {
 	node_t *k = cell->objects;
-	while (k)
+	for (; k; k = k->next)
 		if (((object_t*)node_data(k))->type == objtype) return true;
 	return false;
+}
+
+
+// binds x and y inside the map edges
+static inline void bounded(map_t *map, s32 *x, s32 *y) {
+	if (*x < 0) *x = 0;
+	else if (*x >= map->w) *x = map->w-1;
+	if (*y < 0) *y = 0;
+	else if (*y >= map->h) *y = map->h-1;
 }
 
 
@@ -466,6 +475,7 @@ void lake(map_t *map, s32 x, s32 y) {
 			if (a & 2) y += 1;
 			else y -= 1;
 		}
+		bounded(map, &x, &y);
 	}
 }
 
@@ -492,15 +502,6 @@ void ground(cell_t *cell) {
 	u8 r = a & 7; // (0..7)
 	a >>= 3;
 	cell->col = RGB15(17+r,9+g,6+b); // more randomness in red/green than in blue
-}
-
-
-// binds x and y inside the map edges
-static inline void bounded(map_t *map, s32 *x, s32 *y) {
-	if (*x < 0) *x = 0;
-	else if (*x >= map->w) *x = map->w-1;
-	if (*y < 0) *y = 0;
-	else if (*y >= map->h) *y = map->h-1;
 }
 
 

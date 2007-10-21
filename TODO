@@ -1,5 +1,6 @@
 * add a typedef for num2012 and make everything that wants 20.12 say so.
 * move more stuff out of main (key handling, sight code)
+* add a message printing system
 * generalise scroll_screen
 * think more about falloff - cubic is too slow, I think.
 * move by touchscreen
