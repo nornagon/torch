@@ -209,6 +209,13 @@ void free_objects(map_t *map, node_t *objs[], unsigned int num) {
 //--------------------------------XXX-----------------------------------------
 // everything below here is game-specific, and should be moved to another file
 
+typedef enum {
+	OT_UNKNOWN = 0,
+	OT_WISP,
+	OT_FIRE,
+	OT_LIGHT
+} OBJECT_TYPE;
+
 // TODO: make draw_light take the parameters of the light (colour, radius,
 // position) and build up the lighting struct to pass to fov_circle on its
 // ownsome?
@@ -308,7 +315,7 @@ void new_obj_fire(map_t *map, s32 x, s32 y, int32 radius) {
 	light->y = y << 12;
 
 	fire->light_node = push_process(map, obj_fire_process, obj_fire_proc_end, fire);
-	fire->obj_node = new_object(map, 2, fire);
+	fire->obj_node = new_object(map, OT_FIRE, fire);
 	insert_object(map, fire->obj_node, x, y);
 }
 
@@ -361,7 +368,7 @@ void new_obj_light(map_t *map, s32 x, s32 y, light_t *light) {
 	obj_light->light_node = push_process(map,
 			obj_light_process, obj_light_proc_end, obj_light);
 	// create the worldly presence of the light
-	obj_light->obj_node = new_object(map, 3, obj_light);
+	obj_light->obj_node = new_object(map, OT_LIGHT, obj_light);
 	// and add it to the map
 	insert_object(map, obj_light->obj_node, x, y);
 }
@@ -394,28 +401,32 @@ void displace_object(node_t *obj_node, map_t *map, int dX, int dY) {
 
 objecttype_t objects[] = {
 	// 0: unknown object
-	{ .ch = '?',
-	  .col = RGB15(31,31,31),
-	  .importance = 3,
-	  .display = random_colour,
-	  .end = NULL
+	[OT_UNKNOWN] = {
+		.ch = '?',
+		.col = RGB15(31,31,31),
+		.importance = 3,
+		.display = random_colour,
+		.end = NULL
 	},
 	// 1: will o' wisp
-	{ .ch = 'o',
-	  .col = RGB15(7,31,27),
-	  .importance = 128,
-	  .display = NULL,
-	  .end = mon_WillOWisp_obj_end
+	[OT_WISP] = {
+		.ch = 'o',
+		.col = RGB15(7,31,27),
+		.importance = 128,
+		.display = NULL,
+		.end = mon_WillOWisp_obj_end
 	},
 	// 2: fire
-	{ .ch = 'w',
+	[OT_FIRE] = {
+		.ch = 'w',
 		.col = RGB15(31,12,0),
 		.importance = 64,
 		.display = NULL,
 		.end = obj_fire_obj_end
 	},
 	// 3: light
-	{ .ch = 'o',
+	[OT_LIGHT] = {
+		.ch = 'o',
 		.col = 0,
 		.importance = 64,
 		.display = obj_light_display,

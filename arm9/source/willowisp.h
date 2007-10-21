@@ -198,7 +198,7 @@ void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 	wisp->light = light;
 
 	// the object to represent the wisp on the map
-  wisp->obj_node = new_object(map, 1, wisp);
+  wisp->obj_node = new_object(map, OT_WISP, wisp);
   insert_object(map, wisp->obj_node, x, y);
 }
 
