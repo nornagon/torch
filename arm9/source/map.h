@@ -20,8 +20,6 @@ typedef enum {
 	T_TREE,
 	T_GROUND,
 	T_STAIRS,
-	T_FIRE,
-	T_LIGHT,
 	T_WATER,
 	T_NONE
 } CELL_TYPE;

@@ -170,28 +170,40 @@ void move_object(map_t *map, cell_t *loc, node_t *obj, s32 x, s32 y) {
 	insert_object(map, obj, x, y);
 }
 
+inline void free_process(map_t *map, node_t *proc) {
+	map->processes = remove_node(map->processes, proc);
+	free_node(map->process_pool, proc);
+}
+
 // free processes that aren't the one specified.
 // procs should be a pointer to an *array* of nodes, not the head of a list. num
 // should be the number of nodes in the array.
 void free_other_processes(map_t *map, process_t *this_proc, node_t *procs[], unsigned int num) {
 	for (; num > 0; procs++, num--) {
-		if (node_data(*procs) != this_proc) {
-			map->processes = remove_node(map->processes, *procs);
-			free_node(map->process_pool, *procs);
-		}
+		if (node_data(*procs) != this_proc)
+			free_process(map, *procs);
 	}
 }
 
 // free all the processes
-inline void free_processes(map_t *map, node_t *procs[], unsigned int num) {
-	free_other_processes(map, NULL, procs, num);
+void free_processes(map_t *map, node_t *procs[], unsigned int num) {
+	for (; num > 0; procs++, num--)
+		free_process(map, *procs);
 }
 
+// remove the object from its owning cell, and add the node to the free pool
 void free_object(map_t *map, node_t *obj_node) {
 	object_t *obj = node_data(obj_node);
 	cell_t *cell = cell_at(map, obj->x, obj->y);
 	cell->objects = remove_node(cell->objects, obj_node);
 	free_node(map->object_pool, obj_node);
+}
+
+// free num objects, beginning at objs. that's an *array* of node pointers, not
+// the head of a list.
+void free_objects(map_t *map, node_t *objs[], unsigned int num) {
+	for (; num > 0; objs++, num--)
+		free_object(map, *objs);
 }
 
 //--------------------------------XXX-----------------------------------------
@@ -228,7 +240,6 @@ typedef struct {
 	node_t *light_node;
 	node_t *obj_node;
 	unsigned int flickered;
-	int32 x, y;
 	int32 radius;
 	light_t *light;
 } obj_fire_t;
@@ -243,20 +254,23 @@ void obj_fire_process(process_t *process, map_t *map) {
 	if (f->flickered == 0) {
 		// shift the origin around. Waiting on blue_puyo for sub-tile origin
 		// shifts in libfov.
+		object_t *obj = node_data(f->obj_node);
+		int32 x = obj->x << 12,
+		      y = obj->y << 12;
 		u32 m = genrand_int32();
-		if (m < (u32)(0xffffffff*0.6)) { l->x = f->x; l->y = f->y; }
+		if (m < (u32)(0xffffffff*0.6)) { l->x = x; l->y = y; }
 		else {
 			if (m < (u32)(0xffffffff*0.7)) {
-				l->x = f->x; l->y = f->y + (1<<12);
+				l->x = x; l->y = y + (1<<12);
 			} else if (m < (u32)(0xffffffff*0.8)) {
-				l->x = f->x; l->y = f->y - (1<<12);
+				l->x = x; l->y = y - (1<<12);
 			} else if (m < (u32)(0xffffffff*0.9)) {
-				l->x = f->x + (1<<12); l->y = f->y;
+				l->x = x + (1<<12); l->y = y;
 			} else {
-				l->x = f->x - (1<<12); l->y = f->y;
+				l->x = x - (1<<12); l->y = y;
 			}
 			if (opaque(cell_at(map, l->x>>12, l->y>>12)))
-			{ l->x = f->x; l->y = f->y; }
+			{ l->x = x; l->y = y; }
 		}
 		f->flickered = 8; // flicker every 8 frames
 	} else {
@@ -276,7 +290,7 @@ void obj_fire_proc_end(process_t *process, map_t *map) {
 
 void obj_fire_obj_end(object_t *object, map_t *map) {
 	obj_fire_t *fire = (obj_fire_t*)object->data;
-	free_processes(map, &fire->light_node, 1);
+	free_process(map, fire->light_node);
 	free(fire->light);
 	free(fire);
 }
@@ -285,28 +299,33 @@ void obj_fire_obj_end(object_t *object, map_t *map) {
 void new_obj_fire(map_t *map, s32 x, s32 y, int32 radius) {
 	obj_fire_t *fire = malloc(sizeof(obj_fire_t));
 
-	fire->x = x << 12;
-	fire->y = y << 12;
 	fire->radius = radius;
 	fire->flickered = 0;
 
 	light_t *light = new_light(radius, 1.00*(1<<12), 0.65*(1<<12), 0.26*(1<<12));
 	fire->light = light;
-	light->x = fire->x;
-	light->y = fire->y;
+	light->x = x << 12;
+	light->y = y << 12;
 
 	fire->light_node = push_process(map, obj_fire_process, obj_fire_proc_end, fire);
 	fire->obj_node = new_object(map, 2, fire);
 	insert_object(map, fire->obj_node, x, y);
 }
 
+
+// a glowing, coloured light
 typedef struct {
-	node_t *light_node;
-	node_t *obj_node;
+	node_t *light_node; // the light-drawing process node
+	node_t *obj_node; // the presence object node
+
 	light_t *light;
+
+	// cache the display colour/character so we don't have to recalculate every
+	// frame.
 	u32 display;
 } obj_light_t;
 
+// boilerplate entity-freeing functions. TODO: how to make this easier?
 void obj_light_proc_end(process_t *proc, map_t *map) {
 	obj_light_t *obj_light = (obj_light_t*)proc->data;
 	free_object(map, obj_light->obj_node);
@@ -315,7 +334,7 @@ void obj_light_proc_end(process_t *proc, map_t *map) {
 
 void obj_light_obj_end(object_t *obj, map_t *map) {
 	obj_light_t *obj_light = (obj_light_t*)obj->data;
-	free_processes(map, &obj_light->light_node, 1);
+	free_process(map, obj_light->light_node);
 	free(obj_light);
 }
 
@@ -329,14 +348,22 @@ u32 obj_light_display(object_t *obj, map_t *map) {
 	return obj_light->display;
 }
 
-void new_obj_light(map_t *map, light_t *light) {
+void new_obj_light(map_t *map, s32 x, s32 y, light_t *light) {
 	obj_light_t *obj_light = malloc(sizeof(obj_light_t));
 	obj_light->light = light;
+	light->x = x<<12; light->y = y<<12;
+	// we cache the display characteristics of the light for performance reasons.
 	obj_light->display = ('o'<<16) |
-		RGB15((light->r * (31<<12))>>24, (light->g * (31<<12))>>24, (light->b * (31<<12))>>24);
-	obj_light->light_node = push_process(map, obj_light_process, obj_light_proc_end, obj_light);
+		RGB15((light->r * (31<<12))>>24,
+		      (light->g * (31<<12))>>24,
+		      (light->b * (31<<12))>>24);
+	// create the lighting process and store the node for cleanup purposes
+	obj_light->light_node = push_process(map,
+			obj_light_process, obj_light_proc_end, obj_light);
+	// create the worldly presence of the light
 	obj_light->obj_node = new_object(map, 3, obj_light);
-	insert_object(map, obj_light->obj_node, light->x>>12, light->y>>12);
+	// and add it to the map
+	insert_object(map, obj_light->obj_node, x, y);
 }
 
 u32 random_colour(object_t *obj, map_t *map) {
@@ -397,6 +424,16 @@ objecttype_t objects[] = {
 };
 
 
+// does the cell have any objects of the given object type in it?
+// XXX: could be optimised by looking at importance and finishing early
+bool has_objtype(cell_t *cell, u16 objtype) {
+	node_t *k = cell->objects;
+	while (k)
+		if (((object_t*)node_data(k))->type == objtype) return true;
+	return false;
+}
+
+
 void lake(map_t *map, s32 x, s32 y) {
 	u32 wisppos = genrand_int32() & 0x3f; // between 0 and 63
 	u32 i;
@@ -405,7 +442,7 @@ void lake(map_t *map, s32 x, s32 y) {
 		cell_t *cell = cell_at(map, x, y);
 		if (i == wisppos) // place the wisp
 			new_mon_WillOWisp(map, x, y);
-		if (cell->type != T_FIRE) {
+		if (!has_objtype(cell, 2)) { // if the cell doesn't have a fire in it
 			cell->type = T_WATER;
 			cell->ch = '~';
 			cell->col = RGB15(6,9,31);
@@ -420,6 +457,41 @@ void lake(map_t *map, s32 x, s32 y) {
 		}
 	}
 }
+
+// turn the cell into a ground cell.
+void ground(cell_t *cell) {
+	unsigned int a = genrand_int32();
+	cell->type = T_GROUND;
+	unsigned int b = a & 3; // top two bits of a
+	a >>= 2; // get rid of the used random bits
+	switch (b) {
+		case 0:
+			cell->ch = '.'; break;
+		case 1:
+			cell->ch = ','; break;
+		case 2:
+			cell->ch = '\''; break;
+		case 3:
+			cell->ch = '`'; break;
+	}
+	b = a & 3; // next two bits of a (0..3)
+	a >>= 2;
+	u8 g = a & 7; // three bits (0..7)
+	a >>= 3;
+	u8 r = a & 7; // (0..7)
+	a >>= 3;
+	cell->col = RGB15(17+r,9+g,6+b); // more randomness in red/green than in blue
+}
+
+
+// binds x and y inside the map edges
+static inline void bounded(map_t *map, s32 *x, s32 *y) {
+	if (*x < 0) *x = 0;
+	else if (*x >= map->w) *x = map->w-1;
+	if (*y < 0) *y = 0;
+	else if (*y >= map->h) *y = map->h-1;
+}
+
 
 void random_map(map_t *map) {
 	s32 x,y;
@@ -453,39 +525,18 @@ void random_map(map_t *map) {
 	u32 i;
 	for (i = 8192; i > 0; i--) { // 8192 steps of the drunkard's walk
 		cell_t *cell = cell_at(map, x, y);
-		u32 a = genrand_int32();
 		if (i == light1 || i == light2) { // place a fire here
-			// TODO: hax, put this on a ground cell
-			cell->type = T_FIRE;
-			cell->ch = '!';
-			cell->col = RGB15(31,0,0);
+			// fires go on the ground
+			if (cell->type != T_GROUND) ground(cell);
 			new_obj_fire(map, x, y, 9<<12);
 		} else if (i == lakepos) {
 			lake(map, x, y);
 		} else if (cell->type == T_TREE) { // clear away some tree
-			cell->type = T_GROUND;
-			unsigned int b = a & 3; // top two bits of a
-			a >>= 2; // get rid of the used random bits
-			switch (b) {
-				case 0:
-					cell->ch = '.'; break;
-				case 1:
-					cell->ch = ','; break;
-				case 2:
-					cell->ch = '\''; break;
-				case 3:
-					cell->ch = '`'; break;
-			}
-			b = a & 3; // next two bits of a (0..3)
-			a >>= 2;
-			u8 g = a & 7; // three bits (0..7)
-			a >>= 3;
-			u8 r = a & 7; // (0..7)
-			a >>= 3;
-			cell->col = RGB15(17+r,9+g,6+b); // more randomness in red/green than in blue
+			ground(cell);
 		}
 
-		if (a & 1) { // pick some bits off the number (there are still some left)
+		u32 a = genrand_int32();
+		if (a & 1) { // pick some bits off the number
 			if (a & 2) x += 1;
 			else x -= 1;
 		} else {
@@ -494,10 +545,7 @@ void random_map(map_t *map) {
 		}
 
 		// don't run off the edge of the map
-		if (x < 0) x = 0;
-		if (y < 0) y = 0;
-		if (x >= map->w) x = map->w-1;
-		if (y >= map->h) y = map->h-1;
+		bounded(map, &x, &y);
 	}
 
 	// place the stairs at the end
@@ -517,30 +565,8 @@ void load_map(map_t *map, size_t len, const char *desc) {
 
 	// clear the map out to ground
 	for (y = 0; y < map->h; y++)
-		for (x = 0; x < map->w; x++) {
-			cell_t *cell = cell_at(map, x, y);
-			cell->type = T_GROUND;
-			u32 a = genrand_int32();
-			u8 b = a & 3; // top two bits of a
-			a >>= 2; // get rid of the used random bits
-			switch (b) {
-				case 1:
-					cell->ch = ','; break;
-				case 2:
-					cell->ch = '\''; break;
-				case 3:
-					cell->ch = '`'; break;
-				default:
-					cell->ch = '.'; break;
-			}
-			b = a & 3;
-			a >>= 2;
-			u8 g = a & 7;
-			a >>= 3;
-			u8 r = a & 7;
-			a >>= 3;
-			cell->col = RGB15(17+r,9+g,6+b);
-		}
+		for (x = 0; x < map->w; x++)
+			ground(cell_at(map, x, y));
 
 	// read the map from the string
 	for (x = 0, y = 0; len > 0; len--) {
@@ -553,54 +579,33 @@ void load_map(map_t *map, size_t len, const char *desc) {
 				cell->col = RGB15(4,31,1);
 				break;
 			case '@':
+				ground(cell);
 				map->pX = x;
 				map->pY = y;
 				break;
 			case 'w':
-				cell->type = T_FIRE;
-				cell->ch = '!';
-				cell->col = RGB15(31,0,0);
+				ground(cell);
 				new_obj_fire(map, x, y, 9<<12);
 				break;
 			case 'o':
-				cell->col = RGB15(12,0,31);
-				goto make;
+				ground(cell);
+				new_obj_light(map, x, y,
+						new_light(8<<12, 0.39*(1<<12), 0.05*(1<<12), 1.00*(1<<12)));
+				break;
 			case 'r':
-				cell->col = RGB15(31,0,0);
-				goto make;
+				ground(cell);
+				new_obj_light(map, x, y,
+						new_light(8<<12, 1.00*(1<<12), 0.07*(1<<12), 0.07*(1<<12)));
+				break;
 			case 'g':
-				cell->col = RGB15(0,31,0);
-				goto make;
+				ground(cell);
+				new_obj_light(map, x, y,
+						new_light(8<<12, 0.07*(1<<12), 1.00*(1<<12), 0.07*(1<<12)));
+				break;
 			case 'b':
-				cell->col = RGB15(0,0,31);
-make:
-				cell->type = T_LIGHT;
-				cell->ch = 'o';
-				{
-					light_t *l = malloc(sizeof(light_t));
-					l->x = x<<12;
-					l->y = y<<12;
-					if (c == 'o') {
-						l->r = 0.39*(1<<12);
-						l->g = 0.05*(1<<12);
-						l->b = 1.00*(1<<12);
-					} else if (c == 'r') {
-						l->r = 1.00*(1<<12);
-						l->g = 0.07*(1<<12);
-						l->b = 0.07*(1<<12);
-					} else if (c == 'g') {
-						l->r = 0.07*(1<<12);
-						l->g = 1.00*(1<<12);
-						l->b = 0.07*(1<<12);
-					} else {
-						l->r = 0.07*(1<<12);
-						l->g = 0.07*(1<<12);
-						l->b = 1.00*(1<<12);
-					}
-					l->radius = 8<<12;
-
-					new_obj_light(map, l);
-				}
+				ground(cell);
+				new_obj_light(map, x, y,
+						new_light(8<<12, 0.07*(1<<12), 0.07*(1<<12), 1.00*(1<<12)));
 				break;
 			case '\n': // reached the end of the line, so move down
 				x = -1; // gets ++'d later
