@@ -102,10 +102,9 @@ void refresh_blockmap(map_t *map) {
 		}
 }
 
-light_t *new_light(LIGHT_TYPE type, u8 radius, int32 r, int32 g, int32 b) {
+light_t *new_light(int32 radius, int32 r, int32 g, int32 b) {
 	light_t *light = malloc(sizeof(light_t));
 	memset32(light, 0, sizeof(light_t)/4);
-	light->type = type;
 	light->radius = radius;
 	light->r = r;
 	light->g = g;
@@ -198,23 +197,26 @@ void free_object(map_t *map, node_t *obj_node) {
 //--------------------------------XXX-----------------------------------------
 // everything below here is game-specific, and should be moved to another file
 
+// TODO: make draw_light take the parameters of the light (colour, radius,
+// position) and build up the lighting struct to pass to fov_circle on its
+// ownsome?
 void draw_light(light_t *l, map_t *map) {
 	// don't bother calculating if the light's completely outside the screen.
-	if (l->x + l->radius + (l->dr >> 12) < map->scrollX ||
-	    l->x - l->radius - (l->dr >> 12) > map->scrollX + 32 ||
-	    l->y + l->radius + (l->dr >> 12) < map->scrollY ||
-	    l->y - l->radius - (l->dr >> 12) > map->scrollY + 24) return;
+	if (((l->x + l->radius) >> 12) < map->scrollX ||
+	    ((l->x - l->radius) >> 12) > map->scrollX + 32 ||
+	    ((l->y + l->radius) >> 12) < map->scrollY ||
+	    ((l->y - l->radius) >> 12) > map->scrollY + 24) return;
 
 	// calculate lighting values
 	fov_circle(map->fov_light, (void*)map, (void*)l,
-			l->x + (l->dx>>12), l->y + (l->dy>>12), l->radius + 2);
+			l->x>>12, l->y>>12, (l->radius>>12) + 1);
 
 	// since fov_circle doesn't touch the origin tile, we'll do its lighting
 	// manually here.
-	cell_t *cell = cell_at(map, l->x + (l->dx>>12), l->y + (l->dy>>12));
+	cell_t *cell = cell_at(map, l->x>>12, l->y>>12);
 	if (cell->visible) {
 		cell->light += (1<<12);
-		cache_t *cache = cache_at(map, l->x + (l->dx>>12), l->y + (l->dy>>12));
+		cache_t *cache = cache_at(map, l->x>>12, l->y>>12);
 		cache->lr = l->r;
 		cache->lg = l->g;
 		cache->lb = l->b;
@@ -222,42 +224,119 @@ void draw_light(light_t *l, map_t *map) {
 	}
 }
 
-void process_light(process_t *process, map_t *map) {
-	light_t *l = (light_t*)process->data;
+typedef struct {
+	node_t *light_node;
+	node_t *obj_node;
+	unsigned int flickered;
+	int32 x, y;
+	int32 radius;
+	light_t *light;
+} obj_fire_t;
 
-	if (l->type == L_FIRE) { // clever feet that flicker like fire
-		if (l->flickered == 4 || l->flickered == 0) // radius changes more often than origin.
-			l->dr = (genrand_gaussian32() >> 19) - 4096;
+void obj_fire_process(process_t *process, map_t *map) {
+	obj_fire_t *f = (obj_fire_t*)process->data;
+	light_t *l = (light_t*)f->light;
 
-		if (l->flickered == 0) {
-			// shift the origin around. Waiting on blue_puyo for sub-tile origin
-			// shifts in libfov.
-			u32 m = genrand_int32();
-			if (m < (u32)(0xffffffff*0.6)) l->dx = l->dy = 0;
-			else {
-				if (m < (u32)(0xffffffff*0.7)) {
-					l->dx = 0; l->dy = 1<<12;
-				} else if (m < (u32)(0xffffffff*0.8)) {
-					l->dx = 0; l->dy = -(1<<12);
-				} else if (m < (u32)(0xffffffff*0.9)) {
-					l->dx = 1<<12; l->dy = 0;
-				} else {
-					l->dx = -(1<<12); l->dy = 0;
-				}
-				if (opaque(cell_at(map, l->x + (l->dx>>12), l->y + (l->dy>>12))))
-					l->dx = l->dy = 0;
+	if (f->flickered == 4 || f->flickered == 0) // radius changes more often than origin.
+		l->radius = f->radius + (genrand_gaussian32() >> 19) - 4096;
+
+	if (f->flickered == 0) {
+		// shift the origin around. Waiting on blue_puyo for sub-tile origin
+		// shifts in libfov.
+		u32 m = genrand_int32();
+		if (m < (u32)(0xffffffff*0.6)) { l->x = f->x; l->y = f->y; }
+		else {
+			if (m < (u32)(0xffffffff*0.7)) {
+				l->x = f->x; l->y = f->y + (1<<12);
+			} else if (m < (u32)(0xffffffff*0.8)) {
+				l->x = f->x; l->y = f->y - (1<<12);
+			} else if (m < (u32)(0xffffffff*0.9)) {
+				l->x = f->x + (1<<12); l->y = f->y;
+			} else {
+				l->x = f->x - (1<<12); l->y = f->y;
 			}
-			l->flickered = 8; // flicker every 8 frames
-		} else {
-			l->flickered--;
+			if (opaque(cell_at(map, l->x>>12, l->y>>12)))
+			{ l->x = f->x; l->y = f->y; }
 		}
+		f->flickered = 8; // flicker every 8 frames
+	} else {
+		f->flickered--;
 	}
 
 	draw_light(l, map);
 }
 
-void end_light(process_t *process, map_t *map) {
-	free(process->data); // the light_t struct we were keeping
+void obj_fire_proc_end(process_t *process, map_t *map) {
+	// free the structures we were keeping
+	obj_fire_t *fire = (obj_fire_t*)process->data;
+	free_object(map, fire->obj_node);
+	free(fire->light);
+	free(fire);
+}
+
+void obj_fire_obj_end(object_t *object, map_t *map) {
+	obj_fire_t *fire = (obj_fire_t*)object->data;
+	free_processes(map, &fire->light_node, 1);
+	free(fire->light);
+	free(fire);
+}
+
+// takes x and y as 32.0 cell coordinates, radius as 20.12
+void new_obj_fire(map_t *map, s32 x, s32 y, int32 radius) {
+	obj_fire_t *fire = malloc(sizeof(obj_fire_t));
+
+	fire->x = x << 12;
+	fire->y = y << 12;
+	fire->radius = radius;
+	fire->flickered = 0;
+
+	light_t *light = new_light(radius, 1.00*(1<<12), 0.65*(1<<12), 0.26*(1<<12));
+	fire->light = light;
+	light->x = fire->x;
+	light->y = fire->y;
+
+	fire->light_node = push_process(map, obj_fire_process, obj_fire_proc_end, fire);
+	fire->obj_node = new_object(map, 2, fire);
+	insert_object(map, fire->obj_node, x, y);
+}
+
+typedef struct {
+	node_t *light_node;
+	node_t *obj_node;
+	light_t *light;
+	u32 display;
+} obj_light_t;
+
+void obj_light_proc_end(process_t *proc, map_t *map) {
+	obj_light_t *obj_light = (obj_light_t*)proc->data;
+	free_object(map, obj_light->obj_node);
+	free(obj_light);
+}
+
+void obj_light_obj_end(object_t *obj, map_t *map) {
+	obj_light_t *obj_light = (obj_light_t*)obj->data;
+	free_processes(map, &obj_light->light_node, 1);
+	free(obj_light);
+}
+
+void obj_light_process(process_t *proc, map_t *map) {
+	obj_light_t *obj_light = (obj_light_t*)proc->data;
+	draw_light(obj_light->light, map);
+}
+
+u32 obj_light_display(object_t *obj, map_t *map) {
+	obj_light_t *obj_light = (obj_light_t*)obj->data;
+	return obj_light->display;
+}
+
+void new_obj_light(map_t *map, light_t *light) {
+	obj_light_t *obj_light = malloc(sizeof(obj_light_t));
+	obj_light->light = light;
+	obj_light->display = ('o'<<16) |
+		RGB15((light->r * (31<<12))>>24, (light->g * (31<<12))>>24, (light->b * (31<<12))>>24);
+	obj_light->light_node = push_process(map, obj_light_process, obj_light_proc_end, obj_light);
+	obj_light->obj_node = new_object(map, 3, obj_light);
+	insert_object(map, obj_light->obj_node, light->x>>12, light->y>>12);
 }
 
 u32 random_colour(object_t *obj, map_t *map) {
@@ -284,210 +363,7 @@ void displace_object(node_t *obj_node, map_t *map, int dX, int dY) {
 	}
 }
 
-// the Will-O'-Wisp state structure
-typedef struct {
-	// light_node and thought_node are next to each other so we can free them
-	// later if we need to using free_processes or free_other_processes (which
-	// take an *array* of processes)
-	node_t *light_node;
-	node_t *thought_node;
-	// we need to keep track of the object in case we need to free it (from the
-	// end process handler)
-	node_t *obj_node;
-
-	// the wisp will emit a glow
-	light_t *light;
-
-	// the wisp will try to stay close to its home
-	s32 homeX, homeY;
-
-	// the wisp shouldn't move too fast, so we keep a counter.
-	// TODO: maybe allow processes to be called at longer intervals?
-	u32 counter;
-} mon_WillOWisp_t;
-
-void mon_WillOWisp_light(process_t *process, map_t *map) {
-	mon_WillOWisp_t *wisp = process->data;
-	draw_light(wisp->light, map);
-}
-
-void mon_WillOWisp_wander(process_t *process, map_t *map);
-void mon_WillOWisp_follow(process_t *process, map_t *map);
-
-// return (dX, dY) as a position delta in the direction of dir. Will wander
-// around a bit, not just straight in that direction.
-void mon_WillOWisp_randdir(DIRECTION dir, int *dX, int *dY) {
-	u32 a = genrand_int32();
-	switch (dir) {
-		case D_NORTH: // the player is to the north
-			*dY = -1;
-			if (a&1) *dX = -1;
-			else if (a&2) *dX = 1;
-			break;
-		case D_SOUTH:
-			if (a&1) *dX = -1;
-			else if (a&2) *dX = 1;
-			*dY = 1; break;
-		case D_WEST:
-			if (a&1) *dY = -1;
-			else if (a&2) *dY = 1;
-			*dX = -1; break;
-		case D_EAST:
-			if (a&1)      *dY = -1;
-			else if (a&2) *dY = 1;
-			*dX = 1; break;
-		case D_NORTHEAST:
-			if (a&1)      *dX = 1;
-			else if (a&2) *dY = -1;
-			else          { *dX = 1; *dY = -1; }
-			break;
-		case D_NORTHWEST:
-			if (a&1)      *dX = -1;
-			else if (a&2) *dY = -1;
-			else          { *dX = -1; *dY = -1; }
-			break;
-		case D_SOUTHEAST:
-			if (a&1)      *dX = 1;
-			else if (a&2) *dY = 1;
-			else          { *dX = 1; *dY = 1; }
-			break;
-		case D_SOUTHWEST:
-			if (a&1)      *dX = -1;
-			else if (a&2) *dY = 1;
-			else          { *dX = -1; *dY = 1; }
-			break;
-	}
-}
-
-void mon_WillOWisp_wander(process_t *process, map_t *map) {
-	mon_WillOWisp_t *wisp = process->data;
-	object_t *obj = node_data(wisp->obj_node);
-	cell_t *cell = cell_at(map, obj->x, obj->y);
-	if (cell->visible) { // if they can see us, we can see them...
-		process->process = mon_WillOWisp_follow;
-		wisp->counter = 0;
-	} else if (wisp->counter == 0) {
-		int dir = genrand_int32() % 4;
-		int dX = 0, dY = 0;
-		switch (dir) {
-			case 0: dX = 1; dY = 0; break;
-			case 1: dX = -1; dY = 0; break;
-			case 2: dX = 0; dY = 1; break;
-			case 3: dX = 0; dY = -1; break;
-		}
-
-		object_t *obj = node_data(wisp->obj_node);
-
-		// try to stay close to the home
-		if (dX < 0 && obj->x + dX < wisp->homeX - 20) // too far west
-			dX = 1;
-		else if (dX > 0 && obj->x + dX > wisp->homeX + 20) // too far east
-			dX = -1;
-		else if (dY < 0 && obj->y + dY < wisp->homeY - 20) // too far north
-			dY = 1;
-		else if (dY > 0 && obj->y + dY > wisp->homeY + 20) // too far south
-			dY = -1;
-
-		displace_object(wisp->obj_node, map, dX, dY);
-
-		wisp->light->x = obj->x;
-		wisp->light->y = obj->y;
-		wisp->counter = 40;
-	} else
-		wisp->counter--;
-}
-
-void mon_WillOWisp_follow(process_t *process, map_t *map) {
-	mon_WillOWisp_t *wisp = process->data;
-	object_t *obj = node_data(wisp->obj_node);
-	cell_t *cell = cell_at(map, obj->x, obj->y);
-	if (!cell->visible) {
-		// if we can't see the player, go back to wandering
-		process->process = mon_WillOWisp_wander;
-	} else if (wisp->counter == 0) { // time to do something
-		unsigned int mdist = manhdist(obj->x, obj->y, map->pX, map->pY);
-		if (mdist < 4) { // don't get too close
-			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
-			// the player is in the direction dir (direction from obj to player)
-			int dX = 0, dY = 0;
-			mon_WillOWisp_randdir(dir, &dX, &dY);
-			// randdir returns a position delta *towards* the player, so invert it
-			dX = -dX;
-			dY = -dY;
-			displace_object(wisp->obj_node, map, dX, dY);
-			wisp->counter = 10;
-		} else if (mdist > 5) { // don't get too far away either
-			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
-			int dX = 0, dY = 0;
-			mon_WillOWisp_randdir(dir, &dX, &dY);
-			displace_object(wisp->obj_node, map, dX, dY);
-			wisp->counter = 10;
-		} else { // meander around
-			u32 a = genrand_int32();
-			int dX = 0, dY = 0;
-			// move randomly in one of four directions.
-			switch (a&3) {
-				case 0: dX = 1; dY = 0; break;
-				case 1: dX = -1; dY = 0; break;
-				case 2: dX = 0; dY = 1; break;
-				case 3: dX = 0; dY = -1; break;
-			}
-			displace_object(wisp->obj_node, map, dX, dY);
-			wisp->counter = 20;
-		}
-		wisp->light->x = obj->x;
-		wisp->light->y = obj->y;
-	} else
-		wisp->counter--;
-}
-
-// these ending functions are complicated because we want to free all the bits
-// of the wisp any time a single one of them is freed.
-void mon_WillOWisp_obj_end(object_t *object, map_t *map) {
-	mon_WillOWisp_t *wisp = object->data;
-	free_processes(map, &wisp->light_node, 2);
-	// free the state data
-	free(wisp->light);
-	free(wisp);
-}
-
-void mon_WillOWisp_proc_end(process_t *process, map_t *map) {
-	mon_WillOWisp_t *wisp = process->data;
-	// the below use of wisp->light_node as an array is sort of hackish, but it
-	// works. free_other_processes will free whichever process isn't this one.
-	free_other_processes(map, process, &wisp->light_node, 2);
-	free_object(map, wisp->obj_node);
-	// all of those things above refer to the same data (the wisp state), so we
-	// just free the state.
-	free(wisp->light);
-	free(wisp);
-}
-
-void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
-	mon_WillOWisp_t *wisp = malloc(sizeof(mon_WillOWisp_t));
-
-	wisp->homeX = x;
-	wisp->homeY = y;
-	wisp->counter = 0;
-
-	// set up lighting and AI processes
-	wisp->light_node = push_process(map,
-			mon_WillOWisp_light, mon_WillOWisp_proc_end, wisp);
-	wisp->thought_node = push_process(map,
-			mon_WillOWisp_wander, mon_WillOWisp_proc_end, wisp);
-
-	// a light cyan glow
-	light_t *light = new_light(L_GLOWER, 4, 0.23*(1<<12), 0.87*(1<<12), 1.00*(1<<12));
-	light->x = x;
-	light->y = y;
-
-	wisp->light = light;
-
-	// the object to represent the wisp on the map
-  wisp->obj_node = new_object(map, 1, wisp);
-  insert_object(map, wisp->obj_node, x, y);
-}
-
+#include "willowisp.h" // evil hacks, i know, but i got sick of scrolling through it
 
 objecttype_t objects[] = {
 	// 0: unknown object
@@ -502,19 +378,33 @@ objecttype_t objects[] = {
 	  .col = RGB15(7,31,27),
 	  .importance = 128,
 	  .display = NULL,
-	  .end = mon_WillOWisp_obj_end,
+	  .end = mon_WillOWisp_obj_end
+	},
+	// 2: fire
+	{ .ch = 'w',
+		.col = RGB15(31,12,0),
+		.importance = 64,
+		.display = NULL,
+		.end = obj_fire_obj_end
+	},
+	// 3: light
+	{ .ch = 'o',
+		.col = 0,
+		.importance = 64,
+		.display = obj_light_display,
+		.end = obj_light_obj_end
 	},
 };
 
 
 void lake(map_t *map, s32 x, s32 y) {
-	u32 wisppos = genrand_int32()&0x3f; // between 0 and 63
+	u32 wisppos = genrand_int32() & 0x3f; // between 0 and 63
 	u32 i;
+	// scour out a lake by random walk
 	for (i = 0; i < 64; i++) {
 		cell_t *cell = cell_at(map, x, y);
-		if (i == wisppos) {
+		if (i == wisppos) // place the wisp
 			new_mon_WillOWisp(map, x, y);
-		}
 		if (cell->type != T_FIRE) {
 			cell->type = T_WATER;
 			cell->ch = '~';
@@ -565,20 +455,11 @@ void random_map(map_t *map) {
 		cell_t *cell = cell_at(map, x, y);
 		u32 a = genrand_int32();
 		if (i == light1 || i == light2) { // place a fire here
+			// TODO: hax, put this on a ground cell
 			cell->type = T_FIRE;
-			cell->ch = 'w';
-			cell->col = RGB15(31,12,0);
-			light_t *l = (light_t*)malloc(sizeof(light_t));
-			l->x = x;
-			l->y = y;
-			l->r = 1.00*(1<<12);
-			l->g = 0.65*(1<<12);
-			l->b = 0.26*(1<<12);
-			l->radius = 9;
-			l->type = L_FIRE;
-
-			// add the fire to the process list
-			push_process(map, process_light, end_light, l);
+			cell->ch = '!';
+			cell->col = RGB15(31,0,0);
+			new_obj_fire(map, x, y, 9<<12);
 		} else if (i == lakepos) {
 			lake(map, x, y);
 		} else if (cell->type == T_TREE) { // clear away some tree
@@ -677,21 +558,9 @@ void load_map(map_t *map, size_t len, const char *desc) {
 				break;
 			case 'w':
 				cell->type = T_FIRE;
-				cell->ch = 'w';
-				cell->col = RGB15(31,12,0);
-				{
-					light_t *l = (light_t*)malloc(sizeof(light_t));
-					l->x = x;
-					l->y = y;
-					l->r = 1.00*(1<<12);
-					l->g = 0.65*(1<<12);
-					l->b = 0.26*(1<<12);
-					l->radius = 9;
-					l->type = L_FIRE;
-					l->dx = l->dy = l->dr = 0;
-					// add the light to the process list
-					push_process(map, process_light, end_light, l);
-				}
+				cell->ch = '!';
+				cell->col = RGB15(31,0,0);
+				new_obj_fire(map, x, y, 9<<12);
 				break;
 			case 'o':
 				cell->col = RGB15(12,0,31);
@@ -709,8 +578,8 @@ make:
 				cell->ch = 'o';
 				{
 					light_t *l = malloc(sizeof(light_t));
-					l->x = x;
-					l->y = y;
+					l->x = x<<12;
+					l->y = y<<12;
 					if (c == 'o') {
 						l->r = 0.39*(1<<12);
 						l->g = 0.05*(1<<12);
@@ -728,11 +597,9 @@ make:
 						l->g = 0.07*(1<<12);
 						l->b = 1.00*(1<<12);
 					}
-					l->radius = 8;
-					l->type = L_GLOWER;
-					l->dx = l->dy = l->dr = 0;
+					l->radius = 8<<12;
 
-					push_process(map, process_light, end_light, l);
+					new_obj_light(map, l);
 				}
 				break;
 			case '\n': // reached the end of the line, so move down

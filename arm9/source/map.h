@@ -37,13 +37,9 @@ typedef enum {
 // intermediate information used by processes that alter the light source (such
 // as flickering)
 typedef struct {
-	LIGHT_TYPE type : 8;
-	s32 x,y; // position in the map
-	int32 dx,dy; // position delta (for flickering) (TODO: move to process state)
+	int32 x,y; // position in the map
 	int32 r,g,b;
-	u8 radius;
-	s32 dr; // radius delta
-	u8 flickered;
+	int32 radius;
 } light_t;
 
 // object_t is for things that need to be drawn on the map, e.g. NPCs, dynamic
@@ -158,13 +154,9 @@ static inline bool opaque(cell_t* cell) {
 	return cell->type == T_TREE;
 }
 
-static inline bool flickers(light_t *light) {
-	return light->type == L_FIRE;
-}
-
 // allocate some space for a new light structure. You will be responsible for
 // freeing the light.
-light_t *new_light(LIGHT_TYPE type, u8 radius, int32 r, int32 g, int32 b);
+light_t *new_light(int32 radius, int32 r, int32 g, int32 b);
 
 // request a new process node and push it on the list, returning the node.
 node_t *new_process(map_t *map);

@@ -179,10 +179,10 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	if (map->torch_on) {
 		// the funny bit-twiddling here is to preserve a few more bits in dx/dy
 		// during multiplication. mulf32 is a software multiply, and thus slow.
-		int32 dx = ((l->x << 12) + l->dx - (x << 12)) >> 2,
-		      dy = ((l->y << 12) + l->dy - (y << 12)) >> 2,
+		int32 dx = (l->x - (x << 12)) >> 2,
+		      dy = (l->y - (y << 12)) >> 2,
 		      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
-		int32 rad = (l->radius << 12) + l->dr,
+		int32 rad = l->radius,
 		      rad2 = (rad * rad) >> 12;
 
 		if (dist2 < rad2) {
@@ -213,10 +213,10 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	// XXX: this function is pretty much identical to apply_sight... should
 	// maybe merge them.
 	light_t *l = (light_t*)src_;
-	int32 dx = ((l->x << 12) - (x << 12)) >> 2, // shifting is for accuracy reasons
-	      dy = ((l->y << 12) - (y << 12)) >> 2,
+	int32 dx = (l->x - (x << 12)) >> 2, // shifting is for accuracy reasons
+	      dy = (l->y - (y << 12)) >> 2,
 	      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
-	int32 rad = (l->radius << 12) + l->dr,
+	int32 rad = l->radius,
 	      rad2 = (rad * rad) >> 12;
 
 	if (dist2 < rad2) {
@@ -224,7 +224,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 		DIRECTION d = D_NONE;
 		if (opaque(cell)) // XXX: opacity checks need to be outsourced to game
-			d = seen_from(map, direction(l->x, l->y, x, y), cell);
+			d = seen_from(map, direction(l->x>>12, l->y>>12, x, y), cell);
 		cache_t *cache = cache_at(map, x, y);
 
 		while (DIV_CR & DIV_BUSY);
@@ -388,14 +388,10 @@ int main(void) {
 	light_t player_light = {
 		.x = map->pX,
 		.y = map->pY,
-		.dx = 0,
-		.dy = 0,
 		.r = 1.00*(1<<12),
 		.g = 0.90*(1<<12),
 		.b = 0.85*(1<<12),
-		.radius = 7,
-		.dr = 0,
-		.type = T_FIRE
+		.radius = 7<<12,
 	};
 
 	// profiling stuff (for counting hblanks)
@@ -434,8 +430,8 @@ int main(void) {
 			new_map(map); // resets cache
 			map->pX = map->w/2;
 			map->pY = map->h/2;
-			player_light.x = map->pX;
-			player_light.y = map->pY;
+			player_light.x = map->pX<<12;
+			player_light.y = map->pY<<12;
 			frm = 5;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
@@ -446,8 +442,8 @@ int main(void) {
 		}
 		if (down & KEY_SELECT) {
 			load_map(map, strlen(test_map), test_map);
-			player_light.x = map->pX;
-			player_light.y = map->pY;
+			player_light.x = map->pX<<12;
+			player_light.y = map->pY<<12;
 			frm = 5;
 			map->scrollX = 0; map->scrollY = 0;
 			if (map->pX - map->scrollX < 8 && map->scrollX > 0)
@@ -475,8 +471,8 @@ int main(void) {
 				new_map(map);
 				map->pX = map->w/2;
 				map->pY = map->h/2;
-				player_light.x = map->pX;
-				player_light.y = map->pY;
+				player_light.x = map->pX<<12;
+				player_light.y = map->pY<<12;
 				map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 				vblnkDirty = 0;
 				dirty = 2;
@@ -564,14 +560,14 @@ int main(void) {
 
 		if (frames % 4 == 0) {
 			// have the light lag a bit behind the player
-			player_light.x = map->pX;
-			player_light.y = map->pY;
+			player_light.x = map->pX<<12;
+			player_light.y = map->pY<<12;
 
-			if (frames % 8 == 0) {
+			/*if (frames % 8 == 0) {
 				player_light.dx = (genrand_gaussian32()>>21) - (1<<10);
 				player_light.dy = (genrand_gaussian32()>>21) - (1<<10);
 				player_light.dr = (genrand_gaussian32()>>20) - (1<<11);
-			}
+			}*/
 		}
 
 		fov_circle(sight, (void*)map, (void*)&player_light, map->pX, map->pY, 32);
@@ -647,13 +643,6 @@ int main(void) {
 						}
 					}
 
-					// eke out the colour values from the 15-bit colour
-					u32 r = col & 0x001f,
-					    g = (col & 0x03e0) >> 5,
-					    b = (col & 0x7c00) >> 10;
-					// fade out to the recalled colour (or 0 for ground)
-					int32 minval = cell->type == T_GROUND ? 0 : (cell->recall>>2);
-					int32 val = max(minval, cell->light);
 					int32 rval = cache->lr,
 					      gval = cache->lg,
 					      bval = cache->lb;
@@ -665,6 +654,10 @@ int main(void) {
 					    bval >> 8 != cache->last_lb ||
 					    cache->last_light != cell->light >> 8 ||
 					    col != cache->last_col) {
+						// fade out to the recalled colour (or 0 for ground)
+						int32 minval = 0;
+						if (cell->type != T_GROUND) minval = (cell->recall>>2);
+						int32 val = max(minval, cell->light);
 						int32 maxcol = max(rval,max(bval,gval));
 						// scale [rgb]val by the luminance, and keep the ratio between the
 						// colours the same
@@ -674,6 +667,10 @@ int main(void) {
 						rval = max(rval, minval);
 						gval = max(gval, minval);
 						bval = max(bval, minval);
+						// eke out the colour values from the 15-bit colour
+						u32 r = col & 0x001f,
+								g = (col & 0x03e0) >> 5,
+								b = (col & 0x7c00) >> 10;
 						// multiply the colour through fixed-point 20.12 for a bit more accuracy
 						r = ((r<<12) * rval) >> 24;
 						g = ((g<<12) * gval) >> 24;
@@ -743,7 +740,7 @@ int main(void) {
 					}
 					if (cache->was_visible) {
 						cache->was_visible = false;
-						cache->dirty = 2; // TODO: should this be 1 or 2? Or even here at all?
+						cache->dirty = 2;
 					}
 					if (cache->dirty > 0)
 						cache->dirty--;
