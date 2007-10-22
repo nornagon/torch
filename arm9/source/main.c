@@ -315,6 +315,28 @@ void scroll_screen(map_t *map, DIRECTION dir) {
 }
 
 
+void run_processes(map_t *map, node_t **processes) {
+	node_t *node = *processes;
+	node_t *prev = NULL;
+	while (node) {
+		process_t *proc = node_data(node);
+		if (proc->process) {
+			proc->process(proc, map);
+			prev = node;
+		} else { // a NULL process callback means free the process
+			if (proc->end)
+				proc->end(proc, map);
+			if (prev) // heal the list
+				prev->next = node->next;
+			else // there's a new head
+				*processes = node->next;
+			// add the dead process to the free pool
+			free_node(map->process_pool, node);
+		}
+		node = node->next;
+	}
+}
+
 
 
 //---------------------------------------------------------------------------
@@ -489,64 +511,68 @@ int main(void) {
 			if (keys & KEY_UP)
 				dpY = -1;
 			s32 pX = map->pX, pY = map->pY;
-			// bumping into a wall takes some time
-			if (pX + dpX < 0) { dpX = dpY = 0; frm = 2; }
-			if (pY + dpY < 0) { dpY = dpX = 0; frm = 2; }
-			if (pX + dpX >= map->w) { dpX = dpY = 0; frm = 2; }
-			if (pY + dpY >= map->h) { dpY = dpX = 0; frm = 2; }
+			if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
+			if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
+			cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
+			if (opaque(cell)) { // XXX: is opacity equivalent to solidity?
+				int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
+				if (rec != cell->recall) {
+					cell->recall = rec;
+					cache_at(map, pX + dpX, pY + dpY)->dirty = 2;
+				}
+				if (dpX && dpY) {
+					if (!opaque(cell_at(map, pX + dpX, pY))) // if we could just go left or right, do that
+						dpY = 0;
+					else if (!opaque(cell_at(map, pX, pY + dpY)))
+						dpX = 0;
+					else
+						dpX = dpY = 0;
+				} else
+					dpX = dpY = 0;
+			}
 			if (dpX || dpY) {
 				frm = 5;
-				cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
-				if (opaque(cell)) { // XXX: is opacity equivalent to solidity?
-					int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
-					if (rec != cell->recall) {
-						cell->recall = rec;
-						cache_at(map, pX + dpX, pY + dpY)->dirty = 2;
-					}
-					dpX = dpY = 0;
-					frm = 2;
-				} else {
-					cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
-					pX += dpX; map->pX = pX;
-					pY += dpY; map->pY = pY;
+				cell = cell_at(map, pX + dpX, pY + dpY);
+				cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
+				pX += dpX; map->pX = pX;
+				pY += dpY; map->pY = pY;
 
-					s32 dsX = 0, dsY = 0;
-					// keep the screen vaguely centred on the player (gap of 8 cells)
-					if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
-						dsX = (pX - 8) - map->scrollX;
-						map->scrollX = pX - 8;
-					} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
-						dsX = (pX - 24) - map->scrollX;
-						map->scrollX = pX - 24;
-					}
+				s32 dsX = 0, dsY = 0;
+				// keep the screen vaguely centred on the player (gap of 8 cells)
+				if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
+					dsX = (pX - 8) - map->scrollX;
+					map->scrollX = pX - 8;
+				} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
+					dsX = (pX - 24) - map->scrollX;
+					map->scrollX = pX - 24;
+				}
 
-					if (pY - map->scrollY < 8 && map->scrollY > 0) { 
-						dsY = (pY - 8) - map->scrollY;
-						map->scrollY = pY - 8;
-					} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
-						dsY = (pY - 16) - map->scrollY;
-						map->scrollY = pY - 16;
-					}
+				if (pY - map->scrollY < 8 && map->scrollY > 0) { 
+					dsY = (pY - 8) - map->scrollY;
+					map->scrollY = pY - 8;
+				} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
+					dsY = (pY - 16) - map->scrollY;
+					map->scrollY = pY - 16;
+				}
 
-					if (dsX || dsY) {
-						// XXX: look at generalising scroll function
+				if (dsX || dsY) {
+					// XXX: look at generalising scroll function
 
-						//if (abs(dsX) > 1 || abs(dsY) > 1) dirty = 2;
-						// the above should never be the case. if it ever is, make sure
-						// scrolling doesn't happen *as well as* full-screen dirtying.
+					//if (abs(dsX) > 1 || abs(dsY) > 1) dirty = 2;
+					// the above should never be the case. if it ever is, make sure
+					// scrolling doesn't happen *as well as* full-screen dirtying.
 
-						map->cacheX += dsX;
-						map->cacheY += dsY;
-						// wrap the cache origin
-						if (map->cacheX < 0) map->cacheX += 32;
-						if (map->cacheY < 0) map->cacheY += 24;
-						if (map->cacheX >= 32) map->cacheX -= 32;
-						if (map->cacheY >= 24) map->cacheY -= 24;
-						DIRECTION dir = direction(dsX, dsY, 0, 0);
-						scroll_screen(map, dir); // DMA the map data around so we don't have to redraw
-						copying = true;
-						just_scrolled = dir;
-					}
+					map->cacheX += dsX;
+					map->cacheY += dsY;
+					// wrap the cache origin
+					if (map->cacheX < 0) map->cacheX += 32;
+					if (map->cacheY < 0) map->cacheY += 24;
+					if (map->cacheX >= 32) map->cacheX -= 32;
+					if (map->cacheY >= 24) map->cacheY -= 24;
+					DIRECTION dir = direction(dsX, dsY, 0, 0);
+					scroll_screen(map, dir); // DMA the map data around so we don't have to redraw
+					copying = true;
+					just_scrolled = dir;
 				}
 			}
 		}
@@ -574,24 +600,10 @@ int main(void) {
 		counts[1] += hblnks - vc_before;
 
 		vc_before = hblnks;
-		// run all the game processes
-		node_t *node = map->processes;
-		node_t *prev = NULL;
-		while (node) {
-			process_t *proc = node_data(node);
-			if (proc->process) {
-				proc->process(proc, map);
-				prev = node;
-			} else { // a NULL process callback means free the process
-				if (proc->end)
-					proc->end(proc, map);
-				if (prev) // heal the list
-					prev->next = node->next;
-				// add the dead process to the free pool
-				free_node(map->process_pool, node);
-			}
-			node = node->next;
-		}
+		// run important processes first
+		run_processes(map, &map->high_processes);
+		// then everything else
+		run_processes(map, &map->processes);
 		counts[2] += hblnks - vc_before;
 
 		// wait for DMA to finish

@@ -100,6 +100,7 @@ typedef struct map_s {
 	u32 w,h;
 
 	llpool_t *process_pool;
+	node_t *high_processes; // important things that need to be run first
 	node_t *processes;
 	fov_settings_type *fov_light;
 
@@ -156,11 +157,19 @@ static inline bool opaque(cell_t* cell) {
 // freeing the light.
 light_t *new_light(int32 radius, int32 r, int32 g, int32 b);
 
-// request a new process node and push it on the list, returning the node.
-node_t *new_process(map_t *map);
-
 // push a new process on the process stack, returning the new process node.
-node_t *push_process(map_t *map, process_func process, process_func end, void* data);
+node_t *_push_process(map_t *map, node_t **proc_stack,
+		process_func process, process_func end, void* data);
+
+// push a normal-priority process on the map's process stack
+static inline node_t *push_process(map_t *map, process_func process, process_func end, void* data) {
+	return _push_process(map, &map->processes, process, end, data);
+}
+
+// push a high-priority process on the map's high process stack
+static inline node_t *push_high_process(map_t *map, process_func process, process_func end, void* data) {
+	return _push_process(map, &map->high_processes, process, end, data);
+}
 
 // create a new object. push_object doesn't add the object to any lists, so
 // you'd better do it yourself. returns the object node created.

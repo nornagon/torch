@@ -112,19 +112,13 @@ light_t *new_light(int32 radius, int32 r, int32 g, int32 b) {
 	return light;
 };
 
-node_t *new_process(map_t *map) {
-	node_t *node = request_node(map->process_pool);
-	map->processes = push_node(map->processes, node);
-	return node;
-}
-
-node_t *push_process(map_t *map, process_func process, process_func end, void* data) {
+node_t *_push_process(map_t *map, node_t **stack, process_func process, process_func end, void* data) {
 	node_t *node = request_node(map->process_pool);
 	process_t *proc = node_data(node);
 	proc->process = process;
 	proc->end = end;
 	proc->data = data;
-	map->processes = push_node(map->processes, node);
+	*stack = push_node(*stack, node);
 	return node;
 }
 
