@@ -22,6 +22,7 @@ extern u32 vblnks, frames, hblnks, vblnkDirty; // XXX: hax
 
 typedef struct game_s {
 	s32 pX, pY;
+	light_t *player_light;
 	bool torch_on;
 	fov_settings_type *fov_light;
 } game_t;
@@ -353,6 +354,10 @@ void random_map(map_t *map) {
 	cell->ch = '>';
 	cell->col = RGB15(31,31,31);
 
+	// and the player at the beginning
+	game(map)->pX = map->w/2;
+	game(map)->pY = map->h/2;
+
 	// update opacity information
 	refresh_blockmap(map);
 }
@@ -417,13 +422,6 @@ void load_map(map_t *map, size_t len, const char *desc) {
 
 	// update opacity map
 	refresh_blockmap(map);
-}
-
-void new_map(map_t *map) {
-	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds + IPC->time.rtc.minutes*60+IPC->time.rtc.hours*60*60 + IPC->time.rtc.weekday*7*24*60*60));
-	clss(); // TODO: necessary?
-	random_map(map);
-	reset_cache(map);
 }
 //---------------------------------------------------------------------------
 
@@ -591,24 +589,47 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 }
 //---------------------------------------------------------------------------
 
+void process_sight(process_t *process, map_t *map) {
+	fov_settings_type *sight = (fov_settings_type*)process->data;
+	game(map)->player_light->x = game(map)->pX << 12;
+	game(map)->player_light->y = game(map)->pY << 12;
+	fov_circle(sight, map, game(map)->player_light, game(map)->pX, game(map)->pY, 32);
+}
 
-//---------------------------------------------------------------------------
-int main(void) {
-//---------------------------------------------------------------------------
-	torch_init();
+void end_sight(process_t *process, map_t *map) {
+	free(process->data); // the fov_settings_type that was malloc'd
+}
 
-	// XXX: move into game
+void new_sight(map_t *map) {
 	fov_settings_type *sight = malloc(sizeof(fov_settings_type));
 	fov_settings_init(sight);
 	fov_settings_set_shape(sight, FOV_SHAPE_SQUARE);
 	fov_settings_set_opacity_test_function(sight, sight_opaque);
 	fov_settings_set_apply_lighting_function(sight, apply_sight);
 
-	map_t *map = create_map(128, 128);
+	push_high_process(map, process_sight, end_sight, sight);
+}
 
-	map->game = malloc(sizeof(game_t));
-
+void new_map(map_t *map) {
+	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds +
+				IPC->time.rtc.minutes*60 + IPC->time.rtc.hours*60*60 +
+				IPC->time.rtc.weekday*7*24*60*60));
+	clss(); // TODO: necessary?
 	random_map(map);
+	reset_cache(map);
+
+	game(map)->torch_on = true;
+
+	new_sight(map);
+}
+
+//---------------------------------------------------------------------------
+int main(void) {
+//---------------------------------------------------------------------------
+	torch_init();
+
+	map_t *map = create_map(128, 128);
+	map->game = malloc(sizeof(game_t));
 
 	// the fov_settings_type that will be used for non-player-held lights.
 	fov_settings_type *light = malloc(sizeof(fov_settings_type));
@@ -618,28 +639,19 @@ int main(void) {
 	fov_settings_set_apply_lighting_function(light, apply_light);
 	game(map)->fov_light = light;
 
-	game(map)->pX = map->w/2;
-	game(map)->pY = map->h/2;
-	game(map)->torch_on = true;
+	// this is the player's light
+	game(map)->player_light = new_light(7<<12, 1.00*(1<<12), 0.90*(1<<12), 0.85*(1<<12));
 
 	u32 x, y;
 	u32 frm = 0;
+
+	new_map(map);
 
 	// centre the player on the screen
 	map->scrollX = map->w/2 - 16;
 	map->scrollY = map->h/2 - 12;
 
 	int dirty = 2; // whole screen dirty first frame
-
-	// XXX: move into game
-	light_t player_light = {
-		.x = game(map)->pX,
-		.y = game(map)->pY,
-		.r = 1.00*(1<<12),
-		.g = 0.90*(1<<12),
-		.b = 0.85*(1<<12),
-		.radius = 7<<12,
-	};
 
 	// profiling stuff (for counting hblanks)
 	u32 vc_before;
@@ -675,10 +687,6 @@ int main(void) {
 		u32 down = keysDown();
 		if (down & KEY_START) {
 			new_map(map); // resets cache
-			game(map)->pX = map->w/2;
-			game(map)->pY = map->h/2;
-			player_light.x = game(map)->pX<<12;
-			player_light.y = game(map)->pY<<12;
 			frm = 5;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
@@ -689,10 +697,11 @@ int main(void) {
 		}
 		if (down & KEY_SELECT) {
 			load_map(map, strlen(test_map), test_map);
-			player_light.x = game(map)->pX<<12;
-			player_light.y = game(map)->pY<<12;
+			new_sight(map);
 			frm = 5;
 			map->scrollX = 0; map->scrollY = 0;
+
+			// TODO: split out into engine function(s?) for rescrolling
 			if (game(map)->pX - map->scrollX < 8 && map->scrollX > 0)
 				map->scrollX = game(map)->pX - 8;
 			else if (game(map)->pX - map->scrollX > 24 && map->scrollX < map->w-32)
@@ -701,6 +710,7 @@ int main(void) {
 				map->scrollY = game(map)->pY - 8;
 			else if (game(map)->pY - map->scrollY > 16 && map->scrollY < map->h-24)
 				map->scrollY = game(map)->pY - 16;
+
 			vblnkDirty = 0;
 			reset_cache(map); // cache is origin-agnostic
 			clss(); // TODO: necessary?
@@ -718,8 +728,6 @@ int main(void) {
 				new_map(map);
 				game(map)->pX = map->w/2;
 				game(map)->pY = map->h/2;
-				player_light.x = game(map)->pX<<12;
-				player_light.y = game(map)->pY<<12;
 				map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 				vblnkDirty = 0;
 				dirty = 2;
@@ -812,8 +820,6 @@ int main(void) {
 
 		if (frames % 4 == 0) {
 			// have the light lag a bit behind the player
-			player_light.x = game(map)->pX<<12;
-			player_light.y = game(map)->pY<<12;
 
 			/*if (frames % 8 == 0) {
 				player_light.dx = (genrand_gaussian32()>>21) - (1<<10);
@@ -822,7 +828,6 @@ int main(void) {
 			}*/
 		}
 
-		fov_circle(sight, (void*)map, (void*)&player_light, game(map)->pX, game(map)->pY, 32);
 		counts[1] += hblnks - vc_before;
 
 		vc_before = hblnks;
