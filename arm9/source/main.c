@@ -531,7 +531,8 @@ int main(void) {
 					dpX = dpY = 0;
 			}
 			if (dpX || dpY) {
-				frm = 5;
+				if (dpX && dpY) frm = 7;
+				else frm = 5;
 				cell = cell_at(map, pX + dpX, pY + dpY);
 				cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
 				pX += dpX; map->pX = pX;

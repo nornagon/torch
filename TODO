@@ -3,5 +3,6 @@
 * add a message printing system
 * generalise scroll_screen
 * think more about falloff - cubic is too slow, I think.
+* is it worth thinking about diagonal vs. straight moves? i think it is.
 * move by touchscreen
 * pulsating lights
