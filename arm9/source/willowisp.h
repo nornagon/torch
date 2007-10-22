@@ -119,9 +119,9 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 		// if we can't see the player, go back to wandering
 		process->process = mon_WillOWisp_wander;
 	} else if (wisp->counter == 0) { // time to do something
-		unsigned int mdist = manhdist(obj->x, obj->y, map->pX, map->pY);
+		unsigned int mdist = manhdist(obj->x, obj->y, game(map)->pX, game(map)->pY);
 		if (mdist < 4) { // don't get too close
-			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
+			DIRECTION dir = direction(game(map)->pX, game(map)->pY, obj->x, obj->y);
 			// the player is in the direction dir (direction from obj to player)
 			int dX = 0, dY = 0;
 			mon_WillOWisp_randdir(dir, &dX, &dY);
@@ -131,7 +131,7 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 			displace_object(wisp->obj_node, map, dX, dY);
 			wisp->counter = 10;
 		} else if (mdist > 5) { // don't get too far away either
-			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
+			DIRECTION dir = direction(game(map)->pX, game(map)->pY, obj->x, obj->y);
 			int dX = 0, dY = 0;
 			mon_WillOWisp_randdir(dir, &dX, &dY);
 			displace_object(wisp->obj_node, map, dX, dY);

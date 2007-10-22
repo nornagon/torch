@@ -4,95 +4,47 @@
 #include <nds.h>
 #include <string.h>
 
-#include "llpool.h"
-#include "fov.h"
+#include "list.h"
 #include "process.h"
+#include "cache.h"
+#include "object.h"
+
 #include "direction.h"
 
 #include <stdlib.h>
 
-// the manhattan distance between two points
-static inline unsigned int manhdist(int x1, int y1, int x2, int y2) {
-	return abs(x1-x2)+abs(y1-y2);
-}
-
 typedef enum {
+	T_NONE = 0,
 	T_TREE,
 	T_GROUND,
 	T_STAIRS,
 	T_WATER,
-	T_NONE
 } CELL_TYPE;
-
-typedef enum {
-	L_FIRE,
-	L_GLOWER,
-	L_NONE
-} LIGHT_TYPE;
-
-
-// light_t holds information about a specific light source, as well as
-// intermediate information used by processes that alter the light source (such
-// as flickering)
-typedef struct {
-	int32 x,y; // position in the map
-	int32 r,g,b;
-	int32 radius;
-} light_t;
-
-// object_t is for things that need to be drawn on the map, e.g. NPCs, dynamic
-// bits of landscape, items
-typedef struct {
-	s32 x,y;
-	u16 type; // index into array of objecttype_ts
-	void* data;
-} object_t;
-
-// objecttype_ts are kept in an array, and define various properties of
-// particular objects.
-typedef struct {
-	u8 ch;
-	u16 col;
-
-	// when we draw stuff on the map, we need to know which character should be
-	// drawn on top. Stuff with a higher importance is drawn over stuff with less
-	// importance.
-	u8 importance;
-
-	// if non-NULL, this will be called prior to drawing the object. It should
-	// return both a colour and a character, with the character in the high bytes.
-	// i.e: return (ch << 16) | col;
-	u32 (*display)(object_t *obj, struct map_s *map);
-
-	// called when an object of this type is about to be destroyed.
-	void (*end)(object_t *obj, struct map_s *map);
-} objecttype_t;
 
 // cell_t
 typedef struct {
+	u16 type;
 	u8 ch;
 	u16 col;
-	int32 recall;
-	int32 light;
-	CELL_TYPE type : 8;
+
+	int32 light; // total intensity of the light falling on this cell
+	int32 recall; // how much the player remembers this cell XXX: could probably be a u16?
+
+	// blocked_from is cache for working out which sides of an opaque cell we
+	// should light
 	unsigned int blocked_from : 4;
+
+	// visible is true if the cell is on-screen *and* in the player's LOS
 	bool visible : 1;
+	// which direction is the player seeing this cell from?
 	DIRECTION seen_from : 5;
+
+	// can light pass through the cell?
+	bool opaque : 1;
+
+	// what things are here? A ball of string and some sealing wax.
 	node_t *objects;
 } cell_t;
-
-// a cache_t corresponds to a tile currently being shown on the screen. It's
-// used for holding information about what pixels are already there on the
-// screen, for purposes of not having to draw it again.
-typedef struct {
-	int32 lr,lg,lb, // light colour
-	      last_lr, last_lg, last_lb;
-	int32 last_light;
-	u16 last_col_final; // the last colour we *drew* (including lights)
-	u16 last_col; // the last colour we received in as the colour of the cell
-	u8 dirty : 2; // if a cell is marked dirty, it gets drawn. (and dirty gets decremented.)
-	bool was_visible : 1;
-} cache_t;
 
 // map_t holds map information as well as game state. TODO: perhaps general game
 // state should be seperated out into a game_t? Maybe also a player_t.
@@ -102,7 +54,6 @@ typedef struct map_s {
 	llpool_t *process_pool;
 	node_t *high_processes; // important things that need to be run first
 	node_t *processes;
-	fov_settings_type *fov_light;
 
 	llpool_t *object_pool;
 	objecttype_t *objtypes;
@@ -113,14 +64,77 @@ typedef struct map_s {
 	int cacheX, cacheY; // top-left corner of cache. Should be kept positive.
 	s32 scrollX, scrollY; // top-left corner of screen. Should be kept positive.
 
-	s32 pX,pY;
-	bool torch_on : 1;
+	void* game; // game-specific data structure
 } map_t;
 
 // cell at (x,y)
 static inline cell_t *cell_at(map_t *map, int x, int y) {
 	return &map->cells[y*map->w+x];
 }
+
+// binds x and y inside the map edges
+static inline void bounded(map_t *map, s32 *x, s32 *y) {
+	if (*x < 0) *x = 0;
+	else if (*x >= map->w) *x = map->w-1;
+	if (*y < 0) *y = 0;
+	else if (*y >= map->h) *y = map->h-1;
+}
+
+// alloc space for a new map and return a pointer to it.
+map_t *create_map(u32 w, u32 h);
+
+// push a new process on the process stack, returning the new process node.
+node_t *_push_process(map_t *map, node_t **proc_stack,
+		process_func process, process_func end, void* data);
+
+// push a normal-priority process on the map's process stack
+static inline node_t *push_process(map_t *map, process_func process, process_func end, void* data) {
+	return _push_process(map, &map->processes, process, end, data);
+}
+
+// push a high-priority process on the map's high process stack
+static inline node_t *push_high_process(map_t *map, process_func process, process_func end, void* data) {
+	return _push_process(map, &map->high_processes, process, end, data);
+}
+
+// remove the normal-priority process proc from the process list and add it to
+// the free pool.
+static inline void free_process(map_t *map, node_t *proc) {
+	map->processes = remove_node(map->processes, proc);
+	free_node(map->process_pool, proc);
+}
+
+// free all the normal-priority processes
+void free_processes(map_t *map, node_t *procs[], unsigned int num);
+
+// free normal-priority processes that aren't the one specified.
+// procs should be a pointer to an *array* of nodes, not the head of a list. num
+// should be the number of nodes in the array.
+void free_other_processes(map_t *map, process_t *this_proc, node_t *procs[], unsigned int num);
+
+// create a new object. this doesn't add the object to any lists, so you'd
+// better do it yourself. returns the object node created.
+node_t *new_object(map_t *map, u16 type, void* data);
+
+// remove the object from its owning cell, and add the node to the free pool
+void free_object(map_t *map, node_t *obj_node);
+
+// perform an insert of obj into the map cell at (x,y) sorted by importance.
+// insert_object walks the list, so it's O(n), but it's better in the case of
+// inserting a high-importance object (because fewer comparisons of importance
+// have to be made)
+void insert_object(map_t *map, node_t *obj, s32 x, s32 y);
+
+// remove obj from loc and add it to the cell at (x,y).
+void move_object(map_t *map, cell_t *loc, node_t *obj, s32 x, s32 y);
+
+// move an object by (dX,dY). Will pay attention to opaque cells, map edges,
+// etc.
+void displace_object(node_t *obj_node, map_t *map, int dX, int dY);
+
+// will return the first instance of an object of type objtype it comes across
+// in the given cell, or NULL if there are none.
+node_t *has_objtype(cell_t *cell, u16 objtype);
 
 // cache for *screen* coordinates (x,y).
 static inline cache_t *cache_at_s(map_t *map, int x, int y) {
@@ -147,59 +161,13 @@ static inline cache_t *cache_at(map_t *map, int x, int y) {
 	return cache_at_s(map, x - map->scrollX, y - map->scrollY);
 }
 
-// XXX: these should probably live in another set of files again, leaving
-// map.[ch] for just the data structures
-static inline bool opaque(cell_t* cell) {
-	return cell->type == T_TREE;
-}
-
-// allocate some space for a new light structure. You will be responsible for
-// freeing the light.
-light_t *new_light(int32 radius, int32 r, int32 g, int32 b);
-
-// push a new process on the process stack, returning the new process node.
-node_t *_push_process(map_t *map, node_t **proc_stack,
-		process_func process, process_func end, void* data);
-
-// push a normal-priority process on the map's process stack
-static inline node_t *push_process(map_t *map, process_func process, process_func end, void* data) {
-	return _push_process(map, &map->processes, process, end, data);
-}
-
-// push a high-priority process on the map's high process stack
-static inline node_t *push_high_process(map_t *map, process_func process, process_func end, void* data) {
-	return _push_process(map, &map->high_processes, process, end, data);
-}
-
-// create a new object. push_object doesn't add the object to any lists, so
-// you'd better do it yourself. returns the object node created.
-node_t *new_object(map_t *map, u16 type, void* data);
-
-// perform an insert of obj into the map cell at (x,y) sorted by importance.
-// this is primarily for *moving* objects, not creating new ones, due to the
-// fact that we want the caller to stuff the passed object into a node itself.
-// insert_object walks the list, so it's O(n), but it's better in the case of
-// inserting a high-importance object (because only one comparison of importance
-// has to be made)
-void insert_object(map_t *map, node_t *obj, s32 x, s32 y);
-
-// remove obj from cell and add it to the cell at (x,y).
-void move_object(map_t *map, cell_t *loc, node_t *obj, s32 x, s32 y);
-
 // reset the cache
 void reset_cache(map_t *map);
 
 // clear everything in the map.
 void reset_map(map_t *map);
 
-// alloc space for a new map and return a pointer to it. Calls reset.
-map_t *create_map(u32 w, u32 h);
-
-// fill the map with random stuff by the drunkard's walk.
-void random_map(map_t *map);
-
-// load a map from a string.
-void load_map(map_t *map, size_t len, const char *desc);
-
+// refresh cells' awareness of their surroundings
+void refresh_blockmap(map_t *map);
 
 #endif /* MAP_H */

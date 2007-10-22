@@ -75,9 +75,10 @@ static inline node_t *request_node(llpool_t *pool) {
 // first one, the head will be different.)
 node_t *remove_node(node_t *list, node_t *node);
 
-static inline node_t *push_node(node_t *head, node_t *node) {
-	node->next = head;
-	return node;
+// push a node onto the front of a list.
+static inline void push_node(node_t **head, node_t *node) {
+	node->next = *head;
+	*head = node;
 }
 
 #endif /* LLPOOL_H */

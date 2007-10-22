@@ -4,61 +4,421 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "mt19937ar.h"
+#include "mersenne.h"
 #include "fov.h"
 #include "mem.h"
 #include "test_map.h"
 #include "draw.h"
 #include "map.h"
+#include "light.h"
 
-#include "llpool.h"
+#include "list.h"
 #include "process.h"
 
-//---------------------------------------------------------------------------
-// timers
-inline void start_stopwatch() {
-	TIMER_CR(0) = TIMER_DIV_1 | TIMER_ENABLE;
+#include "util.h"
+#include "engine.h"
+
+extern u32 vblnks, frames, hblnks, vblnkDirty; // XXX: hax
+
+typedef struct game_s {
+	s32 pX, pY;
+	bool torch_on;
+	fov_settings_type *fov_light;
+} game_t;
+
+static inline game_t *game(map_t *map) {
+	return ((game_t*)map->game);
 }
-
-inline u16 read_stopwatch() {
-	TIMER_CR(0) = 0;
-	return TIMER_DATA(0);
-}
-//---------------------------------------------------------------------------
-
-
-//---------------------------------------------------------------------------
-// numbers
-inline int min(int a, int b) {
-	if (a < b) return a;
-	return b;
-}
-inline int max(int a, int b) {
-	if (a > b) return a;
-	return b;
-}
-
-// raw divide, you'll have to check DIV_RESULT32 and DIV_BUSY yourself.
-static inline void div_32_32_raw(int32 num, int32 den) {
-	DIV_CR = DIV_32_32;
-
-	while (DIV_CR & DIV_BUSY);
-
-	DIV_NUMERATOR32 = num;
-	DIV_DENOMINATOR32 = den;
-}
-// beware, if your numerator can't deal with being shifted left 12, you will
-// lose bits off the left-hand side!
-static inline int32 div_32_32(int32 num, int32 den) {
-	div_32_32_raw(num << 12, den);
-	while (DIV_CR & DIV_BUSY);
-	return DIV_RESULT32;
-}
-//---------------------------------------------------------------------------
-
 
 //---------------------------------------------------------------------------
 // map stuff
+typedef enum {
+	OT_UNKNOWN = 0,
+	OT_WISP,
+	OT_FIRE,
+	OT_LIGHT
+} OBJECT_TYPE;
+
+// TODO: make draw_light take the parameters of the light (colour, radius,
+// position) and build up the lighting struct to pass to fov_circle on its
+// ownsome?
+void draw_light(light_t *l, map_t *map) {
+	// don't bother calculating if the light's completely outside the screen.
+	if (((l->x + l->radius) >> 12) < map->scrollX ||
+	    ((l->x - l->radius) >> 12) > map->scrollX + 32 ||
+	    ((l->y + l->radius) >> 12) < map->scrollY ||
+	    ((l->y - l->radius) >> 12) > map->scrollY + 24) return;
+
+	// calculate lighting values
+	fov_circle(game(map)->fov_light, (void*)map, (void*)l,
+			l->x>>12, l->y>>12, (l->radius>>12) + 1);
+
+	// since fov_circle doesn't touch the origin tile, we'll do its lighting
+	// manually here.
+	cell_t *cell = cell_at(map, l->x>>12, l->y>>12);
+	if (cell->visible) {
+		cell->light += (1<<12);
+		cache_t *cache = cache_at(map, l->x>>12, l->y>>12);
+		cache->lr = l->r;
+		cache->lg = l->g;
+		cache->lb = l->b;
+		cell->recall = 1<<12;
+	}
+}
+
+typedef struct {
+	node_t *light_node;
+	node_t *obj_node;
+	unsigned int flickered;
+	int32 radius;
+	light_t *light;
+} obj_fire_t;
+
+void obj_fire_process(process_t *process, map_t *map) {
+	obj_fire_t *f = (obj_fire_t*)process->data;
+	light_t *l = (light_t*)f->light;
+
+	if (f->flickered == 4 || f->flickered == 0) // radius changes more often than origin.
+		l->radius = f->radius + (genrand_gaussian32() >> 19) - 4096;
+
+	if (f->flickered == 0) {
+		// shift the origin around. Waiting on blue_puyo for sub-tile origin
+		// shifts in libfov.
+		object_t *obj = node_data(f->obj_node);
+		int32 x = obj->x << 12,
+		      y = obj->y << 12;
+		u32 m = genrand_int32();
+		if (m < (u32)(0xffffffff*0.6)) { l->x = x; l->y = y; }
+		else {
+			if (m < (u32)(0xffffffff*0.7)) {
+				l->x = x; l->y = y + (1<<12);
+			} else if (m < (u32)(0xffffffff*0.8)) {
+				l->x = x; l->y = y - (1<<12);
+			} else if (m < (u32)(0xffffffff*0.9)) {
+				l->x = x + (1<<12); l->y = y;
+			} else {
+				l->x = x - (1<<12); l->y = y;
+			}
+			if (cell_at(map, l->x>>12, l->y>>12)->opaque)
+			{ l->x = x; l->y = y; }
+		}
+		f->flickered = 8; // flicker every 8 frames
+	} else {
+		f->flickered--;
+	}
+
+	draw_light(l, map);
+}
+
+void obj_fire_proc_end(process_t *process, map_t *map) {
+	// free the structures we were keeping
+	obj_fire_t *fire = (obj_fire_t*)process->data;
+	free_object(map, fire->obj_node);
+	free(fire->light);
+	free(fire);
+}
+
+void obj_fire_obj_end(object_t *object, map_t *map) {
+	obj_fire_t *fire = (obj_fire_t*)object->data;
+	free_process(map, fire->light_node);
+	free(fire->light);
+	free(fire);
+}
+
+// takes x and y as 32.0 cell coordinates, radius as 20.12
+void new_obj_fire(map_t *map, s32 x, s32 y, int32 radius) {
+	obj_fire_t *fire = malloc(sizeof(obj_fire_t));
+
+	fire->radius = radius;
+	fire->flickered = 0;
+
+	light_t *light = new_light(radius, 1.00*(1<<12), 0.65*(1<<12), 0.26*(1<<12));
+	fire->light = light;
+	light->x = x << 12;
+	light->y = y << 12;
+
+	fire->light_node = push_process(map, obj_fire_process, obj_fire_proc_end, fire);
+	fire->obj_node = new_object(map, OT_FIRE, fire);
+	insert_object(map, fire->obj_node, x, y);
+}
+
+
+// a glowing, coloured light
+typedef struct {
+	node_t *light_node; // the light-drawing process node
+	node_t *obj_node; // the presence object node
+
+	light_t *light;
+
+	// cache the display colour/character so we don't have to recalculate every
+	// frame.
+	u32 display;
+} obj_light_t;
+
+// boilerplate entity-freeing functions. TODO: how to make this easier?
+void obj_light_proc_end(process_t *proc, map_t *map) {
+	obj_light_t *obj_light = (obj_light_t*)proc->data;
+	free_object(map, obj_light->obj_node);
+	free(obj_light);
+}
+
+void obj_light_obj_end(object_t *obj, map_t *map) {
+	obj_light_t *obj_light = (obj_light_t*)obj->data;
+	free_process(map, obj_light->light_node);
+	free(obj_light);
+}
+
+void obj_light_process(process_t *proc, map_t *map) {
+	obj_light_t *obj_light = (obj_light_t*)proc->data;
+	draw_light(obj_light->light, map);
+}
+
+u32 obj_light_display(object_t *obj, map_t *map) {
+	obj_light_t *obj_light = (obj_light_t*)obj->data;
+	return obj_light->display;
+}
+
+void new_obj_light(map_t *map, s32 x, s32 y, light_t *light) {
+	obj_light_t *obj_light = malloc(sizeof(obj_light_t));
+	obj_light->light = light;
+	light->x = x<<12; light->y = y<<12;
+	// we cache the display characteristics of the light for performance reasons.
+	obj_light->display = ('o'<<16) |
+		RGB15((light->r * (31<<12))>>24,
+		      (light->g * (31<<12))>>24,
+		      (light->b * (31<<12))>>24);
+	// create the lighting process and store the node for cleanup purposes
+	obj_light->light_node = push_process(map,
+			obj_light_process, obj_light_proc_end, obj_light);
+	// create the worldly presence of the light
+	obj_light->obj_node = new_object(map, OT_LIGHT, obj_light);
+	// and add it to the map
+	insert_object(map, obj_light->obj_node, x, y);
+}
+
+u32 random_colour(object_t *obj, map_t *map) {
+	return ((map->objtypes[obj->type].ch)<<16) | (genrand_int32()&0xffff);
+}
+
+#include "willowisp.h" // evil hacks, i know, but i got sick of scrolling through it
+
+objecttype_t objects[] = {
+	// 0: unknown object
+	[OT_UNKNOWN] = {
+		.ch = '?',
+		.col = RGB15(31,31,31),
+		.importance = 3,
+		.display = random_colour,
+		.end = NULL
+	},
+	// 1: will o' wisp
+	[OT_WISP] = {
+		.ch = 'o',
+		.col = RGB15(7,31,27),
+		.importance = 128,
+		.display = NULL,
+		.end = mon_WillOWisp_obj_end
+	},
+	// 2: fire
+	[OT_FIRE] = {
+		.ch = 'w',
+		.col = RGB15(31,12,0),
+		.importance = 64,
+		.display = NULL,
+		.end = obj_fire_obj_end
+	},
+	// 3: light
+	[OT_LIGHT] = {
+		.ch = 'o',
+		.col = 0,
+		.importance = 64,
+		.display = obj_light_display,
+		.end = obj_light_obj_end
+	},
+};
+
+
+void lake(map_t *map, s32 x, s32 y) {
+	u32 wisppos = genrand_int32() & 0x3f; // between 0 and 63
+	u32 i;
+	// scour out a lake by random walk
+	for (i = 0; i < 64; i++) {
+		cell_t *cell = cell_at(map, x, y);
+		if (i == wisppos) // place the wisp
+			new_mon_WillOWisp(map, x, y);
+		if (!has_objtype(cell, 2)) { // if the cell doesn't have a fire in it
+			cell->type = T_WATER;
+			cell->ch = '~';
+			cell->col = RGB15(6,9,31);
+			cell->opaque = false;
+		}
+		u32 a = genrand_int32();
+		if (a & 1) {
+			if (a & 2) x += 1;
+			else x -= 1;
+		} else {
+			if (a & 2) y += 1;
+			else y -= 1;
+		}
+		bounded(map, &x, &y);
+	}
+}
+
+// turn the cell into a ground cell.
+void ground(cell_t *cell) {
+	unsigned int a = genrand_int32();
+	cell->type = T_GROUND;
+	unsigned int b = a & 3; // top two bits of a
+	a >>= 2; // get rid of the used random bits
+	switch (b) {
+		case 0:
+			cell->ch = '.'; break;
+		case 1:
+			cell->ch = ','; break;
+		case 2:
+			cell->ch = '\''; break;
+		case 3:
+			cell->ch = '`'; break;
+	}
+	b = a & 3; // next two bits of a (0..3)
+	a >>= 2;
+	u8 g = a & 7; // three bits (0..7)
+	a >>= 3;
+	u8 r = a & 7; // (0..7)
+	a >>= 3;
+	cell->col = RGB15(17+r,9+g,6+b); // more randomness in red/green than in blue
+	cell->opaque = false;
+}
+
+
+void random_map(map_t *map) {
+	s32 x,y;
+	reset_map(map);
+	map->objtypes = objects;
+
+	// clear out the map to a backdrop of trees
+	for (y = 0; y < map->h; y++)
+		for (x = 0; x < map->w; x++) {
+			cell_t *cell = cell_at(map, x, y);
+			cell->opaque = true;
+			cell->type = T_TREE;
+			cell->ch = '*';
+			cell->col = RGB15(4,31,1);
+		}
+
+	// start in the centre
+	x = map->w/2; y = map->h/2;
+
+	node_t *something = request_node(map->object_pool);
+	object_t *obj = node_data(something);
+	obj->type = 0;
+	insert_object(map, something, x, y);
+
+
+	// place some fires
+	u32 light1 = genrand_int32() >> 21, // between 0 and 2047
+			light2 = light1 + 40;
+
+	u32 lakepos = (genrand_int32()>>21) + 4096; // hopefully away from the fires
+
+	u32 i;
+	for (i = 8192; i > 0; i--) { // 8192 steps of the drunkard's walk
+		cell_t *cell = cell_at(map, x, y);
+		if (i == light1 || i == light2) { // place a fire here
+			// fires go on the ground
+			if (cell->type != T_GROUND) ground(cell);
+			new_obj_fire(map, x, y, 9<<12);
+		} else if (i == lakepos) {
+			lake(map, x, y);
+		} else if (cell->type == T_TREE) { // clear away some tree
+			ground(cell);
+		}
+
+		u32 a = genrand_int32();
+		if (a & 1) { // pick some bits off the number
+			if (a & 2) x += 1;
+			else x -= 1;
+		} else {
+			if (a & 2) y += 1;
+			else y -= 1;
+		}
+
+		// don't run off the edge of the map
+		bounded(map, &x, &y);
+	}
+
+	// place the stairs at the end
+	cell_t *cell = cell_at(map, x, y);
+	cell->type = T_STAIRS;
+	cell->ch = '>';
+	cell->col = RGB15(31,31,31);
+
+	// update opacity information
+	refresh_blockmap(map);
+}
+
+void load_map(map_t *map, size_t len, const char *desc) {
+	s32 x,y;
+	reset_map(map);
+	map->objtypes = objects;
+
+	// clear the map out to ground
+	for (y = 0; y < map->h; y++)
+		for (x = 0; x < map->w; x++)
+			ground(cell_at(map, x, y));
+
+	// read the map from the string
+	for (x = 0, y = 0; len > 0; len--) {
+		u8 c = *desc++;
+		cell_t *cell = cell_at(map, x, y);
+		switch (c) {
+			case '*':
+				cell->type = T_TREE;
+				cell->ch = '*';
+				cell->col = RGB15(4,31,1);
+				cell->opaque = true;
+				break;
+			case '@':
+				ground(cell);
+				game(map)->pX = x;
+				game(map)->pY = y;
+				break;
+			case 'w':
+				ground(cell);
+				new_obj_fire(map, x, y, 9<<12);
+				break;
+			case 'o':
+				ground(cell);
+				new_obj_light(map, x, y,
+						new_light(8<<12, 0.39*(1<<12), 0.05*(1<<12), 1.00*(1<<12)));
+				break;
+			case 'r':
+				ground(cell);
+				new_obj_light(map, x, y,
+						new_light(8<<12, 1.00*(1<<12), 0.07*(1<<12), 0.07*(1<<12)));
+				break;
+			case 'g':
+				ground(cell);
+				new_obj_light(map, x, y,
+						new_light(8<<12, 0.07*(1<<12), 1.00*(1<<12), 0.07*(1<<12)));
+				break;
+			case 'b':
+				ground(cell);
+				new_obj_light(map, x, y,
+						new_light(8<<12, 0.07*(1<<12), 0.07*(1<<12), 1.00*(1<<12)));
+				break;
+			case '\n': // reached the end of the line, so move down
+				x = -1; // gets ++'d later
+				y++;
+				break;
+		}
+		x++;
+	}
+
+	// update opacity map
+	refresh_blockmap(map);
+}
+
 void new_map(map_t *map) {
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds + IPC->time.rtc.minutes*60+IPC->time.rtc.hours*60*60 + IPC->time.rtc.weekday*7*24*60*60));
 	clss(); // TODO: necessary?
@@ -67,23 +427,12 @@ void new_map(map_t *map) {
 }
 //---------------------------------------------------------------------------
 
-u32 vblnks = 0, frames = 0, hblnks = 0;
-int vblnkDirty = 0;
-void vblank_counter() {
-	vblnkDirty = 1;
-	vblnks += 1;
-}
-void hblank_counter() {
-	hblnks += 1;
-}
-
-
 //---------------------------------------------------------------------------
 // libfov functions
 bool opacity_test(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
-	return opaque(cell_at(map, x, y)) || (map->pX == x && map->pY == y);
+	return cell_at(map, x, y)->opaque || (game(map)->pX == x && game(map)->pY == y);
 }
 bool sight_opaque(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
@@ -91,7 +440,7 @@ bool sight_opaque(void *map_, int x, int y) {
 	if (y < map->scrollY || y >= map->scrollY + 24
 	    || x < map->scrollX || x >= map->scrollX + 32)
 		return true;
-	return opaque(cell_at(map, x, y));
+	return cell_at(map, x, y)->opaque;
 }
 
 inline int32 calc_semicircle(int32 dist2, int32 rad2) {
@@ -112,12 +461,6 @@ inline int32 calc_quadratic(int32 dist2, int32 rad2) {
 }
 
 inline DIRECTION seen_from(map_t *map, DIRECTION d, cell_t *cell) {
-	// Note to self: possible optimisation:
-	//   store the 'neighbour kind' in the cell data.
-	//
-	// There are 2^4 = 16 possible neighbour combinations, and they don't change
-	// often (or at all, currently). Could recalculate relatively quickly. Only
-	// 5 bits per cell needed.
 	bool opa, opb;
 	switch (d) {
 		case D_NORTHWEST:
@@ -172,11 +515,11 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	cell_t *cell = cell_at(map, x, y);
 
 	DIRECTION d = D_NONE;
-	if (opaque(cell))
-		d = seen_from(map, direction(map->pX, map->pY, x, y), cell);
+	if (cell->opaque)
+		d = seen_from(map, direction(game(map)->pX, game(map)->pY, x, y), cell);
 	cell->seen_from = d;
 
-	if (map->torch_on) {
+	if (game(map)->torch_on) {
 		// the funny bit-twiddling here is to preserve a few more bits in dx/dy
 		// during multiplication. mulf32 is a software multiply, and thus slow.
 		int32 dx = (l->x - (x << 12)) >> 2,
@@ -223,7 +566,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		div_32_32_raw(dist2<<8, rad2>>4);
 
 		DIRECTION d = D_NONE;
-		if (opaque(cell)) // XXX: opacity checks need to be outsourced to game
+		if (cell->opaque)
 			d = seen_from(map, direction(l->x>>12, l->y>>12, x, y), cell);
 		cache_t *cache = cache_at(map, x, y);
 
@@ -249,123 +592,10 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 //---------------------------------------------------------------------------
 
 
-// we copy data *away* from dir
-void scroll_screen(map_t *map, DIRECTION dir) {
-	u32 i;
-	// TODO: generalise?
-	if (dir & D_NORTH) {
-		// mark the top squares dirty
-		// TODO: slower than not going through cache_at?
-		for (i = 0; i < 32; i++)
-			cache_at(map, i+map->scrollX, map->scrollY)->dirty = 2;
-
-		if (dir & D_EAST) {
-			for (i = 1; i < 24; i++)
-				cache_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
-			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
-			DMA_DEST(3) = (uint32)&backbuf[256*192-1-8];
-			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
-		} else if (dir & D_WEST) {
-			for (i = 1; i < 24; i++)
-				cache_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
-			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8-256*8];
-			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
-			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
-		} else {
-			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
-			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
-			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8)>>1);
-		}
-	} else if (dir & D_SOUTH) {
-		// mark the southern squares dirty
-		for (i = 0; i < 32; i++)
-			cache_at(map, i+map->scrollX, map->scrollY+23)->dirty = 2;
-		if (dir & D_EAST) {
-			for (i = 0; i < 23; i++)
-				cache_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
-			DMA_SRC(3) = (uint32)&backbuf[256*8+8];
-			DMA_DEST(3) = (uint32)&backbuf[0];
-			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
-		} else if (dir & D_WEST) {
-			for (i = 0; i < 23; i++)
-				cache_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
-			DMA_SRC(3) = (uint32)&backbuf[256*8];
-			DMA_DEST(3) = (uint32)&backbuf[8];
-			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
-		} else {
-			DMA_SRC(3) = (uint32)&backbuf[256*8];
-			DMA_DEST(3) = (uint32)&backbuf[0];
-			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8)>>1);
-		}
-	} else {
-		if (dir & D_EAST) {
-			for (i = 0; i < 24; i++)
-				cache_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
-			DMA_SRC(3) = (uint32)&backbuf[8];
-			DMA_DEST(3) = (uint32)&backbuf[0];
-			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-8)>>1);
-		} else if (dir & D_WEST) {
-			for (i = 0; i < 24; i++)
-				cache_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
-			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8];
-			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
-			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);
-		}
-	}
-}
-
-
-void run_processes(map_t *map, node_t **processes) {
-	node_t *node = *processes;
-	node_t *prev = NULL;
-	while (node) {
-		process_t *proc = node_data(node);
-		if (proc->process) {
-			proc->process(proc, map);
-			prev = node;
-		} else { // a NULL process callback means free the process
-			if (proc->end)
-				proc->end(proc, map);
-			if (prev) // heal the list
-				prev->next = node->next;
-			else // there's a new head
-				*processes = node->next;
-			// add the dead process to the free pool
-			free_node(map->process_pool, node);
-		}
-		node = node->next;
-	}
-}
-
-
-
 //---------------------------------------------------------------------------
 int main(void) {
 //---------------------------------------------------------------------------
-	irqInit();
-	irqSet(IRQ_VBLANK, vblank_counter);
-	irqSet(IRQ_HBLANK, hblank_counter);
-	irqEnable(IRQ_VBLANK | IRQ_HBLANK);
-
-	//touchPosition touchXY;
-
-	videoSetMode( MODE_3_2D | DISPLAY_BG3_ACTIVE );
-	vramSetBankA(VRAM_A_MAIN_BG_0x06000000);
-	vramSetBankB(VRAM_B_MAIN_BG_0x06020000);
-	BGCTRL[3] = BG_BMP16_256x256 | BG_BMP_BASE(6);
-	BG3_XDY = 0;
-	BG3_XDX = 1 << 8;
-	BG3_YDX = 0;
-	BG3_YDY = 1 << 8;
-
-	videoSetModeSub( MODE_0_2D | DISPLAY_BG0_ACTIVE );
-	vramSetBankC(VRAM_C_SUB_BG);
-	SUB_BG0_CR = BG_MAP_BASE(31);
-	BG_PALETTE_SUB[255] = RGB15(31,31,31);
-
-	TIMER_DATA(0) = 0;
-
-	consoleInitDefault((u16*)SCREEN_BASE_BLOCK_SUB(31), (u16*)CHAR_BASE_BLOCK_SUB(0), 16);
+	torch_init();
 
 	// XXX: move into game
 	fov_settings_type *sight = malloc(sizeof(fov_settings_type));
@@ -374,14 +604,9 @@ int main(void) {
 	fov_settings_set_opacity_test_function(sight, sight_opaque);
 	fov_settings_set_apply_lighting_function(sight, apply_sight);
 
-	swiWaitForVBlank(); // sync with arm7
-	u32 seed = IPC->time.rtc.seconds;
-	seed += IPC->time.rtc.minutes*60;
-	seed += IPC->time.rtc.hours*60*60;
-	seed += IPC->time.rtc.weekday*7*24*60*60;
-	init_genrand(seed);
-
 	map_t *map = create_map(128, 128);
+
+	map->game = malloc(sizeof(game_t));
 
 	random_map(map);
 
@@ -391,11 +616,11 @@ int main(void) {
 	fov_settings_set_shape(light, FOV_SHAPE_OCTAGON);
 	fov_settings_set_opacity_test_function(light, opacity_test);
 	fov_settings_set_apply_lighting_function(light, apply_light);
-	map->fov_light = light;
+	game(map)->fov_light = light;
 
-	map->pX = map->w/2;
-	map->pY = map->h/2;
-	map->torch_on = true; // XXX: move into game
+	game(map)->pX = map->w/2;
+	game(map)->pY = map->h/2;
+	game(map)->torch_on = true;
 
 	u32 x, y;
 	u32 frm = 0;
@@ -408,8 +633,8 @@ int main(void) {
 
 	// XXX: move into game
 	light_t player_light = {
-		.x = map->pX,
-		.y = map->pY,
+		.x = game(map)->pX,
+		.y = game(map)->pY,
 		.r = 1.00*(1<<12),
 		.g = 0.90*(1<<12),
 		.b = 0.85*(1<<12),
@@ -450,10 +675,10 @@ int main(void) {
 		u32 down = keysDown();
 		if (down & KEY_START) {
 			new_map(map); // resets cache
-			map->pX = map->w/2;
-			map->pY = map->h/2;
-			player_light.x = map->pX<<12;
-			player_light.y = map->pY<<12;
+			game(map)->pX = map->w/2;
+			game(map)->pY = map->h/2;
+			player_light.x = game(map)->pX<<12;
+			player_light.y = game(map)->pY<<12;
 			frm = 5;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
@@ -464,18 +689,18 @@ int main(void) {
 		}
 		if (down & KEY_SELECT) {
 			load_map(map, strlen(test_map), test_map);
-			player_light.x = map->pX<<12;
-			player_light.y = map->pY<<12;
+			player_light.x = game(map)->pX<<12;
+			player_light.y = game(map)->pY<<12;
 			frm = 5;
 			map->scrollX = 0; map->scrollY = 0;
-			if (map->pX - map->scrollX < 8 && map->scrollX > 0)
-				map->scrollX = map->pX - 8;
-			else if (map->pX - map->scrollX > 24 && map->scrollX < map->w-32)
-				map->scrollX = map->pX - 24;
-			if (map->pY - map->scrollY < 8 && map->scrollY > 0)
-				map->scrollY = map->pY - 8;
-			else if (map->pY - map->scrollY > 16 && map->scrollY < map->h-24)
-				map->scrollY = map->pY - 16;
+			if (game(map)->pX - map->scrollX < 8 && map->scrollX > 0)
+				map->scrollX = game(map)->pX - 8;
+			else if (game(map)->pX - map->scrollX > 24 && map->scrollX < map->w-32)
+				map->scrollX = game(map)->pX - 24;
+			if (game(map)->pY - map->scrollY < 8 && map->scrollY > 0)
+				map->scrollY = game(map)->pY - 8;
+			else if (game(map)->pY - map->scrollY > 16 && map->scrollY < map->h-24)
+				map->scrollY = game(map)->pY - 16;
 			vblnkDirty = 0;
 			reset_cache(map); // cache is origin-agnostic
 			clss(); // TODO: necessary?
@@ -484,17 +709,17 @@ int main(void) {
 			continue;
 		}
 		if (down & KEY_B)
-			map->torch_on = !map->torch_on;
+			game(map)->torch_on = !game(map)->torch_on;
 
 		if (frm == 0) { // we don't check these things every frame; that's way too fast.
 			u32 keys = keysHeld();
-			if (keys & KEY_A && cell_at(map, map->pX, map->pY)->type == T_STAIRS) {
+			if (keys & KEY_A && cell_at(map, game(map)->pX, game(map)->pY)->type == T_STAIRS) {
 				//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
 				new_map(map);
-				map->pX = map->w/2;
-				map->pY = map->h/2;
-				player_light.x = map->pX<<12;
-				player_light.y = map->pY<<12;
+				game(map)->pX = map->w/2;
+				game(map)->pY = map->h/2;
+				player_light.x = game(map)->pX<<12;
+				player_light.y = game(map)->pY<<12;
 				map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 				vblnkDirty = 0;
 				dirty = 2;
@@ -510,20 +735,20 @@ int main(void) {
 				dpY = 1;
 			if (keys & KEY_UP)
 				dpY = -1;
-			s32 pX = map->pX, pY = map->pY;
+			s32 pX = game(map)->pX, pY = game(map)->pY;
 			if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
 			if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
 			cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
-			if (opaque(cell)) { // XXX: is opacity equivalent to solidity?
+			if (cell->opaque) { // XXX: is opacity equivalent to solidity?
 				int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
 				if (rec != cell->recall) {
 					cell->recall = rec;
 					cache_at(map, pX + dpX, pY + dpY)->dirty = 2;
 				}
 				if (dpX && dpY) {
-					if (!opaque(cell_at(map, pX + dpX, pY))) // if we could just go left or right, do that
+					if (!cell_at(map, pX + dpX, pY)->opaque) // if we could just go left or right, do that
 						dpY = 0;
-					else if (!opaque(cell_at(map, pX, pY + dpY)))
+					else if (!cell_at(map, pX, pY + dpY)->opaque)
 						dpX = 0;
 					else
 						dpX = dpY = 0;
@@ -535,8 +760,8 @@ int main(void) {
 				else frm = 5;
 				cell = cell_at(map, pX + dpX, pY + dpY);
 				cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
-				pX += dpX; map->pX = pX;
-				pY += dpY; map->pY = pY;
+				pX += dpX; game(map)->pX = pX;
+				pY += dpY; game(map)->pY = pY;
 
 				s32 dsX = 0, dsY = 0;
 				// keep the screen vaguely centred on the player (gap of 8 cells)
@@ -587,8 +812,8 @@ int main(void) {
 
 		if (frames % 4 == 0) {
 			// have the light lag a bit behind the player
-			player_light.x = map->pX<<12;
-			player_light.y = map->pY<<12;
+			player_light.x = game(map)->pX<<12;
+			player_light.y = game(map)->pY<<12;
 
 			/*if (frames % 8 == 0) {
 				player_light.dx = (genrand_gaussian32()>>21) - (1<<10);
@@ -597,7 +822,7 @@ int main(void) {
 			}*/
 		}
 
-		fov_circle(sight, (void*)map, (void*)&player_light, map->pX, map->pY, 32);
+		fov_circle(sight, (void*)map, (void*)&player_light, game(map)->pX, game(map)->pY, 32);
 		counts[1] += hblnks - vc_before;
 
 		vc_before = hblnks;
@@ -785,7 +1010,7 @@ int main(void) {
 		//------------------------------------------------------------------------
 
 
-		drawcq((map->pX-map->scrollX)*8, (map->pY-map->scrollY)*8, '@', RGB15(31,31,31));
+		drawcq((game(map)->pX-map->scrollX)*8, (game(map)->pY-map->scrollY)*8, '@', RGB15(31,31,31));
 		counts[3] += hblnks - vc_before;
 		swapbufs();
 		if (dirty > 0) {
