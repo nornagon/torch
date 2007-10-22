@@ -3,11 +3,11 @@
 
 //---------------------------------------------------------------------------
 // timers
-inline void start_stopwatch() {
+static inline void start_stopwatch() {
 	TIMER_CR(0) = TIMER_DIV_1 | TIMER_ENABLE;
 }
 
-inline u16 read_stopwatch() {
+static inline u16 read_stopwatch() {
 	TIMER_CR(0) = 0;
 	return TIMER_DATA(0);
 }
@@ -17,11 +17,11 @@ inline u16 read_stopwatch() {
 //---------------------------------------------------------------------------
 // numbers
 // TODO: are min/max defined in the stdlib somewhere?
-inline int min(int a, int b) {
+static inline int min(int a, int b) {
 	if (a < b) return a;
 	return b;
 }
-inline int max(int a, int b) {
+static inline int max(int a, int b) {
 	if (a > b) return a;
 	return b;
 }

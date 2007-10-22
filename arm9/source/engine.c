@@ -1,6 +1,10 @@
 #include "engine.h"
 #include "draw.h"
 #include "mersenne.h"
+#include "util.h"
+
+int dirty;
+u32 low_luminance = 0; // for luminance window stuff
 
 u32 vblnks = 0, frames = 0, hblnks = 0;
 int vblnkDirty = 0;
@@ -52,6 +56,8 @@ void torch_init() {
 	seed += IPC->time.rtc.hours*60*60;
 	seed += IPC->time.rtc.weekday*7*24*60*60;
 	init_genrand(seed);
+
+	dirty = 2;
 }
 
 void run_processes(map_t *map, node_t **processes) {
@@ -139,5 +145,192 @@ void scroll_screen(map_t *map, DIRECTION dir) {
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);
 		}
+	}
+}
+
+void dirty_screen() {
+	dirty = 2;
+}
+
+void reset_luminance() {
+	low_luminance = 0;
+}
+
+void draw(map_t *map) {
+	int x, y;
+
+	u32 twiddling = 0;
+	u32 drawing = 0;
+
+	// adjust is a war between values above the top of the luminance window and
+	// values below the bottom
+	s32 adjust = 0;
+	u32 max_luminance = 0;
+
+	cell_t *cell = cell_at(map, map->scrollX, map->scrollY);
+	for (y = 0; y < 24; y++) {
+		for (x = 0; x < 32; x++) {
+			cache_t *cache = cache_at_s(map, x, y);
+
+			if (cell->visible && cell->light > 0) {
+				start_stopwatch();
+				cell->recall = min(1<<12, max(cell->light, cell->recall));
+				if (cell->light > max_luminance) max_luminance = cell->light;
+				if (cell->light < low_luminance) {
+					cell->light = 0;
+					adjust--;
+				} else if (cell->light > low_luminance + (1<<12)) {
+					cell->light = 1<<12;
+					adjust++;
+				} else
+					cell->light -= low_luminance;
+
+				u16 ch = cell->ch;
+				u16 col = cell->col;
+
+				// if there are objects in the cell, we want to draw them instead of
+				// the terrain.
+				if (cell->objects) {
+					// we'll only draw the head of the list. since the object list is
+					// maintained as sorted, this will be the most recently added most
+					// important object in the cell.
+					object_t *obj = node_data(cell->objects);
+					objecttype_t *objtype = &map->objtypes[obj->type];
+
+					// if the object has a custom display function, we'll ask that.
+					if (objtype->display) {
+						u32 disp = objtype->display(obj, map);
+						// the character should be in the high bytes
+						ch = disp >> 16;
+						// and the colour in the low bytes
+						col = disp & 0xffff;
+					} else {
+						// otherwise we just use what's default for the object type.
+						ch = objtype->ch;
+						col = objtype->col;
+					}
+				}
+
+				int32 rval = cache->lr,
+							gval = cache->lg,
+							bval = cache->lb;
+				// if the values have changed significantly from last time (by 7 bits
+				// or more, i guess) we'll recalculate the colour. Otherwise, we won't
+				// bother.
+				if (rval >> 8 != cache->last_lr ||
+						gval >> 8 != cache->last_lg ||
+						bval >> 8 != cache->last_lb ||
+						cache->last_light != cell->light >> 8 ||
+						col != cache->last_col) {
+					// fade out to the recalled colour (or 0 for ground)
+					int32 minval = 0;
+					if (cell->type != T_GROUND) minval = (cell->recall>>2);
+					int32 val = max(minval, cell->light);
+					int32 maxcol = max(rval,max(bval,gval));
+					// scale [rgb]val by the luminance, and keep the ratio between the
+					// colours the same
+					rval = (div_32_32(rval,maxcol) * val) >> 12;
+					gval = (div_32_32(gval,maxcol) * val) >> 12;
+					bval = (div_32_32(bval,maxcol) * val) >> 12;
+					rval = max(rval, minval);
+					gval = max(gval, minval);
+					bval = max(bval, minval);
+					// eke out the colour values from the 15-bit colour
+					u32 r = col & 0x001f,
+							g = (col & 0x03e0) >> 5,
+							b = (col & 0x7c00) >> 10;
+					// multiply the colour through fixed-point 20.12 for a bit more accuracy
+					r = ((r<<12) * rval) >> 24;
+					g = ((g<<12) * gval) >> 24;
+					b = ((b<<12) * bval) >> 24;
+					twiddling += read_stopwatch();
+					start_stopwatch();
+					u16 col_to_draw = RGB15(r,g,b);
+					u16 last_col_final = cache->last_col_final;
+					if (col_to_draw != last_col_final) {
+						drawcq(x*8, y*8, ch, col_to_draw);
+						cache->last_col_final = col_to_draw;
+						cache->last_lr = cache->lr >> 8;
+						cache->last_lg = cache->lg >> 8;
+						cache->last_lb = cache->lb >> 8;
+						cache->last_light = cell->light >> 8;
+						cache->dirty = 2;
+					} else if (cache->dirty > 0 || dirty > 0) {
+						drawcq(x*8, y*8, ch, col_to_draw);
+						if (cache->dirty > 0)
+							cache->dirty--;
+					}
+					drawing += read_stopwatch();
+				} else {
+					twiddling += read_stopwatch();
+					start_stopwatch();
+					if (cache->dirty > 0 || dirty > 0) {
+						drawcq(x*8, y*8, ch, cache->last_col_final);
+						if (cache->dirty > 0)
+							cache->dirty--;
+					}
+					drawing += read_stopwatch();
+				}
+				cell->light = 0;
+				cache->lr = 0;
+				cache->lg = 0;
+				cache->lb = 0;
+				cache->was_visible = true;
+			} else if (cache->dirty > 0 || dirty > 0 || cache->was_visible) {
+				// dirty or it was visible last frame and now isn't.
+				if (cell->recall > 0 && cell->type != T_GROUND) {
+					start_stopwatch();
+					u32 r = cell->col & 0x001f,
+							g = (cell->col & 0x03e0) >> 5,
+							b = (cell->col & 0x7c00) >> 10;
+					int32 val = (cell->recall>>2);
+					r = ((r<<12) * val) >> 24;
+					g = ((g<<12) * val) >> 24;
+					b = ((b<<12) * val) >> 24;
+					cache->last_col_final = RGB15(r,g,b);
+					cache->last_col = cache->last_col_final; // not affected by light, so they're the same
+					cache->last_lr = 0;
+					cache->last_lg = 0;
+					cache->last_lb = 0;
+					cache->last_light = 0;
+					twiddling += read_stopwatch();
+					start_stopwatch();
+					drawcq(x*8, y*8, cell->ch, cache->last_col_final);
+					drawing += read_stopwatch();
+				} else {
+					drawcq(x*8, y*8, ' ', 0); // clear
+					cache->last_col_final = 0;
+					cache->last_col = 0;
+					cache->last_lr = 0;
+					cache->last_lg = 0;
+					cache->last_lb = 0;
+					cache->last_light = 0;
+				}
+				if (cache->was_visible) {
+					cache->was_visible = false;
+					cache->dirty = 2;
+				}
+				if (cache->dirty > 0)
+					cache->dirty--;
+			}
+			cell->visible = 0;
+
+			cell++; // takes into account the size of the structure, apparently
+		}
+		cell += map->w - 32; // the next row down
+	}
+
+	low_luminance += max(adjust*2, -low_luminance); // adjust to fit at twice the difference
+	// drift towards having luminance values on-screen placed at maximum brightness.
+	if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
+		low_luminance -= min(40,low_luminance);
+
+	iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
+	iprintf("\x1b[13;0Hdrawing: %05x\ntwiddling: %05x", drawing, twiddling);
+
+	if (dirty > 0) {
+		dirty--;
+		if (dirty > 0)
+			cls();
 	}
 }

@@ -1,3 +1,4 @@
+* think about remembering objects? cell->recalled_obj?
 * add a typedef for num2012 and make everything that wants 20.12 say so.
 * move more stuff out of main (key handling, sight code)
 * add a message printing system

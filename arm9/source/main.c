@@ -642,7 +642,6 @@ int main(void) {
 	// this is the player's light
 	game(map)->player_light = new_light(7<<12, 1.00*(1<<12), 0.90*(1<<12), 0.85*(1<<12));
 
-	u32 x, y;
 	u32 frm = 0;
 
 	new_map(map);
@@ -651,15 +650,12 @@ int main(void) {
 	map->scrollX = map->w/2 - 16;
 	map->scrollY = map->h/2 - 12;
 
-	int dirty = 2; // whole screen dirty first frame
+	dirty_screen(); // the whole screen is dirty first frame.
 
 	// profiling stuff (for counting hblanks)
 	u32 vc_before;
 	u32 counts[10];
 	for (vc_before = 0; vc_before < 10; vc_before++) counts[vc_before] = 0;
-
-	// for luminance window stuff
-	u32 low_luminance = 0;
 
 	// we need to keep track of where we scroll due to double-buffering.
 	DIRECTION just_scrolled = 0;
@@ -690,8 +686,8 @@ int main(void) {
 			frm = 5;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 			vblnkDirty = 0;
-			dirty = 2;
-			low_luminance = 0;
+			dirty_screen();
+			reset_luminance();
 			//iprintf("You begin again.\n");
 			continue;
 		}
@@ -712,10 +708,10 @@ int main(void) {
 				map->scrollY = game(map)->pY - 16;
 
 			vblnkDirty = 0;
+			dirty_screen();
+			reset_luminance();
 			reset_cache(map); // cache is origin-agnostic
 			clss(); // TODO: necessary?
-			dirty = 2;
-			low_luminance = 0;
 			continue;
 		}
 		if (down & KEY_B)
@@ -730,7 +726,7 @@ int main(void) {
 				game(map)->pY = map->h/2;
 				map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 				vblnkDirty = 0;
-				dirty = 2;
+				dirty_screen();
 				continue;
 			}
 
@@ -829,7 +825,6 @@ int main(void) {
 		}
 
 		counts[1] += hblnks - vc_before;
-
 		vc_before = hblnks;
 		// run important processes first
 		run_processes(map, &map->high_processes);
@@ -843,186 +838,13 @@ int main(void) {
 
 		//------------------------------------------------------------------------
 		// draw loop
-
-		vc_before = hblnks;
-		u32 twiddling = 0;
-		u32 drawing = 0;
-
-		// adjust is a war between values above the top of the luminance window and
-		// values below the bottom
-		s32 adjust = 0;
-		u32 max_luminance = 0;
-
-		cell_t *cell = cell_at(map, map->scrollX, map->scrollY);
-		for (y = 0; y < 24; y++) {
-			for (x = 0; x < 32; x++) {
-				cache_t *cache = cache_at_s(map, x, y);
-
-				if (cell->visible && cell->light > 0) {
-					start_stopwatch();
-					cell->recall = min(1<<12, max(cell->light, cell->recall));
-					if (cell->light > max_luminance) max_luminance = cell->light;
-					if (cell->light < low_luminance) {
-						cell->light = 0;
-						adjust--;
-					} else if (cell->light > low_luminance + (1<<12)) {
-						cell->light = 1<<12;
-						adjust++;
-					} else
-						cell->light -= low_luminance;
-
-					u16 ch = cell->ch;
-					u16 col = cell->col;
-
-					// if there are objects in the cell, we want to draw them instead of
-					// the terrain.
-					if (cell->objects) {
-						// we'll only draw the head of the list. since the object list is
-						// maintained as sorted, this will be the most recently added most
-						// important object in the cell.
-						object_t *obj = node_data(cell->objects);
-						objecttype_t *objtype = &map->objtypes[obj->type];
-
-						// if the object has a custom display function, we'll ask that.
-						if (objtype->display) {
-							u32 disp = objtype->display(obj, map);
-							// the character should be in the high bytes
-							ch = disp >> 16;
-							// and the colour in the low bytes
-							col = disp & 0xffff;
-						} else {
-							// otherwise we just use what's default for the object type.
-							ch = objtype->ch;
-							col = objtype->col;
-						}
-					}
-
-					int32 rval = cache->lr,
-					      gval = cache->lg,
-					      bval = cache->lb;
-					// if the values have changed significantly from last time (by 7 bits
-					// or more, i guess) we'll recalculate the colour. Otherwise, we won't
-					// bother.
-					if (rval >> 8 != cache->last_lr ||
-					    gval >> 8 != cache->last_lg ||
-					    bval >> 8 != cache->last_lb ||
-					    cache->last_light != cell->light >> 8 ||
-					    col != cache->last_col) {
-						// fade out to the recalled colour (or 0 for ground)
-						int32 minval = 0;
-						if (cell->type != T_GROUND) minval = (cell->recall>>2);
-						int32 val = max(minval, cell->light);
-						int32 maxcol = max(rval,max(bval,gval));
-						// scale [rgb]val by the luminance, and keep the ratio between the
-						// colours the same
-						rval = (div_32_32(rval,maxcol) * val) >> 12;
-						gval = (div_32_32(gval,maxcol) * val) >> 12;
-						bval = (div_32_32(bval,maxcol) * val) >> 12;
-						rval = max(rval, minval);
-						gval = max(gval, minval);
-						bval = max(bval, minval);
-						// eke out the colour values from the 15-bit colour
-						u32 r = col & 0x001f,
-								g = (col & 0x03e0) >> 5,
-								b = (col & 0x7c00) >> 10;
-						// multiply the colour through fixed-point 20.12 for a bit more accuracy
-						r = ((r<<12) * rval) >> 24;
-						g = ((g<<12) * gval) >> 24;
-						b = ((b<<12) * bval) >> 24;
-						twiddling += read_stopwatch();
-						start_stopwatch();
-						u16 col_to_draw = RGB15(r,g,b);
-						u16 last_col_final = cache->last_col_final;
-						if (col_to_draw != last_col_final) {
-							drawcq(x*8, y*8, ch, col_to_draw);
-							cache->last_col_final = col_to_draw;
-							cache->last_lr = cache->lr >> 8;
-							cache->last_lg = cache->lg >> 8;
-							cache->last_lb = cache->lb >> 8;
-							cache->last_light = cell->light >> 8;
-							cache->dirty = 2;
-						} else if (cache->dirty > 0 || dirty > 0) {
-							drawcq(x*8, y*8, ch, col_to_draw);
-							if (cache->dirty > 0)
-								cache->dirty--;
-						}
-						drawing += read_stopwatch();
-					} else {
-						twiddling += read_stopwatch();
-						start_stopwatch();
-						if (cache->dirty > 0 || dirty > 0) {
-							drawcq(x*8, y*8, ch, cache->last_col_final);
-							if (cache->dirty > 0)
-								cache->dirty--;
-						}
-						drawing += read_stopwatch();
-					}
-					cell->light = 0;
-					cache->lr = 0;
-					cache->lg = 0;
-					cache->lb = 0;
-					cache->was_visible = true;
-				} else if (cache->dirty > 0 || dirty > 0 || cache->was_visible) {
-					// dirty or it was visible last frame and now isn't.
-					if (cell->recall > 0 && cell->type != T_GROUND) {
-						start_stopwatch();
-						u32 r = cell->col & 0x001f,
-						    g = (cell->col & 0x03e0) >> 5,
-						    b = (cell->col & 0x7c00) >> 10;
-						int32 val = (cell->recall>>2);
-						r = ((r<<12) * val) >> 24;
-						g = ((g<<12) * val) >> 24;
-						b = ((b<<12) * val) >> 24;
-						cache->last_col_final = RGB15(r,g,b);
-						cache->last_col = cache->last_col_final; // not affected by light, so they're the same
-						cache->last_lr = 0;
-						cache->last_lg = 0;
-						cache->last_lb = 0;
-						cache->last_light = 0;
-						twiddling += read_stopwatch();
-						start_stopwatch();
-						drawcq(x*8, y*8, cell->ch, cache->last_col_final);
-						drawing += read_stopwatch();
-					} else {
-						drawcq(x*8, y*8, ' ', 0); // clear
-						cache->last_col_final = 0;
-						cache->last_col = 0;
-						cache->last_lr = 0;
-						cache->last_lg = 0;
-						cache->last_lb = 0;
-						cache->last_light = 0;
-					}
-					if (cache->was_visible) {
-						cache->was_visible = false;
-						cache->dirty = 2;
-					}
-					if (cache->dirty > 0)
-						cache->dirty--;
-				}
-				cell->visible = 0;
-
-				cell++; // takes into account the size of the structure, apparently
-			}
-			cell += map->w - 32; // the next cell down
-		}
-
-		low_luminance += max(adjust*2, -low_luminance); // adjust to fit at twice the difference
-		// drift towards having luminance values on-screen placed at maximum brightness.
-		if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
-			low_luminance -= min(40,low_luminance);
-		iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
-		iprintf("\x1b[13;0Hdrawing: %05x\ntwiddling: %05x", drawing, twiddling);
+		draw(map);
 		//------------------------------------------------------------------------
 
 
 		drawcq((game(map)->pX-map->scrollX)*8, (game(map)->pY-map->scrollY)*8, '@', RGB15(31,31,31));
 		counts[3] += hblnks - vc_before;
 		swapbufs();
-		if (dirty > 0) {
-			dirty--;
-			if (dirty > 0)
-				cls();
-		}
 		counts[4] += hblnks - vc_begin;
 		frames += 1;
 		if (vblnks >= 60) {

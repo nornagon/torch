@@ -15,4 +15,13 @@ void run_processes(map_t *map, node_t **processes);
 // whatever is the current backbuffer.
 void scroll_screen(map_t *map, DIRECTION dir);
 
+// mark the entire screen for redrawing. Slow!
+void dirty_screen();
+
+// reset the luminance window (readjust your eyes)
+void reset_luminance();
+
+// draw the map
+void draw(map_t *map);
+
 #endif /* ENGINE_H */
