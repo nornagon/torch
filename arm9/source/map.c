@@ -26,6 +26,17 @@ void reset_cache(map_t *map) {
 	map->cacheX = map->cacheY = 0;
 }
 
+void free_process_list(map_t *map, node_t **list) {
+	while (*list) {
+		node_t *next = (*list)->next;
+		process_t *p = (process_t*)node_data(*list);
+		if (p->end)
+			p->end(p, map);
+		free_node(map->process_pool, *list);
+		*list = next;
+	}
+}
+
 void reset_map(map_t* map) {
 	u32 x, y, w = map->w, h = map->h;
 	for (y = 0; y < h; y++)
@@ -54,15 +65,9 @@ void reset_map(map_t* map) {
 	// free all the objects
 	flush_free(map->object_pool);
 
-	// clear and free the process list
-	while (map->processes) {
-		node_t *next = map->processes->next;
-		process_t *p = (process_t*)node_data(map->processes);
-		if (p->end)
-			p->end(p, map);
-		free_node(map->process_pool, map->processes);
-		map->processes = next;
-	}
+	// clear and free the process lists
+	free_process_list(map, &map->processes);
+	free_process_list(map, &map->high_processes);
 	flush_free(map->process_pool);
 }
 
