@@ -18,28 +18,31 @@
 #include "util.h"
 #include "engine.h"
 
-extern u32 vblnks, frames, hblnks, vblnkDirty; // XXX: hax
-
+//-------------{{{ game struct-----------------------------------------------
 typedef struct game_s {
 	s32 pX, pY;
 	light_t *player_light;
 	bool torch_on;
 	fov_settings_type *fov_light;
+
+	unsigned int frm; // 'global cooldown' sorta thing
 } game_t;
 
 static inline game_t *game(map_t *map) {
 	return ((game_t*)map->game);
 }
+//---------------------------}}}---------------------------------------------
 
-//---------------------------------------------------------------------------
-// map stuff
+//-----------------------{{{1 map stuff---------------------------------------
 typedef enum {
 	OT_UNKNOWN = 0,
+	OT_PLAYER,
 	OT_WISP,
 	OT_FIRE,
 	OT_LIGHT
 } OBJECT_TYPE;
 
+// {{{2 lighting
 // TODO: make draw_light take the parameters of the light (colour, radius,
 // position) and build up the lighting struct to pass to fov_circle on its
 // ownsome?
@@ -196,6 +199,7 @@ void new_obj_light(map_t *map, s32 x, s32 y, light_t *light) {
 	// and add it to the map
 	insert_object(map, obj_light->obj_node, x, y);
 }
+// }}}2
 
 u32 random_colour(object_t *obj, map_t *map) {
 	return ((map->objtypes[obj->type].ch)<<16) | (genrand_int32()&0xffff);
@@ -204,7 +208,6 @@ u32 random_colour(object_t *obj, map_t *map) {
 #include "willowisp.h" // evil hacks, i know, but i got sick of scrolling through it
 
 objecttype_t objects[] = {
-	// 0: unknown object
 	[OT_UNKNOWN] = {
 		.ch = '?',
 		.col = RGB15(31,31,31),
@@ -212,7 +215,13 @@ objecttype_t objects[] = {
 		.display = random_colour,
 		.end = NULL
 	},
-	// 1: will o' wisp
+	[OT_PLAYER] = {
+		.ch = '@',
+		.col = RGB15(31,31,31),
+		.importance = 254,
+		.display = NULL,
+		.end = NULL
+	},
 	[OT_WISP] = {
 		.ch = 'o',
 		.col = RGB15(7,31,27),
@@ -220,7 +229,6 @@ objecttype_t objects[] = {
 		.display = NULL,
 		.end = mon_WillOWisp_obj_end
 	},
-	// 2: fire
 	[OT_FIRE] = {
 		.ch = 'w',
 		.col = RGB15(31,12,0),
@@ -228,7 +236,6 @@ objecttype_t objects[] = {
 		.display = NULL,
 		.end = obj_fire_obj_end
 	},
-	// 3: light
 	[OT_LIGHT] = {
 		.ch = 'o',
 		.col = 0,
@@ -238,7 +245,7 @@ objecttype_t objects[] = {
 	},
 };
 
-
+// {{{2 map generation
 void lake(map_t *map, s32 x, s32 y) {
 	u32 wisppos = genrand_int32() & 0x3f; // between 0 and 63
 	u32 i;
@@ -310,9 +317,7 @@ void random_map(map_t *map) {
 	// start in the centre
 	x = map->w/2; y = map->h/2;
 
-	node_t *something = request_node(map->object_pool);
-	object_t *obj = node_data(something);
-	obj->type = 0;
+	node_t *something = new_object(map, OT_UNKNOWN, NULL);
 	insert_object(map, something, x, y);
 
 
@@ -423,10 +428,10 @@ void load_map(map_t *map, size_t len, const char *desc) {
 	// update opacity map
 	refresh_blockmap(map);
 }
-//---------------------------------------------------------------------------
+// }}}2
+//-------------------------}}}1----------------------------------------------
 
-//---------------------------------------------------------------------------
-// libfov functions
+//----------{{{ libfov functions---------------------------------------------
 bool opacity_test(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
@@ -587,13 +592,22 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		cache->lb += (l->b * intensity) >> 12;
 	}
 }
-//---------------------------------------------------------------------------
+//------------------}}}------------------------------------------------------
 
+//---------{{{ game processes------------------------------------------------
 void process_sight(process_t *process, map_t *map) {
 	fov_settings_type *sight = (fov_settings_type*)process->data;
 	game(map)->player_light->x = game(map)->pX << 12;
 	game(map)->player_light->y = game(map)->pY << 12;
 	fov_circle(sight, map, game(map)->player_light, game(map)->pX, game(map)->pY, 32);
+	cell_t *cell = cell_at(map, game(map)->pX, game(map)->pY);
+	cell->light = (1<<12);
+	cell->visible = true;
+	cache_t *cache = cache_at(map, game(map)->pX, game(map)->pY);
+	cache->lr = game(map)->player_light->r;
+	cache->lg = game(map)->player_light->g;
+	cache->lb = game(map)->player_light->b;
+	cell->recall = 1<<12;
 }
 
 void end_sight(process_t *process, map_t *map) {
@@ -610,6 +624,138 @@ void new_sight(map_t *map) {
 	push_high_process(map, process_sight, end_sight, sight);
 }
 
+node_t *new_obj_player(map_t *map);
+
+void process_keys(process_t *process, map_t *map) {
+	scanKeys();
+	u32 down = keysDown();
+	if (down & KEY_START) {
+		// creating a new map will remove this process from the list and free its
+		// parent node (calling any ending handlers), so be sure that there are no
+		// mixups.
+		new_map(map);
+		process->data = new_obj_player(map);
+		game(map)->frm = 5;
+		map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
+		dirty_screen();
+		reset_luminance();
+		//iprintf("You begin again.\n");
+		return;
+	}
+	if (down & KEY_SELECT) {
+		load_map(map, strlen(test_map), test_map);
+		reset_cache(map); // cache is origin-agnostic
+		process->data = new_obj_player(map);
+		game(map)->frm = 5;
+		map->scrollX = 0; map->scrollY = 0;
+
+		// TODO: split out into engine function(s?) for rescrolling
+		if (game(map)->pX - map->scrollX < 8 && map->scrollX > 0)
+			map->scrollX = game(map)->pX - 8;
+		else if (game(map)->pX - map->scrollX > 24 && map->scrollX < map->w-32)
+			map->scrollX = game(map)->pX - 24;
+		if (game(map)->pY - map->scrollY < 8 && map->scrollY > 0)
+			map->scrollY = game(map)->pY - 8;
+		else if (game(map)->pY - map->scrollY > 16 && map->scrollY < map->h-24)
+			map->scrollY = game(map)->pY - 16;
+
+		dirty_screen();
+		reset_luminance();
+		clss(); // TODO: necessary?
+		return;
+	}
+	if (down & KEY_B)
+		game(map)->torch_on = !game(map)->torch_on;
+
+	if (game(map)->frm == 0) { // we don't check these things every frame; that's way too fast.
+		u32 keys = keysHeld();
+		if (keys & KEY_A && cell_at(map, game(map)->pX, game(map)->pY)->type == T_STAIRS) {
+			//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
+			new_map(map);
+			process->data = new_obj_player(map);
+			game(map)->pX = map->w/2;
+			game(map)->pY = map->h/2;
+			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
+			dirty_screen();
+			return;
+		}
+
+		int dpX = 0, dpY = 0;
+		if (keys & KEY_RIGHT)
+			dpX = 1;
+		if (keys & KEY_LEFT)
+			dpX = -1;
+		if (keys & KEY_DOWN)
+			dpY = 1;
+		if (keys & KEY_UP)
+			dpY = -1;
+		if (!dpX && !dpY) return;
+		s32 pX = game(map)->pX, pY = game(map)->pY;
+		if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
+		if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
+		cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
+		if (cell->opaque) { // XXX: is opacity equivalent to solidity?
+			int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
+			if (rec != cell->recall) {
+				cell->recall = rec;
+				cache_at(map, pX + dpX, pY + dpY)->dirty = 2;
+			}
+			if (dpX && dpY) {
+				if (!cell_at(map, pX + dpX, pY)->opaque) // if we could just go left or right, do that
+					dpY = 0;
+				else if (!cell_at(map, pX, pY + dpY)->opaque)
+					dpX = 0;
+				else
+					dpX = dpY = 0;
+			} else
+				dpX = dpY = 0;
+		}
+		if (dpX || dpY) {
+			if (dpX && dpY) game(map)->frm = 7; // moving diagonally takes longer
+			else game(map)->frm = 5;
+			cell = cell_at(map, pX + dpX, pY + dpY);
+			cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
+			move_object(map, cell_at(map, pX, pY), process->data, pX + dpX, pY + dpY); // move the player object
+			pX += dpX; game(map)->pX = pX;
+			pY += dpY; game(map)->pY = pY;
+
+			s32 dsX = 0, dsY = 0;
+			// keep the screen vaguely centred on the player (gap of 8 cells)
+			if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
+				dsX = (pX - 8) - map->scrollX;
+				map->scrollX = pX - 8;
+			} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
+				dsX = (pX - 24) - map->scrollX;
+				map->scrollX = pX - 24;
+			}
+
+			if (pY - map->scrollY < 8 && map->scrollY > 0) { 
+				dsY = (pY - 8) - map->scrollY;
+				map->scrollY = pY - 8;
+			} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
+				dsY = (pY - 16) - map->scrollY;
+				map->scrollY = pY - 16;
+			}
+
+			if (dsX || dsY)
+				scroll_screen(map, dsX, dsY);
+		}
+	}
+	if (game(map)->frm > 0) // await the players command (we check every frame if frm == 0)
+		game(map)->frm--;
+}
+
+node_t *new_obj_player(map_t *map) {
+	node_t *node = new_object(map, OT_PLAYER, NULL);
+	insert_object(map, node, game(map)->pX, game(map)->pY);
+	return node;
+}
+void new_player(map_t *map) {
+	node_t *proc_node = push_high_process(map, process_keys, NULL, NULL);
+	process_t *proc = node_data(proc_node);
+	proc->data = new_obj_player(map);
+}
+
 void new_map(map_t *map) {
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds +
 				IPC->time.rtc.minutes*60 + IPC->time.rtc.hours*60*60 +
@@ -619,13 +765,11 @@ void new_map(map_t *map) {
 	reset_cache(map);
 
 	game(map)->torch_on = true;
-
-	new_sight(map);
 }
+//---------}}}---------------------------------------------------------------
 
-//---------------------------------------------------------------------------
+//-------------{{{ main------------------------------------------------------
 int main(void) {
-//---------------------------------------------------------------------------
 	torch_init();
 
 	map_t *map = create_map(128, 128);
@@ -642,9 +786,9 @@ int main(void) {
 	// this is the player's light
 	game(map)->player_light = new_light(7<<12, 1.00*(1<<12), 0.90*(1<<12), 0.85*(1<<12));
 
-	u32 frm = 0;
-
 	new_map(map);
+	new_sight(map);
+	new_player(map);
 
 	// centre the player on the screen
 	map->scrollX = map->w/2 - 16;
@@ -652,211 +796,11 @@ int main(void) {
 
 	dirty_screen(); // the whole screen is dirty first frame.
 
-	// profiling stuff (for counting hblanks)
-	u32 vc_before;
-	u32 counts[10];
-	for (vc_before = 0; vc_before < 10; vc_before++) counts[vc_before] = 0;
-
 	// we need to keep track of where we scroll due to double-buffering.
 	DIRECTION just_scrolled = 0;
 
-	while (1) {
-		u32 vc_begin = hblnks;
-		if (!vblnkDirty)
-			swiWaitForVBlank();
-		vblnkDirty = 0;
-
-		vc_before = hblnks;
-
-		// TODO: is DMA actually asynchronous?
-		bool copying = false;
-
-		if (just_scrolled) {
-			// update the new backbuffer
-			scroll_screen(map, just_scrolled);
-			copying = true;
-			just_scrolled = 0;
-		}
-
-		// TODO: outsource key handling to game
-		scanKeys();
-		u32 down = keysDown();
-		if (down & KEY_START) {
-			new_map(map); // resets cache
-			frm = 5;
-			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
-			vblnkDirty = 0;
-			dirty_screen();
-			reset_luminance();
-			//iprintf("You begin again.\n");
-			continue;
-		}
-		if (down & KEY_SELECT) {
-			load_map(map, strlen(test_map), test_map);
-			new_sight(map);
-			frm = 5;
-			map->scrollX = 0; map->scrollY = 0;
-
-			// TODO: split out into engine function(s?) for rescrolling
-			if (game(map)->pX - map->scrollX < 8 && map->scrollX > 0)
-				map->scrollX = game(map)->pX - 8;
-			else if (game(map)->pX - map->scrollX > 24 && map->scrollX < map->w-32)
-				map->scrollX = game(map)->pX - 24;
-			if (game(map)->pY - map->scrollY < 8 && map->scrollY > 0)
-				map->scrollY = game(map)->pY - 8;
-			else if (game(map)->pY - map->scrollY > 16 && map->scrollY < map->h-24)
-				map->scrollY = game(map)->pY - 16;
-
-			vblnkDirty = 0;
-			dirty_screen();
-			reset_luminance();
-			reset_cache(map); // cache is origin-agnostic
-			clss(); // TODO: necessary?
-			continue;
-		}
-		if (down & KEY_B)
-			game(map)->torch_on = !game(map)->torch_on;
-
-		if (frm == 0) { // we don't check these things every frame; that's way too fast.
-			u32 keys = keysHeld();
-			if (keys & KEY_A && cell_at(map, game(map)->pX, game(map)->pY)->type == T_STAIRS) {
-				//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
-				new_map(map);
-				game(map)->pX = map->w/2;
-				game(map)->pY = map->h/2;
-				map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
-				vblnkDirty = 0;
-				dirty_screen();
-				continue;
-			}
-
-			int dpX = 0, dpY = 0;
-			if (keys & KEY_RIGHT)
-				dpX = 1;
-			if (keys & KEY_LEFT)
-				dpX = -1;
-			if (keys & KEY_DOWN)
-				dpY = 1;
-			if (keys & KEY_UP)
-				dpY = -1;
-			s32 pX = game(map)->pX, pY = game(map)->pY;
-			if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
-			if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
-			cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
-			if (cell->opaque) { // XXX: is opacity equivalent to solidity?
-				int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
-				if (rec != cell->recall) {
-					cell->recall = rec;
-					cache_at(map, pX + dpX, pY + dpY)->dirty = 2;
-				}
-				if (dpX && dpY) {
-					if (!cell_at(map, pX + dpX, pY)->opaque) // if we could just go left or right, do that
-						dpY = 0;
-					else if (!cell_at(map, pX, pY + dpY)->opaque)
-						dpX = 0;
-					else
-						dpX = dpY = 0;
-				} else
-					dpX = dpY = 0;
-			}
-			if (dpX || dpY) {
-				if (dpX && dpY) frm = 7;
-				else frm = 5;
-				cell = cell_at(map, pX + dpX, pY + dpY);
-				cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
-				pX += dpX; game(map)->pX = pX;
-				pY += dpY; game(map)->pY = pY;
-
-				s32 dsX = 0, dsY = 0;
-				// keep the screen vaguely centred on the player (gap of 8 cells)
-				if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
-					dsX = (pX - 8) - map->scrollX;
-					map->scrollX = pX - 8;
-				} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
-					dsX = (pX - 24) - map->scrollX;
-					map->scrollX = pX - 24;
-				}
-
-				if (pY - map->scrollY < 8 && map->scrollY > 0) { 
-					dsY = (pY - 8) - map->scrollY;
-					map->scrollY = pY - 8;
-				} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
-					dsY = (pY - 16) - map->scrollY;
-					map->scrollY = pY - 16;
-				}
-
-				if (dsX || dsY) {
-					// XXX: look at generalising scroll function
-
-					//if (abs(dsX) > 1 || abs(dsY) > 1) dirty = 2;
-					// the above should never be the case. if it ever is, make sure
-					// scrolling doesn't happen *as well as* full-screen dirtying.
-
-					map->cacheX += dsX;
-					map->cacheY += dsY;
-					// wrap the cache origin
-					if (map->cacheX < 0) map->cacheX += 32;
-					if (map->cacheY < 0) map->cacheY += 24;
-					if (map->cacheX >= 32) map->cacheX -= 32;
-					if (map->cacheY >= 24) map->cacheY -= 24;
-					DIRECTION dir = direction(dsX, dsY, 0, 0);
-					scroll_screen(map, dir); // DMA the map data around so we don't have to redraw
-					copying = true;
-					just_scrolled = dir;
-				}
-			}
-		}
-		if (frm > 0) // await the players command (we check every frame if frm == 0)
-			frm--;
-		counts[0] += hblnks - vc_before;
-
-		vc_before = hblnks;
-
-		u32 i;
-
-		if (frames % 4 == 0) {
-			// have the light lag a bit behind the player
-
-			/*if (frames % 8 == 0) {
-				player_light.dx = (genrand_gaussian32()>>21) - (1<<10);
-				player_light.dy = (genrand_gaussian32()>>21) - (1<<10);
-				player_light.dr = (genrand_gaussian32()>>20) - (1<<11);
-			}*/
-		}
-
-		counts[1] += hblnks - vc_before;
-		vc_before = hblnks;
-		// run important processes first
-		run_processes(map, &map->high_processes);
-		// then everything else
-		run_processes(map, &map->processes);
-		counts[2] += hblnks - vc_before;
-
-		// wait for DMA to finish
-		if (copying)
-			while (dmaBusy(3));
-
-		//------------------------------------------------------------------------
-		// draw loop
-		draw(map);
-		//------------------------------------------------------------------------
-
-
-		drawcq((game(map)->pX-map->scrollX)*8, (game(map)->pY-map->scrollY)*8, '@', RGB15(31,31,31));
-		counts[3] += hblnks - vc_before;
-		swapbufs();
-		counts[4] += hblnks - vc_begin;
-		frames += 1;
-		if (vblnks >= 60) {
-			iprintf("\x1b[0;19H%02dfps", (frames * 64 - frames * 4) / vblnks);
-			iprintf("\x1b[2;0HKeys:    %05d\nSight:   %05d\nProcess: %05d\nDrawing: %05d\n",
-					counts[0], counts[1], counts[2], counts[3]);
-			iprintf("         -----\nLeft:    %05d\n",
-					counts[4] - counts[0] - counts[1] - counts[2] - counts[3]);
-			for (i = 0; i < 10; i++) counts[i] = 0;
-			vblnks = frames = 0;
-		}
-	}
+	run(map);
 
 	return 0;
 }
+//-----------}}}----------------------------------------------------------

@@ -66,7 +66,7 @@ void reset_map(map_t* map) {
 
 	// clear and free the process lists
 	free_process_list(map, &map->processes);
-	free_process_list(map, &map->high_processes);
+	//free_process_list(map, &map->high_processes);
 	flush_free(map->process_pool);
 }
 

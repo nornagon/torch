@@ -3,10 +3,11 @@
 #include "mersenne.h"
 #include "util.h"
 
+DIRECTION just_scrolled = 0;
 int dirty;
 u32 low_luminance = 0; // for luminance window stuff
 
-u32 vblnks = 0, frames = 0, hblnks = 0;
+vu32 vblnks = 0, frames = 0, hblnks = 0;
 int vblnkDirty = 0;
 void vblank_counter() {
 	vblnkDirty = 1;
@@ -82,9 +83,8 @@ void run_processes(map_t *map, node_t **processes) {
 	}
 }
 
-
 // we copy data *away* from dir
-void scroll_screen(map_t *map, DIRECTION dir) {
+void move_port(map_t *map, DIRECTION dir) {
 	u32 i;
 	// TODO: generalise?
 	if (dir & D_NORTH) {
@@ -148,6 +148,24 @@ void scroll_screen(map_t *map, DIRECTION dir) {
 	}
 }
 
+void scroll_screen(map_t *map, int dsX, int dsY) {
+	map->cacheX += dsX;
+	map->cacheY += dsY;
+	// wrap the cache origin
+	if (map->cacheX < 0) map->cacheX += 32;
+	if (map->cacheY < 0) map->cacheY += 24;
+	if (map->cacheX >= 32) map->cacheX -= 32;
+	if (map->cacheY >= 24) map->cacheY -= 24;
+
+	if (abs(dsX) > 1 || abs(dsY) > 1)
+		dirty_screen();
+	else {
+		DIRECTION dir = direction(dsX, dsY, 0, 0);
+		move_port(map, dir);
+		just_scrolled = dir;
+	}
+}
+
 void dirty_screen() {
 	dirty = 2;
 }
@@ -166,6 +184,7 @@ void draw(map_t *map) {
 	// values below the bottom
 	s32 adjust = 0;
 	u32 max_luminance = 0;
+	//iprintf("vbs:%02d\n", vblnks);
 
 	cell_t *cell = cell_at(map, map->scrollX, map->scrollY);
 	for (y = 0; y < 24; y++) {
@@ -210,18 +229,23 @@ void draw(map_t *map) {
 						col = objtype->col;
 					}
 				}
-
 				int32 rval = cache->lr,
 							gval = cache->lg,
 							bval = cache->lb;
-				// if the values have changed significantly from last time (by 7 bits
-				// or more, i guess) we'll recalculate the colour. Otherwise, we won't
-				// bother.
-				if (rval >> 8 != cache->last_lr ||
+
+				bool foo = rval >> 8 != cache->last_lr ||
 						gval >> 8 != cache->last_lg ||
 						bval >> 8 != cache->last_lb ||
 						cache->last_light != cell->light >> 8 ||
-						col != cache->last_col) {
+						col != cache->last_col;
+
+				twiddling += read_stopwatch();
+
+				// if the values have changed significantly from last time (by 7 bits
+				// or more, i guess) we'll recalculate the colour. Otherwise, we won't
+				// bother.
+				if (foo) {
+					cache->last_col = col;
 					// fade out to the recalled colour (or 0 for ground)
 					int32 minval = 0;
 					if (cell->type != T_GROUND) minval = (cell->recall>>2);
@@ -243,7 +267,6 @@ void draw(map_t *map) {
 					r = ((r<<12) * rval) >> 24;
 					g = ((g<<12) * gval) >> 24;
 					b = ((b<<12) * bval) >> 24;
-					twiddling += read_stopwatch();
 					start_stopwatch();
 					u16 col_to_draw = RGB15(r,g,b);
 					u16 last_col_final = cache->last_col_final;
@@ -262,7 +285,6 @@ void draw(map_t *map) {
 					}
 					drawing += read_stopwatch();
 				} else {
-					twiddling += read_stopwatch();
 					start_stopwatch();
 					if (cache->dirty > 0 || dirty > 0) {
 						drawcq(x*8, y*8, ch, cache->last_col_final);
@@ -279,7 +301,6 @@ void draw(map_t *map) {
 			} else if (cache->dirty > 0 || dirty > 0 || cache->was_visible) {
 				// dirty or it was visible last frame and now isn't.
 				if (cell->recall > 0 && cell->type != T_GROUND) {
-					start_stopwatch();
 					u32 r = cell->col & 0x001f,
 							g = (cell->col & 0x03e0) >> 5,
 							b = (cell->col & 0x7c00) >> 10;
@@ -293,7 +314,6 @@ void draw(map_t *map) {
 					cache->last_lg = 0;
 					cache->last_lb = 0;
 					cache->last_light = 0;
-					twiddling += read_stopwatch();
 					start_stopwatch();
 					drawcq(x*8, y*8, cell->ch, cache->last_col_final);
 					drawing += read_stopwatch();
@@ -325,12 +345,61 @@ void draw(map_t *map) {
 	if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
 		low_luminance -= min(40,low_luminance);
 
-	iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
-	iprintf("\x1b[13;0Hdrawing: %05x\ntwiddling: %05x", drawing, twiddling);
+	/*iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
+	iprintf("\x1b[13;0Hdrawing: %05x\ntwiddling: %05x", drawing, twiddling);*/
+	//iprintf("vbe:%02d\n", vblnks);
 
 	if (dirty > 0) {
 		dirty--;
 		if (dirty > 0)
 			cls();
+	}
+}
+
+void run(map_t *map) {
+	u32 draw_blnks = 0, proc_blnks = 0;
+	u32 total = 0;
+	while (1) {
+		u32 frm_begin = hblnks;
+		if (!vblnkDirty)
+			swiWaitForVBlank();
+		vblnkDirty = 0;
+
+		// TODO: is DMA actually asynchronous?
+		bool copying = false;
+
+		if (just_scrolled) {
+			// update the new backbuffer
+			move_port(map, just_scrolled);
+			copying = true;
+			just_scrolled = 0;
+		}
+
+		u32 begin = hblnks;
+		// run important processes first
+		run_processes(map, &map->high_processes);
+		// then everything else
+		run_processes(map, &map->processes);
+		proc_blnks += hblnks - begin;
+
+		// wait for DMA to finish
+		if (copying)
+			while (dmaBusy(3));
+
+		begin = hblnks;
+		// draw loop
+		draw(map);
+		draw_blnks += hblnks - begin;
+
+		swapbufs();
+		total += hblnks - frm_begin;
+		frames += 1;
+		if (vblnks >= 60) {
+			iprintf("\x1b[0;19H%02dfps", (frames * 64 - frames * 4) / vblnks);
+			iprintf("\x1b[0;0HProcess: %05d\nDrawing: %05d\n", proc_blnks, draw_blnks);
+			iprintf("Left:    %05d\n", total - proc_blnks - draw_blnks);
+			draw_blnks = proc_blnks = total =0;
+			vblnks = frames = 0;
+		}
 	}
 }

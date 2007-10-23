@@ -13,7 +13,7 @@ void run_processes(map_t *map, node_t **processes);
 // scroll the screen one tile in the direction dir. This function moves the
 // "viewport" in the direction specified, via DMA. This function acts on
 // whatever is the current backbuffer.
-void scroll_screen(map_t *map, DIRECTION dir);
+void scroll_screen(map_t *map, int dsX, int dsY);
 
 // mark the entire screen for redrawing. Slow!
 void dirty_screen();
@@ -23,5 +23,8 @@ void reset_luminance();
 
 // draw the map
 void draw(map_t *map);
+
+// run the game
+void run(map_t *map);
 
 #endif /* ENGINE_H */
