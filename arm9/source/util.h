@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H 1
 
+#include <stdlib.h>
+
 //---------------------------------------------------------------------------
 // timers
 static inline void start_stopwatch() {

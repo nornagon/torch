@@ -1,19 +1,10 @@
-#include "nds.h"
+#include <nds.h>
 #include <nds/arm9/console.h>
-#include <stdio.h>
-#include <malloc.h>
-#include <string.h>
 
 #include "mersenne.h"
 #include "fov.h"
-#include "mem.h"
 #include "test_map.h"
-#include "draw.h"
-#include "map.h"
 #include "light.h"
-
-#include "list.h"
-#include "process.h"
 
 #include "util.h"
 #include "engine.h"
@@ -625,6 +616,7 @@ void new_sight(map_t *map) {
 }
 
 node_t *new_obj_player(map_t *map);
+void new_map(map_t *map);
 
 void process_keys(process_t *process, map_t *map) {
 	scanKeys();
@@ -661,7 +653,6 @@ void process_keys(process_t *process, map_t *map) {
 
 		dirty_screen();
 		reset_luminance();
-		clss(); // TODO: necessary?
 		return;
 	}
 	if (down & KEY_B)
@@ -760,7 +751,6 @@ void new_map(map_t *map) {
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds +
 				IPC->time.rtc.minutes*60 + IPC->time.rtc.hours*60*60 +
 				IPC->time.rtc.weekday*7*24*60*60));
-	clss(); // TODO: necessary?
 	random_map(map);
 	reset_cache(map);
 
@@ -795,9 +785,6 @@ int main(void) {
 	map->scrollY = map->h/2 - 12;
 
 	dirty_screen(); // the whole screen is dirty first frame.
-
-	// we need to keep track of where we scroll due to double-buffering.
-	DIRECTION just_scrolled = 0;
 
 	run(map);
 

@@ -11,8 +11,6 @@
 
 #include "direction.h"
 
-#include <stdlib.h>
-
 typedef enum {
 	T_NONE = 0,
 	T_TREE,
