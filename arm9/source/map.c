@@ -54,7 +54,7 @@ void reset_map(map_t* map) {
 			while (cell->objects) {
 				node_t *next = cell->objects->next;
 				object_t *obj = (object_t*)node_data(cell->objects);
-				objecttype_t *type = &map->objtypes[obj->type];
+				objecttype_t *type = obj->type;
 				if (type->end)
 					type->end(obj, map);
 				free_node(map->object_pool, cell->objects);
@@ -116,7 +116,7 @@ node_t *_push_process(map_t *map, node_t **stack, process_func process, process_
 	return node;
 }
 
-node_t *new_object(map_t *map, u16 type, void* data) {
+node_t *new_object(map_t *map, objecttype_t *type, void* data) {
   node_t *node = request_node(map->object_pool);
   object_t *obj = node_data(node);
   obj->type = type;
@@ -127,7 +127,7 @@ node_t *new_object(map_t *map, u16 type, void* data) {
 void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
 	cell_t *target = cell_at(map, x, y);
 	object_t *obj = node_data(obj_node);
-	objecttype_t *objtype = &map->objtypes[obj->type];
+	objecttype_t *objtype = obj->type;
 	obj->x = x;
 	obj->y = y;
 	node_t *prev = NULL;
@@ -140,7 +140,7 @@ void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
 		// We use <= rather than < to reduce insert time in the case where there are
 		// a large number of objects of equal importance. In such a case, a new
 		// insertion will come closer to the beggining of the list.
-		if (map->objtypes[k->type].importance <= objtype->importance)
+		if (k->type->importance <= objtype->importance)
 			break;
 		prev = head;
 		head = head->next;

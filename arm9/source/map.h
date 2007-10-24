@@ -54,7 +54,6 @@ typedef struct map_s {
 	node_t *processes;
 
 	llpool_t *object_pool;
-	objecttype_t *objtypes;
 
 	cell_t* cells;
 
@@ -112,7 +111,7 @@ void free_other_processes(map_t *map, process_t *this_proc, node_t *procs[], uns
 
 // create a new object. this doesn't add the object to any lists, so you'd
 // better do it yourself. returns the object node created.
-node_t *new_object(map_t *map, u16 type, void* data);
+node_t *new_object(map_t *map, objecttype_t *type, void* data);
 
 // remove the object from its owning cell, and add the node to the free pool
 void free_object(map_t *map, node_t *obj_node);

@@ -214,7 +214,7 @@ void draw(map_t *map) {
 					// maintained as sorted, this will be the most recently added most
 					// important object in the cell.
 					object_t *obj = node_data(cell->objects);
-					objecttype_t *objtype = &map->objtypes[obj->type];
+					objecttype_t *objtype = obj->type;
 
 					// if the object has a custom display function, we'll ask that.
 					if (objtype->display) {

@@ -2,18 +2,19 @@
 #define OBJECT_H 1
 
 struct map_s;
+struct objecttype_s;
 
 // object_t is for things that need to be drawn on the map, e.g. NPCs, dynamic
 // bits of landscape, items
 typedef struct {
 	s32 x,y;
-	u16 type; // index into array of objecttype_ts
+	struct objecttype_s* type; // index into array of objecttype_ts
 	void* data;
 } object_t;
 
 // objecttype_ts are kept in an array, and define various properties of
 // particular objects.
-typedef struct {
+typedef struct objecttype_s {
 	u8 ch;
 	u16 col;
 
