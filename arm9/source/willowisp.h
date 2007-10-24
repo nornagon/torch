@@ -22,7 +22,7 @@ typedef struct {
 
 void mon_WillOWisp_light(process_t *process, map_t *map) {
 	mon_WillOWisp_t *wisp = process->data;
-	draw_light(wisp->light, map);
+	draw_light(map, game(map)->fov_light, wisp->light);
 }
 
 void mon_WillOWisp_wander(process_t *process, map_t *map);

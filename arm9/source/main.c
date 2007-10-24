@@ -8,6 +8,7 @@
 
 #include "util.h"
 #include "engine.h"
+#include "generic.h"
 
 //-------------{{{ game struct-----------------------------------------------
 typedef struct game_s {
@@ -34,32 +35,6 @@ typedef enum {
 } OBJECT_TYPE;
 
 // {{{2 lighting
-// TODO: make draw_light take the parameters of the light (colour, radius,
-// position) and build up the lighting struct to pass to fov_circle on its
-// ownsome?
-void draw_light(light_t *l, map_t *map) {
-	// don't bother calculating if the light's completely outside the screen.
-	if (((l->x + l->radius) >> 12) < map->scrollX ||
-	    ((l->x - l->radius) >> 12) > map->scrollX + 32 ||
-	    ((l->y + l->radius) >> 12) < map->scrollY ||
-	    ((l->y - l->radius) >> 12) > map->scrollY + 24) return;
-
-	// calculate lighting values
-	fov_circle(game(map)->fov_light, (void*)map, (void*)l,
-			l->x>>12, l->y>>12, (l->radius>>12) + 1);
-
-	// since fov_circle doesn't touch the origin tile, we'll do its lighting
-	// manually here.
-	cell_t *cell = cell_at(map, l->x>>12, l->y>>12);
-	if (cell->visible) {
-		cell->light += (1<<12);
-		cache_t *cache = cache_at(map, l->x>>12, l->y>>12);
-		cache->lr = l->r;
-		cache->lg = l->g;
-		cache->lb = l->b;
-		cell->recall = 1<<12;
-	}
-}
 
 typedef struct {
 	node_t *light_node;
@@ -102,7 +77,7 @@ void obj_fire_process(process_t *process, map_t *map) {
 		f->flickered--;
 	}
 
-	draw_light(l, map);
+	draw_light(map, game(map)->fov_light, l);
 }
 
 void obj_fire_proc_end(process_t *process, map_t *map) {
@@ -165,7 +140,7 @@ void obj_light_obj_end(object_t *obj, map_t *map) {
 
 void obj_light_process(process_t *proc, map_t *map) {
 	obj_light_t *obj_light = (obj_light_t*)proc->data;
-	draw_light(obj_light->light, map);
+	draw_light(map, game(map)->fov_light, obj_light->light);
 }
 
 u32 obj_light_display(object_t *obj, map_t *map) {
