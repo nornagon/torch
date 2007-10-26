@@ -703,10 +703,7 @@ void new_map(map_t *map) {
 }
 //---------}}}---------------------------------------------------------------
 
-//-------------{{{ main------------------------------------------------------
-int main(void) {
-	torch_init();
-
+map_t *init_test() {
 	map_t *map = create_map(128, 128);
 	map->game = malloc(sizeof(game_t));
 
@@ -722,16 +719,23 @@ int main(void) {
 	game(map)->player_light = new_light(7<<12, 1.00*(1<<12), 0.90*(1<<12), 0.85*(1<<12));
 
 	new_map(map);
-	new_sight(map);
 	new_player(map);
+	new_sight(map);
 
 	// centre the player on the screen
 	map->scrollX = map->w/2 - 16;
 	map->scrollY = map->h/2 - 12;
 
+	return map;
+}
+
+//-------------{{{ main------------------------------------------------------
+int main(void) {
+	torch_init();
+
 	dirty_screen(); // the whole screen is dirty first frame.
 
-	run(map);
+	run(init_test());
 
 	return 0;
 }

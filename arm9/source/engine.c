@@ -386,6 +386,8 @@ void run(map_t *map) {
 		if (copying)
 			while (dmaBusy(3));
 
+		// TODO: give processes extra time and drawing less time in order to reduce
+		// framerate to 30fps
 		begin = hblnks;
 		// draw loop
 		draw(map);
