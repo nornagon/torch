@@ -50,7 +50,7 @@ void reset_map(map_t* map) {
 			cell->blocked_from = 0;
 			cell->seen_from = 0;
 
-			// clear and the object list
+			// clear the object list
 			while (cell->objects) {
 				node_t *next = cell->objects->next;
 				object_t *obj = (object_t*)node_data(cell->objects);
@@ -88,6 +88,14 @@ map_t *create_map(u32 w, u32 h) {
 	reset_cache(ret);
 
 	return ret;
+}
+
+void resize_map(map_t *map, u32 w, u32 h) {
+	reset_map(map);
+	reset_cache(map);
+	free(map->cells);
+	map->cells = malloc(w*h*sizeof(cell_t));
+	// NOTE: we don't reset cells to 0 here.
 }
 
 void refresh_blockmap(map_t *map) {

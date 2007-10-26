@@ -80,6 +80,9 @@ static inline void bounded(map_t *map, s32 *x, s32 *y) {
 // alloc space for a new map and return a pointer to it.
 map_t *create_map(u32 w, u32 h);
 
+// resize the map by resetting, then freeing and reallocating all the cells.
+void resize_map(map_t *map, u32 w, u32 h);
+
 // push a new process on the process stack, returning the new process node.
 node_t *_push_process(map_t *map, node_t **proc_stack,
 		process_func process, process_func end, void* data);

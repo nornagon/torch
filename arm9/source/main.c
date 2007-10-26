@@ -191,9 +191,6 @@ void new_obj_light(map_t *map, s32 x, s32 y, light_t *light) {
 
 #include "willowisp.h" // evil hacks, i know, but i got sick of scrolling through it
 
-objecttype_t objects[] = {
-};
-
 // {{{2 map generation
 void lake(map_t *map, s32 x, s32 y) {
 	u32 wisppos = genrand_int32() & 0x3f; // between 0 and 63
@@ -391,23 +388,6 @@ bool sight_opaque(void *map_, int x, int y) {
 	    || x < map->scrollX || x >= map->scrollX + 32)
 		return true;
 	return cell_at(map, x, y)->opaque;
-}
-
-inline int32 calc_semicircle(int32 dist2, int32 rad2) {
-	int32 val = (1<<12) - divf32(dist2, rad2);
-	if (val < 0) return 0;
-	return sqrtf32(val);
-}
-
-inline int32 calc_cubic(int32 dist2, int32 rad, int32 rad2) {
-	int32 dist = sqrtf32(dist2);
-	// 2(d/r)³ - 3(d/r)² + 1
-	return mulf32(divf32(2<<12, mulf32(rad,rad2)), mulf32(dist2,dist)) -
-		mulf32(divf32(3<<12, rad2), dist2) + (1<<12);
-}
-
-inline int32 calc_quadratic(int32 dist2, int32 rad2) {
-	return (1<<12) - divf32(dist2,rad2);
 }
 
 inline DIRECTION seen_from(map_t *map, DIRECTION d, cell_t *cell) {
