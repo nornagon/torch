@@ -2,6 +2,7 @@
 #include "draw.h"
 #include "mersenne.h"
 #include "util.h"
+#include "text.h"
 
 DIRECTION just_scrolled = 0;
 int dirty;
@@ -37,14 +38,29 @@ void torch_init() {
 	BG3_YDX = 0;
 	BG3_YDY = 1 << 8;
 
-	// the sub screen isn't really used very much yet except for debug output. We
-	// set it up for just that here.
-	videoSetModeSub( MODE_0_2D | DISPLAY_BG0_ACTIVE );
-	vramSetBankC(VRAM_C_SUB_BG);
-	SUB_BG0_CR = BG_MAP_BASE(31);
-	BG_PALETTE_SUB[255] = RGB15(31,31,31);
+	// setup the sub screen for our text output code
+	videoSetModeSub( MODE_3_2D | DISPLAY_BG3_ACTIVE );
+	vramSetBankC(VRAM_C_SUB_BG_0x06200000);
+	// paletted mode
+	SUB_BG3_CR = BG_BMP8_256x256;
+	// no rotation, no scale
+	SUB_BG3_XDY = 0;
+	SUB_BG3_XDX = 1 << 8;
+	SUB_BG3_YDX = 0;
+	SUB_BG3_YDY = 1 << 8;
+	// background
+	BG_PALETTE_SUB[0] = RGB15(0, 0, 0);
+	// foreground
+	BG_PALETTE_SUB[1] = RGB15(200, 200, 200);
 
-	consoleInitDefault((u16*)SCREEN_BASE_BLOCK_SUB(31), (u16*)CHAR_BASE_BLOCK_SUB(0), 16);
+	// some text test stuff
+	text_init();
+	text_render("Hello world! Wrapping words might be annoying, but it looks stupid otherwise. Bla blah.\nThere was a newline just there.. the spacing is due to stupid aligning.\n\n");
+	text_render("The DS hits Fuzzie with stupid VRAM bus alignment issues.\n\n");
+	text_render("Fuzzie hits you with the stick of stupid bus alignment.\n\n");
+	text_render("Fuzzie hits the DS with the stick of stupid bus alignment.\n\n");
+	text_render("Fuzzie curses your fonts to alignment hell forever.\n\n");
+	text_render("You die. --More--");
 
 	// not sure if this is necessary, but we don't want any surprises. TIMER_DATA
 	// is what the timer resets to when you start it (or it overflows)
@@ -397,9 +413,9 @@ void run(map_t *map) {
 		total += hblnks - frm_begin;
 		frames += 1;
 		if (vblnks >= 60) {
-			iprintf("\x1b[0;19H%02dfps", (frames * 64 - frames * 4) / vblnks);
+			/*iprintf("\x1b[0;19H%02dfps", (frames * 64 - frames * 4) / vblnks);
 			iprintf("\x1b[0;0HProcess: %05d\nDrawing: %05d\n", proc_blnks, draw_blnks);
-			iprintf("Left:    %05d\n", total - proc_blnks - draw_blnks);
+			iprintf("Left:    %05d\n", total - proc_blnks - draw_blnks);*/
 			draw_blnks = proc_blnks = total =0;
 			vblnks = frames = 0;
 		}
