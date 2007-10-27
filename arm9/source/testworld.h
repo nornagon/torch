@@ -8,7 +8,6 @@
 
 //-------------{{{ game struct-----------------------------------------------
 typedef struct game_s {
-	s32 pX, pY;
 	light_t *player_light;
 	bool torch_on;
 	fov_settings_type *fov_light;

@@ -12,6 +12,9 @@ typedef struct {
 	int32 radius;
 } light_t;
 
+// fill the properties of a light structure
+void set_light(light_t *light, int32 radius, int32 r, int32 g, int32 b);
+
 // allocate some space for a new light structure. You will be responsible for
 // freeing the light.
 light_t *new_light(int32 radius, int32 r, int32 g, int32 b);

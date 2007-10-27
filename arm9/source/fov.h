@@ -65,6 +65,7 @@
 #define LIBFOV_HEADER
 
 #include <stddef.h>
+#include <nds.h> // for the typedefs. TODO: remove.
 
 #ifdef __cplusplus
 extern "C" {

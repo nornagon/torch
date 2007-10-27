@@ -84,6 +84,8 @@ map_t *create_map(u32 w, u32 h) {
 
 	ret->object_pool = new_llpool(sizeof(object_t));
 
+	ret->pX = ret->pY = 0;
+
 	reset_map(ret);
 	reset_cache(ret);
 
@@ -214,7 +216,7 @@ void displace_object(node_t *obj_node, map_t *map, int dX, int dY) {
 
 // does the cell have any objects of the given object type in it?
 // XXX: could be optimised by looking at importance and finishing early
-node_t *has_objtype(cell_t *cell, u16 objtype) {
+node_t *has_objtype(cell_t *cell, objecttype_t *objtype) {
 	node_t *k = cell->objects;
 	for (; k; k = k->next)
 		if (((object_t*)node_data(k))->type == objtype) return k;

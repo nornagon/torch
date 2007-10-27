@@ -61,6 +61,7 @@ typedef struct map_s {
 	int cacheX, cacheY; // top-left corner of cache. Should be kept positive.
 	s32 scrollX, scrollY; // top-left corner of screen. Should be kept positive.
 
+	s32 pX, pY;
 	void* game; // game-specific data structure
 } map_t;
 
@@ -134,7 +135,7 @@ void displace_object(node_t *obj_node, map_t *map, int dX, int dY);
 
 // will return the first instance of an object of type objtype it comes across
 // in the given cell, or NULL if there are none.
-node_t *has_objtype(cell_t *cell, u16 objtype);
+node_t *has_objtype(cell_t *cell, objecttype_t *objtype);
 
 // cache for *screen* coordinates (x,y).
 static inline cache_t *cache_at_s(map_t *map, int x, int y) {

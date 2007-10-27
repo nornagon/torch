@@ -10,11 +10,6 @@ void load_map(map_t *map, size_t len, const char *desc);
 void random_map(map_t *map);
 
 //----------{{{ libfov functions---------------------------------------------
-bool opacity_test(void *map_, int x, int y) {
-	map_t *map = (map_t*)map_;
-	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
-	return cell_at(map, x, y)->opaque || (game(map)->pX == x && game(map)->pY == y);
-}
 bool sight_opaque(void *map_, int x, int y) {
 	map_t *map = (map_t*)map_;
 	// stop at the edge of the screen
@@ -22,49 +17,6 @@ bool sight_opaque(void *map_, int x, int y) {
 	    || x < map->scrollX || x >= map->scrollX + 32)
 		return true;
 	return cell_at(map, x, y)->opaque;
-}
-
-inline DIRECTION seen_from(map_t *map, DIRECTION d, cell_t *cell) {
-	bool opa, opb;
-	switch (d) {
-		case D_NORTHWEST:
-		case D_NORTH_AND_WEST:
-			opa = cell->blocked_from & D_NORTH;
-			opb = cell->blocked_from & D_WEST;
-			if (opa && opb) return D_NORTHWEST;
-			if (opa)        return D_WEST;
-			if (opb)        return D_NORTH;
-			                return D_NORTH_AND_WEST;
-			break;
-		case D_SOUTHWEST:
-		case D_SOUTH_AND_WEST:
-			opa = cell->blocked_from & D_SOUTH;
-			opb = cell->blocked_from & D_WEST;
-			if (opa && opb) return D_SOUTHWEST;
-			if (opa)        return D_WEST;
-			if (opb)        return D_SOUTH;
-			                return D_SOUTH_AND_WEST;
-			break;
-		case D_NORTHEAST:
-		case D_NORTH_AND_EAST:
-			opa = cell->blocked_from & D_NORTH;
-			opb = cell->blocked_from & D_EAST;
-			if (opa && opb) return D_NORTHEAST;
-			if (opa)        return D_EAST;
-			if (opb)        return D_NORTH;
-			                return D_NORTH_AND_EAST;
-			break;
-		case D_SOUTHEAST:
-		case D_SOUTH_AND_EAST:
-			opa = cell->blocked_from & D_SOUTH;
-			opb = cell->blocked_from & D_EAST;
-			if (opa && opb) return D_SOUTHEAST;
-			if (opa)        return D_EAST;
-			if (opb)        return D_SOUTH;
-			                return D_SOUTH_AND_EAST;
-			break;
-	}
-	return d;
 }
 
 void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
@@ -80,91 +32,43 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	DIRECTION d = D_NONE;
 	if (cell->opaque)
-		d = seen_from(map, direction(game(map)->pX, game(map)->pY, x, y), cell);
+		d = seen_from(map, direction(map->pX, map->pY, x, y), cell);
 	cell->seen_from = d;
 
-	if (game(map)->torch_on) {
-		// the funny bit-twiddling here is to preserve a few more bits in dx/dy
-		// during multiplication. mulf32 is a software multiply, and thus slow.
-		int32 dx = (l->x - (x << 12)) >> 2,
-		      dy = (l->y - (y << 12)) >> 2,
-		      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
-		int32 rad = l->radius,
-		      rad2 = (rad * rad) >> 12;
-
-		if (dist2 < rad2) {
-			div_32_32_raw(dist2<<8, rad2>>4);
-			cache_t *cache = cache_at(map, x, y); // load the cache while waiting for the division
-			while (DIV_CR & DIV_BUSY);
-			int32 intensity = (1<<12) - DIV_RESULT32;
-
-			cell->light = intensity;
-
-			cache->lr = l->r;
-			cache->lg = l->g;
-			cache->lb = l->b;
-		}
-	}
-	cell->visible = true;
-}
-
-void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
-	map_t *map = (map_t*)map_;
-	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
-
-	cell_t *cell = cell_at(map, x, y);
-
-	// don't light the cell if we can't see it
-	if (!cell->visible) return;
-
-	// XXX: this function is pretty much identical to apply_sight... should
-	// maybe merge them.
-	light_t *l = (light_t*)src_;
-	int32 dx = (l->x - (x << 12)) >> 2, // shifting is for accuracy reasons
-	      dy = (l->y - (y << 12)) >> 2,
-	      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
+	// the funny bit-twiddling here is to preserve a few more bits in dx/dy
+	// during multiplication. mulf32 is a software multiply, and thus slow.
+	int32 dx = (l->x - (x << 12)) >> 2,
+				dy = (l->y - (y << 12)) >> 2,
+				dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
 	int32 rad = l->radius,
-	      rad2 = (rad * rad) >> 12;
+				rad2 = (rad * rad) >> 12;
 
 	if (dist2 < rad2) {
 		div_32_32_raw(dist2<<8, rad2>>4);
-
-		DIRECTION d = D_NONE;
-		if (cell->opaque)
-			d = seen_from(map, direction(l->x>>12, l->y>>12, x, y), cell);
-		cache_t *cache = cache_at(map, x, y);
-
+		cache_t *cache = cache_at(map, x, y); // load the cache while waiting for the division
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = (1<<12) - DIV_RESULT32;
 
-		if (d & D_BOTH || cell->seen_from & D_BOTH) {
-			intensity >>= 1;
-			d &= cell->seen_from;
-			// only two of these should be set at maximum.
-			if (d & D_NORTH) cell->light += intensity;
-			if (d & D_SOUTH) cell->light += intensity;
-			if (d & D_EAST) cell->light += intensity;
-			if (d & D_WEST) cell->light += intensity;
-		} else if (cell->seen_from == d)
-			cell->light += intensity;
+		cell->light = intensity;
 
-		cache->lr += (l->r * intensity) >> 12;
-		cache->lg += (l->g * intensity) >> 12;
-		cache->lb += (l->b * intensity) >> 12;
+		cache->lr = l->r;
+		cache->lg = l->g;
+		cache->lb = l->b;
 	}
+	cell->visible = true;
 }
 //------------------}}}------------------------------------------------------
 
 //---------{{{ game processes------------------------------------------------
 void process_sight(process_t *process, map_t *map) {
 	fov_settings_type *sight = (fov_settings_type*)process->data;
-	game(map)->player_light->x = game(map)->pX << 12;
-	game(map)->player_light->y = game(map)->pY << 12;
-	fov_circle(sight, map, game(map)->player_light, game(map)->pX, game(map)->pY, 32);
-	cell_t *cell = cell_at(map, game(map)->pX, game(map)->pY);
+	game(map)->player_light->x = map->pX << 12;
+	game(map)->player_light->y = map->pY << 12;
+	fov_circle(sight, map, game(map)->player_light, map->pX, map->pY, 32);
+	cell_t *cell = cell_at(map, map->pX, map->pY);
 	cell->light = (1<<12);
 	cell->visible = true;
-	cache_t *cache = cache_at(map, game(map)->pX, game(map)->pY);
+	cache_t *cache = cache_at(map, map->pX, map->pY);
 	cache->lr = game(map)->player_light->r;
 	cache->lg = game(map)->player_light->g;
 	cache->lb = game(map)->player_light->b;
@@ -212,14 +116,14 @@ void process_keys(process_t *process, map_t *map) {
 		map->scrollX = 0; map->scrollY = 0;
 
 		// TODO: split out into engine function(s?) for rescrolling
-		if (game(map)->pX - map->scrollX < 8 && map->scrollX > 0)
-			map->scrollX = game(map)->pX - 8;
-		else if (game(map)->pX - map->scrollX > 24 && map->scrollX < map->w-32)
-			map->scrollX = game(map)->pX - 24;
-		if (game(map)->pY - map->scrollY < 8 && map->scrollY > 0)
-			map->scrollY = game(map)->pY - 8;
-		else if (game(map)->pY - map->scrollY > 16 && map->scrollY < map->h-24)
-			map->scrollY = game(map)->pY - 16;
+		if (map->pX - map->scrollX < 8 && map->scrollX > 0)
+			map->scrollX = map->pX - 8;
+		else if (map->pX - map->scrollX > 24 && map->scrollX < map->w-32)
+			map->scrollX = map->pX - 24;
+		if (map->pY - map->scrollY < 8 && map->scrollY > 0)
+			map->scrollY = map->pY - 8;
+		else if (map->pY - map->scrollY > 16 && map->scrollY < map->h-24)
+			map->scrollY = map->pY - 16;
 
 		dirty_screen();
 		reset_luminance();
@@ -230,12 +134,12 @@ void process_keys(process_t *process, map_t *map) {
 
 	if (game(map)->frm == 0) { // we don't check these things every frame; that's way too fast.
 		u32 keys = keysHeld();
-		if (keys & KEY_A && cell_at(map, game(map)->pX, game(map)->pY)->type == T_STAIRS) {
+		if (keys & KEY_A && cell_at(map, map->pX, map->pY)->type == T_STAIRS) {
 			//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
 			new_map(map);
 			process->data = new_obj_player(map);
-			game(map)->pX = map->w/2;
-			game(map)->pY = map->h/2;
+			map->pX = map->w/2;
+			map->pY = map->h/2;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 			dirty_screen();
 			return;
@@ -251,7 +155,7 @@ void process_keys(process_t *process, map_t *map) {
 		if (keys & KEY_UP)
 			dpY = -1;
 		if (!dpX && !dpY) return;
-		s32 pX = game(map)->pX, pY = game(map)->pY;
+		s32 pX = map->pX, pY = map->pY;
 		if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
 		if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
 		cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
@@ -277,8 +181,8 @@ void process_keys(process_t *process, map_t *map) {
 			cell = cell_at(map, pX + dpX, pY + dpY);
 			cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
 			move_object(map, cell_at(map, pX, pY), process->data, pX + dpX, pY + dpY); // move the player object
-			pX += dpX; game(map)->pX = pX;
-			pY += dpY; game(map)->pY = pY;
+			pX += dpX; map->pX = pX;
+			pY += dpY; map->pY = pY;
 
 			s32 dsX = 0, dsY = 0;
 			// keep the screen vaguely centred on the player (gap of 8 cells)
@@ -302,7 +206,7 @@ void process_keys(process_t *process, map_t *map) {
 				scroll_screen(map, dsX, dsY);
 		}
 	}
-	if (game(map)->frm > 0) // await the players command (we check every frame if frm == 0)
+	if (game(map)->frm > 0) // await the player's command (we check keys every frame if frm == 0)
 		game(map)->frm--;
 }
 
@@ -317,7 +221,7 @@ objecttype_t *OT_PLAYER = &ot_player;
 
 node_t *new_obj_player(map_t *map) {
 	node_t *node = new_object(map, OT_PLAYER, NULL);
-	insert_object(map, node, game(map)->pX, game(map)->pY);
+	insert_object(map, node, map->pX, map->pY);
 	return node;
 }
 void new_player(map_t *map) {
@@ -519,7 +423,7 @@ typedef struct {
 	node_t *obj_node;
 
 	// the wisp will emit a glow
-	light_t *light;
+	light_t light;
 
 	// the wisp will try to stay close to its home
 	s32 homeX, homeY;
@@ -532,7 +436,7 @@ typedef struct {
 
 void mon_WillOWisp_light(process_t *process, map_t *map) {
 	mon_WillOWisp_t *wisp = process->data;
-	draw_light(map, game(map)->fov_light, wisp->light);
+	draw_light(map, game(map)->fov_light, &wisp->light);
 }
 
 void mon_WillOWisp_wander(process_t *process, map_t *map);
@@ -615,8 +519,8 @@ void mon_WillOWisp_wander(process_t *process, map_t *map) {
 
 		displace_object(wisp->obj_node, map, dX, dY);
 
-		wisp->light->x = obj->x << 12;
-		wisp->light->y = obj->y << 12;
+		wisp->light.x = obj->x << 12;
+		wisp->light.y = obj->y << 12;
 		wisp->counter = 40;
 	} else
 		wisp->counter--;
@@ -630,9 +534,9 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 		// if we can't see the player, go back to wandering
 		process->process = mon_WillOWisp_wander;
 	} else if (wisp->counter == 0) { // time to do something
-		unsigned int mdist = manhdist(obj->x, obj->y, game(map)->pX, game(map)->pY);
+		unsigned int mdist = manhdist(obj->x, obj->y, map->pX, map->pY);
 		if (mdist < 4) { // don't get too close
-			DIRECTION dir = direction(game(map)->pX, game(map)->pY, obj->x, obj->y);
+			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
 			// the player is in the direction dir (direction from obj to player)
 			int dX = 0, dY = 0;
 			mon_WillOWisp_randdir(dir, &dX, &dY);
@@ -642,7 +546,7 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 			displace_object(wisp->obj_node, map, dX, dY);
 			wisp->counter = 10;
 		} else if (mdist > 5) { // don't get too far away either
-			DIRECTION dir = direction(game(map)->pX, game(map)->pY, obj->x, obj->y);
+			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
 			int dX = 0, dY = 0;
 			mon_WillOWisp_randdir(dir, &dX, &dY);
 			displace_object(wisp->obj_node, map, dX, dY);
@@ -660,8 +564,8 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 			displace_object(wisp->obj_node, map, dX, dY);
 			wisp->counter = 20;
 		}
-		wisp->light->x = obj->x << 12;
-		wisp->light->y = obj->y << 12;
+		wisp->light.x = obj->x << 12;
+		wisp->light.y = obj->y << 12;
 	} else
 		wisp->counter--;
 }
@@ -672,9 +576,8 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 // of the wisp any time a single one of them is freed.
 void mon_WillOWisp_obj_end(object_t *object, map_t *map) {
 	mon_WillOWisp_t *wisp = object->data;
-	free_processes(map, &wisp->light_node, 2);
+	free_processes(map, &wisp->light_node, 2); // it's not really an array, but it works like one.
 	// free the state data
-	free(wisp->light);
 	free(wisp);
 }
 
@@ -686,7 +589,6 @@ void mon_WillOWisp_proc_end(process_t *process, map_t *map) {
 	free_object(map, wisp->obj_node);
 	// all of those things above refer to the same data (the wisp state), so we
 	// just free the state.
-	free(wisp->light);
 	free(wisp);
 }
 // }}}
@@ -714,11 +616,9 @@ void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 			mon_WillOWisp_wander, mon_WillOWisp_proc_end, wisp);
 
 	// a light cyan glow
-	light_t *light = new_light(4<<12, 0.23*(1<<12), 0.87*(1<<12), 1.00*(1<<12));
-	light->x = x << 12;
-	light->y = y << 12;
-
-	wisp->light = light;
+	set_light(&wisp->light, 4<<12, 0.23*(1<<12), 0.87*(1<<12), 1.00*(1<<12));
+	wisp->light.x = x << 12;
+	wisp->light.y = y << 12;
 
 	// the object to represent the wisp on the map
   wisp->obj_node = new_object(map, OT_WISP, wisp);
@@ -735,7 +635,7 @@ void lake(map_t *map, s32 x, s32 y) {
 		cell_t *cell = cell_at(map, x, y);
 		if (i == wisppos) // place the wisp
 			new_mon_WillOWisp(map, x, y);
-		if (!has_objtype(cell, 2)) { // if the cell doesn't have a fire in it
+		if (!has_objtype(cell, OT_FIRE)) { // if the cell doesn't have a fire in it
 			cell->type = T_WATER;
 			cell->ch = '~';
 			cell->col = RGB15(6,9,31);
@@ -840,8 +740,8 @@ void random_map(map_t *map) {
 	cell->col = RGB15(31,31,31);
 
 	// and the player at the beginning
-	game(map)->pX = map->w/2;
-	game(map)->pY = map->h/2;
+	map->pX = map->w/2;
+	map->pY = map->h/2;
 
 	// update opacity information
 	refresh_blockmap(map);
@@ -869,8 +769,8 @@ void load_map(map_t *map, size_t len, const char *desc) {
 				break;
 			case '@':
 				ground(cell);
-				game(map)->pX = x;
-				game(map)->pY = y;
+				map->pX = x;
+				map->pY = y;
 				break;
 			case 'w':
 				ground(cell);
