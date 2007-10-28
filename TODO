@@ -2,6 +2,7 @@
 * add a typedef for num2012 and make everything that wants 20.12 say so.
 * add a message printing system
 * think about naming conventions
+* serialisation
 * sub-tile light origins (maybe prod puyo)
 * generalise scroll_screen
 * move by touchscreen

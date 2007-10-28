@@ -210,14 +210,14 @@ void process_keys(process_t *process, map_t *map) {
 		game(map)->frm--;
 }
 
-objecttype_t ot_player = {
+static objecttype_t ot_player = {
 	.ch = '@',
 	.col = RGB15(31,31,31),
 	.importance = 254,
 	.display = NULL,
 	.end = NULL
 };
-objecttype_t *OT_PLAYER = &ot_player;
+static objecttype_t *OT_PLAYER = &ot_player;
 
 node_t *new_obj_player(map_t *map) {
 	node_t *node = new_object(map, OT_PLAYER, NULL);
@@ -245,14 +245,14 @@ void new_map(map_t *map) {
 u32 random_colour(object_t *obj, map_t *map) {
 	return ((obj->type->ch)<<16) | (genrand_int32()&0xffff);
 }
-objecttype_t ot_unknown = {
+static objecttype_t ot_unknown = {
 	.ch = '?',
 	.col = RGB15(31,31,31),
 	.importance = 3,
 	.display = random_colour,
 	.end = NULL
 };
-objecttype_t *OT_UNKNOWN = &ot_unknown;
+static objecttype_t *OT_UNKNOWN = &ot_unknown;
 // }}}
 
 // {{{ lighting
@@ -317,14 +317,14 @@ void obj_fire_obj_end(object_t *object, map_t *map) {
 	free(fire);
 }
 
-objecttype_t ot_fire = {
+static objecttype_t ot_fire = {
 	.ch = 'w',
 	.col = RGB15(31,12,0),
 	.importance = 64,
 	.display = NULL,
 	.end = obj_fire_obj_end
 };
-objecttype_t *OT_FIRE = &ot_fire;
+static objecttype_t *OT_FIRE = &ot_fire;
 
 // takes x and y as 32.0 cell coordinates, radius as 20.12
 void new_obj_fire(map_t *map, s32 x, s32 y, int32 radius) {
@@ -379,14 +379,14 @@ u32 obj_light_display(object_t *obj, map_t *map) {
 	return obj_light->display;
 }
 
-objecttype_t ot_light = {
+static objecttype_t ot_light = {
 	.ch = 'o',
 	.col = 0,
 	.importance = 64,
 	.display = obj_light_display,
 	.end = obj_light_obj_end
 };
-objecttype_t *OT_LIGHT = &ot_light;
+static objecttype_t *OT_LIGHT = &ot_light;
 
 void new_obj_light(map_t *map, s32 x, s32 y, light_t *light) {
 	obj_light_t *obj_light = malloc(sizeof(obj_light_t));
@@ -593,14 +593,14 @@ void mon_WillOWisp_proc_end(process_t *process, map_t *map) {
 }
 // }}}
 
-objecttype_t ot_wisp = {
+static objecttype_t ot_wisp = {
 	.ch = 'o',
 	.col = RGB15(7,31,27),
 	.importance = 128,
 	.display = NULL,
 	.end = mon_WillOWisp_obj_end
 };
-objecttype_t *OT_WISP = &ot_wisp;
+static objecttype_t *OT_WISP = &ot_wisp;
 
 void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 	mon_WillOWisp_t *wisp = malloc(sizeof(mon_WillOWisp_t));
