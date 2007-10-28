@@ -51,15 +51,18 @@ void torch_init() {
 	// background
 	BG_PALETTE_SUB[0] = RGB15(0, 0, 0);
 	// foreground
-	BG_PALETTE_SUB[1] = RGB15(200, 200, 200);
+	BG_PALETTE_SUB[1] = RGB15(255, 255, 255);
+	BG_PALETTE_SUB[2] = RGB15(255, 0, 0);
+	BG_PALETTE_SUB[3] = RGB15(0, 255, 0);
+	BG_PALETTE_SUB[4] = RGB15(0, 0, 255);
 
 	// some text test stuff
 	text_init();
 	text_render("Hello world! Wrapping words might be annoying, but it looks stupid otherwise. Bla blah.\nThere was a newline just there.. the spacing is due to stupid aligning.\n\n");
-	text_render("The DS hits Fuzzie with stupid VRAM bus alignment issues.\n\n");
-	text_render("Fuzzie hits you with the stick of stupid bus alignment.\n\n");
-	text_render("Fuzzie hits the DS with the stick of stupid bus alignment.\n\n");
-	text_render("Fuzzie curses your fonts to alignment hell forever.\n\n");
+	text_render("The \1\2DS\1\1 hits \1\3Fuzzie\1\1 with stupid VRAM bus alignment issues.\n\n");
+	text_render("\1\3Fuzzie\1\1 hits you with the stick of stupid bus alignment.\n\n");
+	text_render("\1\3Fuzzie\1\1 hits the \1\2DS\1\1 with the stick of stupid bus alignment. Take that, \1\3Fuzzie\1\1.\n\n");
+	text_render("\1\3Fuzzie\1\1 curses your fonts to alignment hell forever.\n\n");
 	text_render("You die. --More--");
 
 	// not sure if this is necessary, but we don't want any surprises. TIMER_DATA

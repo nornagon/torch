@@ -21,7 +21,6 @@ void text_init() {
 	bitmapwidth = propfontBitmapLen / (CHAR_HEIGHT + 1);
 	for (i = 0; i < bitmapwidth; i++) {
 		if (propfontBitmap[i]) {
-			if (offset[k] == i) { offset[k] = i + 1; continue; } /* XXX: because nornagon's input file is broken */
 			width[k] = i - offset[k];
 			k++;
 			if (k == NO_CHARS) return;
@@ -44,7 +43,12 @@ void text_clear() {
 	yoffset = 1;
 }
 
-void text_render_blob(int xoffset, int yoffset, char *text, int textlen) {
+inline u16 colourPixel(u8 data, u8 fgcolor) {
+	if (data) return fgcolor;
+	else return 0;
+}
+
+void text_render_raw(int xoffset, int yoffset, char *text, int textlen, u8 fgcolor) {
 	u16 *vram = (u16 *)BG_BMP_RAM_SUB(0);
 	
 	int i, o = 0;
@@ -66,7 +70,7 @@ void text_render_blob(int xoffset, int yoffset, char *text, int textlen) {
 			// we can't do unaligned writes into vram, so do trickery to copy a first unaligned byte if needed
 			if ((int)dest & 1) {
 				dest--;
-				*(u16*)dest = (*(u16*)dest & 0xFF) + ((u16)(*src) << 8);
+				*(u16*)dest = (*(u16*)dest & 0xFF) + (colourPixel(*src, fgcolor) << 8);
 				dest+=2;
 				src++;
 				count--;
@@ -74,14 +78,14 @@ void text_render_blob(int xoffset, int yoffset, char *text, int textlen) {
 
 			// src might be unaligned, so we read two u8s and merge them :-(
 			for (x = 0; x < count / 2; x++) {
-				*(u16*)dest = ((u16)(*src)) + (u16)(*(src + 1) << 8);
+				*(u16*)dest = colourPixel(*src, fgcolor) + (colourPixel(*(src + 1), fgcolor) << 8);
 				dest += 2; src += 2;
 			}
 
 			// if we have one last, lonely byte, copy that too
 			if (x != (count + 1) / 2) {
 				// no need to preserve the rest of the contents!
-				*(u16*)dest = *src;
+				*(u16*)dest = colourPixel(*src, fgcolor);
 			}
 		}
 
@@ -91,30 +95,49 @@ void text_render_blob(int xoffset, int yoffset, char *text, int textlen) {
 }
 
 void text_render(char *text) {
-	int i, xoffset = 0, lastgoodlen = 0;
+	int i, xoffset = 0, xusage = 0, lastgoodlen = 0;
+	u8 fgcolor = 1;
 
 	for (i = 0; i < strlen(text); i++) {
 		int c = text[i] - ' ';
 		if (c < 0 || c >= NO_CHARS) c = '?' - ' ';
-		if (c == 0 || text[i] == '\n') lastgoodlen = i;
 
-		if (text[i] == '\n' || xoffset + width[c] + 2 > 256) {
-			text_render_blob(1, yoffset, text, lastgoodlen);
+		/* if we're encountering a word break (space or newline), change the location of the 'last word' */
+		if (c == 0 || text[i] == '\n') lastgoodlen = i;
+		
+		/* if there's a colour change here, render the text so far and change colour */
+		if (text[i] == '\1') {
+			lastgoodlen = i;
+			text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
+			fgcolor = text[i + 1];
+			
+			text = text + lastgoodlen + 2;
+			i = -1;
+
+			xoffset = xusage;
+			continue;
+		}
+
+		/* if there's a newline or we ran out of space here, render the text up to the last word and move to the next line */
+		if (text[i] == '\n' || xusage + width[c] + 2 > 256) {
+			text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
 			
 			if (text[i] == '\n') { lastgoodlen += 1; }
 			if (text[lastgoodlen] == ' ') lastgoodlen += 1;
 			text = text + lastgoodlen;
-			
+		
 			xoffset = 0;
+			xusage = 0;
 			yoffset += CHAR_HEIGHT + 2;
 			
 			i = -1;
 			continue;
 		}
 
-		xoffset += width[c];
+		xusage += width[c];
 	}
 	
-	text_render_blob(1, yoffset, text, strlen(text));
+	/* render any leftover text */
+	text_render_raw(xoffset, yoffset, text, strlen(text), fgcolor);
 }
 
