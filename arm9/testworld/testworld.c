@@ -105,7 +105,7 @@ void process_keys(process_t *process, map_t *map) {
 		map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 		dirty_screen();
 		reset_luminance();
-		//iprintf("You begin again.\n");
+		iprintf("You begin again.\n");
 		return;
 	}
 	if (down & KEY_SELECT) {
