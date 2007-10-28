@@ -63,7 +63,17 @@ void torch_init() {
 	text_render("\1\3Fuzzie\1\1 hits you with the stick of stupid bus alignment.\n\n");
 	text_render("\1\3Fuzzie\1\1 hits the \1\2DS\1\1 with the stick of stupid bus alignment. Take that, \1\3Fuzzie\1\1.\n\n");
 	text_render("\1\3Fuzzie\1\1 curses your fonts to alignment hell forever.\n\n");
-	text_render("You die. --More--");
+	text_render("You die. --More--\n\n");
+	text_render("Would you like to identify your possessions (y/n)?\n");
+	text_render("Well, tough luck, you don't have any.\n\n");
+
+	/* test scrolling */
+	text_render("Yeah, well, your mother fights like a cow.\n");
+	text_render("Yeah, well, your mother fights like a cow.\n");
+	text_render("Yeah, well, your mother fights like a cow.\n");
+	text_render("Yeah, well, your mother fights like a cow.\n");
+	text_render("Yeah, well, your mother fights like a cow.\n");
+	text_render("Yeah, well, your mother fights like a cow.\n");
 
 	// not sure if this is necessary, but we don't want any surprises. TIMER_DATA
 	// is what the timer resets to when you start it (or it overflows)

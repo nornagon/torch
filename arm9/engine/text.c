@@ -94,6 +94,24 @@ void text_render_raw(int xoffset, int yoffset, char *text, int textlen, u8 fgcol
 	}
 }
 
+void text_scroll() {
+	int i;
+	u16 *vram = (u16 *)BG_BMP_RAM_SUB(0);
+	
+	yoffset -= CHAR_HEIGHT + 2;
+
+	/* fuzzie is lazy. DMA is easy. whoo! */
+	/* XXX: this is probably dumb */
+	DMA_SRC(3) = vram + (128 * (CHAR_HEIGHT + 2));
+	DMA_DEST(3) = vram;
+	DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | (256 * (192 - (CHAR_HEIGHT + 2))) << 1;
+	while (dmaBusy(3));
+
+	/* wipe rest of screen */
+	for (i = 256 * (192 - (CHAR_HEIGHT + 2)) << 1; i < (256 * 256) / 2; i++)
+		vram[i] = 0;
+}
+
 void text_render(char *text) {
 	int i, xoffset = 0, xusage = 0, lastgoodlen = 0;
 	u8 fgcolor = 1;
@@ -120,6 +138,7 @@ void text_render(char *text) {
 
 		/* if there's a newline or we ran out of space here, render the text up to the last word and move to the next line */
 		if (text[i] == '\n' || xusage + width[c] + 2 > 256) {
+			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
 			text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
 			
 			if (text[i] == '\n') { lastgoodlen += 1; }
