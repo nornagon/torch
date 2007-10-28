@@ -2,7 +2,10 @@
 #include "text.h"
 #include <string.h>
 #include <nds.h>
+#include <sys/iosupport.h>
+#include <stdio.h>
 
+/* font data */
 #define NO_CHARS 94
 #define CHAR_HEIGHT 8
 
@@ -10,8 +13,25 @@ unsigned int offset[NO_CHARS];
 unsigned int width[NO_CHARS];
 unsigned int bitmapwidth;
 
+/* state for renderer */
+int xoffset, yoffset;
+
+void text_render_str(char *str, int len);
+
+/* this is infrasturcture for hooking ourselves up to fds */
+int text_write(struct _reent *r, int fd, const char *ptr, int len) {
+	text_render_str(ptr, len);
+	return len;
+}
+const devoptab_t dotab_textout = { "con", 0, NULL, NULL, text_write, NULL, NULL, NULL };
+
 void text_init() {
 	unsigned int i, k;
+
+	/* hook ourselves up to stdout, for convenience */
+	devoptab_list[STD_OUT] = &dotab_textout;
+	setvbuf(stdout, NULL , _IONBF, 0);
+
 	/* video setup is done elsewhere */
 	text_clear();
 
@@ -29,8 +49,6 @@ void text_init() {
 	}
 	width[k] = i - offset[k];
 }
-
-int xoffset, yoffset;
 
 void text_clear() {
 	int i;
@@ -114,10 +132,14 @@ void text_scroll() {
 }
 
 void text_render(char *text) {
+	text_render_str(text, strlen(text));
+}
+
+void text_render_str(char *text, int len) {
 	int i, xusage = xoffset, lastgoodlen = 0;
 	u8 fgcolor = 1;
 
-	for (i = 0; i < strlen(text); i++) {
+	for (i = 0; i < len; i++) {
 		int c = text[i] - ' ';
 		if (c < 0 || c >= NO_CHARS) c = '?' - ' ';
 
@@ -131,6 +153,7 @@ void text_render(char *text) {
 			fgcolor = text[i + 1];
 			
 			text = text + lastgoodlen + 2;
+			len -= lastgoodlen + 2;
 			i = -1;
 
 			xoffset = xusage;
@@ -145,6 +168,7 @@ void text_render(char *text) {
 			if (text[i] == '\n') { lastgoodlen += 1; }
 			if (text[lastgoodlen] == ' ') lastgoodlen += 1;
 			text = text + lastgoodlen;
+			len -= lastgoodlen;
 		
 			xoffset = 0;
 			xusage = 0;
@@ -158,7 +182,7 @@ void text_render(char *text) {
 	}
 	
 	/* render any leftover text */
-	text_render_raw(xoffset, yoffset, text, strlen(text), fgcolor);
+	text_render_raw(xoffset, yoffset, text, len, fgcolor);
 	xoffset = xusage;
 }
 
