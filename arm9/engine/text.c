@@ -25,7 +25,7 @@ void text_init() {
 			width[k] = i - offset[k];
 			k++;
 			if (k == NO_CHARS) return;
-			offset[k] = i;
+			offset[k] = i + 1;
 		}
 	}
 	width[k] = i - offset[k];
