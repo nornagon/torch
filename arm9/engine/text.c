@@ -25,7 +25,7 @@ void text_init() {
 			width[k] = i - offset[k];
 			k++;
 			if (k == NO_CHARS) return;
-			offset[k] = i + 1;
+			offset[k] = i;
 		}
 	}
 	width[k] = i - offset[k];
@@ -38,7 +38,7 @@ void text_clear() {
 
 	/* zap background */
 	u16 *vram = (u16 *)BG_BMP_RAM_SUB(0);
-	for (i = 0; i < 256 * 256; i++)
+	for (i = 0; i < (256 * 256) / 2; i++)
 		vram[i] = 0;
 
 	yoffset = 1;
@@ -51,30 +51,42 @@ void text_render_blob(int xoffset, int yoffset, char *text, int textlen) {
 	for (i = 0; i < textlen; i++) {
 		int y, c;
 		c = text[i] - ' ';
+		if (c < 0 || c >= NO_CHARS) c = '?' - ' ';
+
+		/* render a single character */
 		for (y = 0; y < CHAR_HEIGHT; y++) {
 			int x, s = (y + 1) * bitmapwidth;
+			/* dest points into vram, it's where we're going to write this row to */
 			u8*dest = (u8*)vram + o + xoffset + (256 * (y + yoffset));
+			/* src is the location of the row of bitmap data */
 			u8*src = (u8*)propfontBitmap + s + offset[c];
+			/* this is how many bytes we're going to copy - the width of the bitmap data */
 			int count = width[c];
 			
-			// XXX: alignment doom
+			// we can't do unaligned writes into vram, so do trickery to copy a first unaligned byte if needed
 			if ((int)dest & 1) {
-				if ((int)src & 1) {
-					// fix alignment by just copying the blank column
-					src--;
-					dest--;
-					count++;
-				} else dest--;
-			} else if ((int)src & 1) src--;
-			for (x = 0; x < (count + 2) / 2; x++) {
-				*(u16*)dest = *(u16*)src;
+				dest--;
+				*(u16*)dest = (*(u16*)dest & 0xFF) + ((u16)(*src) << 8);
+				dest+=2;
+				src++;
+				count--;
+			}
+
+			// src might be unaligned, so we read two u8s and merge them :-(
+			for (x = 0; x < count / 2; x++) {
+				*(u16*)dest = ((u16)(*src)) + (u16)(*(src + 1) << 8);
 				dest += 2; src += 2;
+			}
+
+			// if we have one last, lonely byte, copy that too
+			if (x != (count + 1) / 2) {
+				// no need to preserve the rest of the contents!
+				*(u16*)dest = *src;
 			}
 		}
 
 		/* move onward, remembering the space */
-		/* XXX: two spaces due to alignment issues for now */
-		o += width[c] + 2;
+		o += width[c];
 	}
 }
 
@@ -100,7 +112,7 @@ void text_render(char *text) {
 			continue;
 		}
 
-		xoffset += width[c] + 2;
+		xoffset += width[c];
 	}
 	
 	text_render_blob(1, yoffset, text, strlen(text));
