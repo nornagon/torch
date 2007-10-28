@@ -14,9 +14,12 @@ include $(DEVKITARM)/ds_rules
 # DATA is a list of directories containing binary files
 # all directories are relative to this makefile
 #---------------------------------------------------------------------------------
+
+WORLDS   := testworld
+
 BUILD    := build
-SOURCES  := source  
-INCLUDES := include
+SOURCES  := engine source generic $(WORLDS)
+INCLUDES := include engine generic $(WORLDS)
 DATA     :=
 GRAPHICS := graphics
 
