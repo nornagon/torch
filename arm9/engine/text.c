@@ -9,14 +9,14 @@
 #define NO_CHARS 94
 #define CHAR_HEIGHT 8
 
-unsigned int offset[NO_CHARS];
-unsigned int width[NO_CHARS];
-unsigned int bitmapwidth;
+unsigned short offset[NO_CHARS];
+unsigned char width[NO_CHARS];
+unsigned short bitmapwidth;
 
 /* state for renderer */
-int xoffset, yoffset;
+unsigned int xoffset, yoffset;
 
-void text_render_str(char *str, int len);
+void text_render_str(const char *str, int len);
 
 /* this is infrasturcture for hooking ourselves up to fds */
 int text_write(struct _reent *r, int fd, const char *ptr, int len) {
@@ -67,7 +67,7 @@ inline u16 colourPixel(u8 data, u8 fgcolor) {
 	else return 0;
 }
 
-void text_render_raw(int xoffset, int yoffset, char *text, int textlen, u8 fgcolor) {
+void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, u8 fgcolor) {
 	u16 *vram = (u16 *)BG_BMP_RAM_SUB(0);
 	
 	int i, o = 0;
@@ -121,8 +121,8 @@ void text_scroll() {
 
 	/* fuzzie is lazy. DMA is easy. whoo! */
 	/* XXX: this is probably dumb */
-	DMA_SRC(3) = vram + (128 * (CHAR_HEIGHT + 2));
-	DMA_DEST(3) = vram;
+	DMA_SRC(3) = (unsigned int)vram + (256 * (CHAR_HEIGHT + 2));
+	DMA_DEST(3) = (unsigned int)vram;
 	DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | (256 * (192 - (CHAR_HEIGHT + 2))) << 1;
 	while (dmaBusy(3));
 
@@ -131,11 +131,11 @@ void text_scroll() {
 		vram[i] = 0;
 }
 
-void text_render(char *text) {
+void text_render(const char *text) {
 	text_render_str(text, strlen(text));
 }
 
-void text_render_str(char *text, int len) {
+void text_render_str(const char *text, int len) {
 	int i, xusage = xoffset, lastgoodlen = 0;
 	u8 fgcolor = 1;
 
