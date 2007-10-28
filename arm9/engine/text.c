@@ -30,7 +30,7 @@ void text_init() {
 	width[k] = i - offset[k];
 }
 
-int yoffset;
+int xoffset, yoffset;
 
 void text_clear() {
 	int i;
@@ -40,6 +40,7 @@ void text_clear() {
 	for (i = 0; i < (256 * 256) / 2; i++)
 		vram[i] = 0;
 
+	xoffset = 0;
 	yoffset = 1;
 }
 
@@ -113,7 +114,7 @@ void text_scroll() {
 }
 
 void text_render(char *text) {
-	int i, xoffset = 0, xusage = 0, lastgoodlen = 0;
+	int i, xusage = xoffset, lastgoodlen = 0;
 	u8 fgcolor = 1;
 
 	for (i = 0; i < strlen(text); i++) {
@@ -158,5 +159,6 @@ void text_render(char *text) {
 	
 	/* render any leftover text */
 	text_render_raw(xoffset, yoffset, text, strlen(text), fgcolor);
+	xoffset = xusage;
 }
 
