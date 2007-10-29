@@ -825,8 +825,8 @@ map_t *init_test() {
 	game(map)->player_light = new_light(7<<12, 1.00*(1<<12), 0.90*(1<<12), 0.85*(1<<12));
 
 	new_map(map);
-	new_player(map);
 	new_sight(map);
+	new_player(map);
 
 	// centre the player on the screen
 	map->scrollX = map->w/2 - 16;
