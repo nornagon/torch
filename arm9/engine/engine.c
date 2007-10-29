@@ -83,6 +83,7 @@ void run_processes(map_t *map, node_t **processes) {
 		if (proc->process) {
 			proc->process(proc, map);
 			prev = node;
+			node = node->next;
 		} else { // a NULL process callback means free the process
 			if (proc->end)
 				proc->end(proc, map);
@@ -91,9 +92,10 @@ void run_processes(map_t *map, node_t **processes) {
 			else // there's a new head
 				*processes = node->next;
 			// add the dead process to the free pool
+			node_t *k = node->next;
 			free_node(map->process_pool, node);
+			node = k;
 		}
-		node = node->next;
 	}
 }
 
