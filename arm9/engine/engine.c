@@ -51,10 +51,10 @@ void torch_init() {
 	// background
 	BG_PALETTE_SUB[0] = RGB15(0, 0, 0);
 	// foreground
-	BG_PALETTE_SUB[1] = RGB15(255, 255, 255);
-	BG_PALETTE_SUB[2] = RGB15(255, 0, 0);
-	BG_PALETTE_SUB[3] = RGB15(0, 255, 0);
-	BG_PALETTE_SUB[4] = RGB15(0, 0, 255);
+	BG_PALETTE_SUB[1] = RGB15(31, 31, 31);
+	BG_PALETTE_SUB[2] = RGB15(31, 0, 0);
+	BG_PALETTE_SUB[3] = RGB15(0, 31, 0);
+	BG_PALETTE_SUB[4] = RGB15(0, 0, 31);
 
 	// some text test stuff
 	text_init();
