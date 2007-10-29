@@ -485,6 +485,15 @@ void mon_WillOWisp_randdir(DIRECTION dir, int *dX, int *dY) {
 			else if (a&2) *dY = 1;
 			else          { *dX = -1; *dY = 1; }
 			break;
+		default:
+			if (a&1) {
+				if (a&2) { *dX = 0; *dY = 1; }
+				else     { *dX = 0; *dY = -1; }
+			} else {
+				if (a&2) { *dX = 1; *dY = 0; }
+				else     { *dX = -1; *dY = 0; }
+			}
+			break;
 	}
 }
 
