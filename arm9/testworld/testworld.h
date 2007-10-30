@@ -6,7 +6,6 @@
 #include "fov.h"
 #include "map.h"
 
-//-------------{{{ game struct-----------------------------------------------
 typedef struct game_s {
 	light_t *player_light;
 	bool torch_on;
@@ -18,7 +17,6 @@ typedef struct game_s {
 static inline game_t *game(map_t *map) {
 	return ((game_t*)map->game);
 }
-//---------------------------}}}---------------------------------------------
 
 typedef enum {
 	T_NONE = 0,
