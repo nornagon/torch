@@ -22,11 +22,8 @@ typedef enum {
 // cell_t
 typedef struct {
 	u16 type;
-	u8 ch;
 	u16 col;
-
-	int32 light; // total intensity of the light falling on this cell
-	int32 recall; // how much the player remembers this cell XXX: could probably be a u16?
+	u8 ch;
 
 	// blocked_from is cache for working out which sides of an opaque cell we
 	// should light
@@ -39,6 +36,9 @@ typedef struct {
 
 	// can light pass through the cell?
 	bool opaque : 1;
+
+	int32 light; // total intensity of the light falling on this cell
+	int32 recall; // how much the player remembers this cell XXX: could probably be a u16?
 
 	// what things are here? A ball of string and some sealing wax.
 	node_t *objects;
