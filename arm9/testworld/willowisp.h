@@ -34,15 +34,9 @@ void mon_WillOWisp_follow(process_t *process, map_t *map);
 void mon_WillOWisp_obj_end(object_t *object, map_t *map);
 void mon_WillOWisp_proc_end(process_t *process, map_t *map);
 
-static objecttype_t ot_wisp = {
-	.ch = 'o',
-	.col = RGB15(7,31,27),
-	.importance = 128,
-	.display = NULL,
-	.end = mon_WillOWisp_obj_end
-};
-static objecttype_t *OT_WISP = &ot_wisp;
-
 void new_mon_WillOWisp(map_t *map, s32 x, s32 y);
+
+objecttype_t ot_wisp;
+objecttype_t* OT_WISP;
 
 #endif /* WILLOWISP_H */
