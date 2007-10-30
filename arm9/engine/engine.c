@@ -107,17 +107,17 @@ void move_port(map_t *map, DIRECTION dir) {
 		// mark the top squares dirty
 		// TODO: slower than not going through cache_at?
 		for (i = 0; i < 32; i++)
-			cache_at(map, i+map->scrollX, map->scrollY)->dirty = 2;
+			cache_at_s(map, i, 0)->dirty = 2;
 
 		if (dir & D_EAST) {
 			for (i = 1; i < 24; i++)
-				cache_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
+				cache_at_s(map, 31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 1; i < 24; i++)
-				cache_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
+				cache_at_s(map, 0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
@@ -129,16 +129,16 @@ void move_port(map_t *map, DIRECTION dir) {
 	} else if (dir & D_SOUTH) {
 		// mark the southern squares dirty
 		for (i = 0; i < 32; i++)
-			cache_at(map, i+map->scrollX, map->scrollY+23)->dirty = 2;
+			cache_at_s(map, i, 23)->dirty = 2;
 		if (dir & D_EAST) {
 			for (i = 0; i < 23; i++)
-				cache_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
+				cache_at_s(map, 31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8+8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 23; i++)
-				cache_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
+				cache_at_s(map, 0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8];
 			DMA_DEST(3) = (uint32)&backbuf[8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
@@ -150,13 +150,13 @@ void move_port(map_t *map, DIRECTION dir) {
 	} else {
 		if (dir & D_EAST) {
 			for (i = 0; i < 24; i++)
-				cache_at(map, map->scrollX+31, map->scrollY+i)->dirty = 2;
+				cache_at_s(map, 31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 24; i++)
-				cache_at(map, map->scrollX, map->scrollY+i)->dirty = 2;
+				cache_at_s(map, 0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);

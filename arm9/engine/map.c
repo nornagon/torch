@@ -46,6 +46,7 @@ void reset_map(map_t* map) {
 			cell->col = 0;
 			cell->light = 0;
 			cell->recall = 0;
+			cell->forgettable = 0;
 			cell->visible = 0;
 			cell->blocked_from = 0;
 			cell->seen_from = 0;

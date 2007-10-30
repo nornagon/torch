@@ -38,8 +38,7 @@ typedef struct {
 	node_t *objects;
 } cell_t;
 
-// map_t holds map information as well as game state. TODO: perhaps general game
-// state should be seperated out into a game_t? Maybe also a player_t.
+// map_t holds map information as well as game state.
 typedef struct map_s {
 	u32 w,h;
 
