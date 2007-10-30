@@ -59,7 +59,7 @@ void torch_init() {
 
 	// some text test stuff
 	text_init();
-	text_render("This is \1\2Torch\1\1, an engine from \1\3nornagon\1\1. Starting up..\n");
+	text_console_render("This is \1\2Torch\1\1, an engine from \1\3nornagon\1\1. Starting up..\n");
 
 	// not sure if this is necessary, but we don't want any surprises. TIMER_DATA
 	// is what the timer resets to when you start it (or it overflows)

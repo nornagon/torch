@@ -8,34 +8,40 @@
 /* font data */
 #define NO_CHARS 94
 #define CHAR_HEIGHT 8
-
 unsigned short offset[NO_CHARS];
 unsigned char width[NO_CHARS];
 unsigned short bitmapwidth;
 
 /* state for renderer */
+#define TEXT_BUFFER_SIZE (100 * 40) /* ought to be about two screens worth */
 unsigned int xoffset, yoffset;
-
-void text_render_str(const char *str, int len);
+char text_buffer[TEXT_BUFFER_SIZE];
+int renderconsole, keepstate;
 
 /* this is infrasturcture for hooking ourselves up to fds */
+void text_render_str(const char *str, int len);
 int text_write(struct _reent *r, int fd, const char *ptr, int len) {
 	text_render_str(ptr, len);
 	return len;
 }
 const devoptab_t dotab_textout = { "con", 0, NULL, NULL, text_write, NULL, NULL, NULL };
 
+/* initialise the text renderer */
 void text_init() {
 	unsigned int i, k;
+
+	renderconsole = 1;
+	keepstate = 1;
 
 	/* hook ourselves up to stdout, for convenience */
 	devoptab_list[STD_OUT] = &dotab_textout;
 	setvbuf(stdout, NULL , _IONBF, 0);
 
 	/* video setup is done elsewhere */
-	text_clear();
+	text_console_clear();
 
 	/* work out the offset/width of each character */
+	/* XXX: this could be precalculated with a clever build system */
 	offset[0] = 0;
 	k = 0;
 	bitmapwidth = propfontBitmapLen / (CHAR_HEIGHT + 1);
@@ -50,7 +56,8 @@ void text_init() {
 	width[k] = i - offset[k];
 }
 
-void text_clear() {
+/* blank the screen that the text renderer is using */
+void text_display_clear() {
 	int i;
 
 	/* zap background */
@@ -60,6 +67,61 @@ void text_clear() {
 
 	xoffset = 0;
 	yoffset = 1;
+}
+
+/* disable the text renderer console (it will remember state, but not render) */
+void text_console_disable() {
+	renderconsole = 0;
+}
+
+/* enable the text renderer console, re-rendering */
+void text_console_enable() {
+	renderconsole = 1;
+	text_console_rerender();
+}
+
+/* reset the text renderer, making it forget all text */
+void text_console_clear() {
+	text_display_clear();
+
+	text_buffer[0] = '\n';
+	text_buffer[1] = 0;
+}
+
+/* re-render the text renderer's state, for example after using the text for something else, or scrolling around */
+void text_console_rerender() {
+	text_display_clear();
+
+	char *s = strchr(text_buffer, '\n');
+	if (!s) return; /* no renderable data */
+
+	/* XXX: this doesn't account for scrolling */
+	/* XXX: this renders a whole bunch of lines needlessly */
+	keepstate = 0;
+	s = s + 1;
+	text_render_str(s, strlen(s));
+	keepstate = 1;
+}
+
+/* render a piece of text onto the text renderer console, storing it in state for future use */
+void text_console_render(const char *text) {
+	text_render_str(text, strlen(text));
+}
+
+/*** internal functions ***/
+
+void append_console_state(const char *text, int len) {
+	/* XXX: meh, this isn't great */
+	int bs = strlen(text_buffer);
+	char *b;
+	if (bs + len + 1 > TEXT_BUFFER_SIZE) {
+		b = text_buffer + bs - (len + 1);
+		memmove(text_buffer, text_buffer + (len + 1), bs - (len + 1));
+	} else {
+		b = text_buffer + bs;
+	}
+	memcpy(b, text, len);
+	b[len] = 0;
 }
 
 inline u16 colourPixel(u8 data, u8 fgcolor) {
@@ -131,10 +193,6 @@ void text_scroll() {
 		vram[i] = 0;
 }
 
-void text_render(const char *text) {
-	text_render_str(text, strlen(text));
-}
-
 void text_render_str(const char *text, int len) {
 	int i, xusage = xoffset, lastgoodlen = 0;
 	u8 fgcolor = 1;
@@ -149,7 +207,8 @@ void text_render_str(const char *text, int len) {
 		/* if there's a colour change here, render the text so far and change colour */
 		if (text[i] == '\1') {
 			lastgoodlen = i;
-			text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
+			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
+			if (keepstate) append_console_state(text, lastgoodlen + 2);
 			fgcolor = text[i + 1];
 			
 			text = text + lastgoodlen + 2;
@@ -164,7 +223,9 @@ void text_render_str(const char *text, int len) {
 		if (text[i] == '\n' || xusage + width[c] + 2 > 256) {
 			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
 			if (lastgoodlen == 0) lastgoodlen = i; /* if there's some crazy-long word which takes up a whole line, render the whole thing */
-			text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
+			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
+			if (keepstate) append_console_state(text, lastgoodlen);
+			if (keepstate) append_console_state("\n", 1);
 			
 			if (text[i] == '\n') { lastgoodlen += 1; }
 			if (text[lastgoodlen] == ' ') lastgoodlen += 1;
@@ -183,7 +244,8 @@ void text_render_str(const char *text, int len) {
 	}
 	
 	/* render any leftover text */
-	text_render_raw(xoffset, yoffset, text, len, fgcolor);
+	if (renderconsole) text_render_raw(xoffset, yoffset, text, len, fgcolor);
+	if (keepstate) append_console_state(text, len);
 	xoffset = xusage;
 }
 
