@@ -120,8 +120,8 @@ void free_object(map_t *map, node_t *obj_node);
 // have to be made)
 void insert_object(map_t *map, node_t *obj, s32 x, s32 y);
 
-// remove obj from loc and add it to the cell at (x,y).
-void move_object(map_t *map, cell_t *loc, node_t *obj, s32 x, s32 y);
+// remove obj from its cell and add it to the cell at (x,y).
+void move_object(map_t *map, node_t *obj, s32 x, s32 y);
 
 // move an object by (dX,dY). Will pay attention to opaque cells, map edges,
 // etc.

@@ -134,7 +134,7 @@ void process_keys(process_t *process, map_t *map) {
 			else game(map)->frm = 5;
 			cell = cell_at(map, pX + dpX, pY + dpY);
 			cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
-			move_object(map, cell_at(map, pX, pY), process->data, pX + dpX, pY + dpY); // move the player object
+			move_object(map, process->data, pX + dpX, pY + dpY); // move the player object
 			pX += dpX; map->pX = pX;
 			pY += dpY; map->pY = pY;
 
@@ -164,14 +164,14 @@ void process_keys(process_t *process, map_t *map) {
 		game(map)->frm--;
 }
 
-static objecttype_t ot_player = {
+objecttype_t ot_player = {
 	.ch = '@',
 	.col = RGB15(31,31,31),
 	.importance = 254,
 	.display = NULL,
 	.end = NULL
 };
-static objecttype_t *OT_PLAYER = &ot_player;
+objecttype_t *OT_PLAYER = &ot_player;
 
 node_t *new_obj_player(map_t *map) {
 	node_t *node = new_object(map, OT_PLAYER, NULL);

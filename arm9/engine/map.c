@@ -163,9 +163,11 @@ void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
 		target->objects = obj_node;
 }
 
-void move_object(map_t *map, cell_t *loc, node_t *obj, s32 x, s32 y) {
-	loc->objects = remove_node(loc->objects, obj);
-	insert_object(map, obj, x, y);
+void move_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
+	object_t *obj = node_data(obj_node);
+	cell_t *loc = cell_at(map, obj->x, obj->y);
+	loc->objects = remove_node(loc->objects, obj_node);
+	insert_object(map, obj_node, x, y);
 }
 
 void free_other_processes(map_t *map, process_t *this_proc, node_t *procs[], unsigned int num) {
@@ -209,8 +211,7 @@ void displace_object(node_t *obj_node, map_t *map, int dX, int dY) {
 
 	if (dX || dY) {
 		// move the object
-		cell_t *cell = cell_at(map, obj->x, obj->y);
-		move_object(map, cell, obj_node, obj->x + dX, obj->y + dY);
+		move_object(map, obj_node, obj->x + dX, obj->y + dY);
 	}
 }
 

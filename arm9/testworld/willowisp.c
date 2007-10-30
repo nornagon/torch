@@ -20,6 +20,7 @@ void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 	wisp->homeX = x;
 	wisp->homeY = y;
 	wisp->counter = 0;
+	wisp->held = false;
 
 	// set up lighting and AI processes
 	wisp->light_node = push_process(map,
@@ -161,6 +162,19 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 	if (!cell->visible) {
 		// if we can't see the player, go back to wandering
 		process->process = mon_WillOWisp_wander;
+	} else if (wisp->held) {
+		if (map->pX != obj->x || map->pY != obj->y) {
+			move_object(map, wisp->obj_node, map->pX, map->pY);
+			wisp->light.x = obj->x << 12;
+			wisp->light.y = obj->y << 12;
+		}
+		if (genrand_int32() < (u32)(0.01*0xffffffff)) {
+			if (genrand_int32() > (u32)(0.5*0xffffffff)) {
+				iprintf("The wisp escapes your grasp!\n");
+				wisp->held = false;
+			} else
+				iprintf("The wisp struggles.\n");
+		}
 	} else if (wisp->counter == 0) { // time to do something
 		unsigned int mdist = manhdist(obj->x, obj->y, map->pX, map->pY);
 		if (mdist < 4) { // don't get too close
@@ -171,7 +185,16 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 			// randdir returns a position delta *towards* the player, so invert it
 			dX = -dX;
 			dY = -dY;
+			int beforeX = obj->x, beforeY = obj->y;
 			displace_object(wisp->obj_node, map, dX, dY);
+			if (dir == D_NONE) {
+				if ((beforeX == obj->x && beforeY == obj->y) || genrand_int32() < (u32)(0.1*0xffffffff)) {
+					iprintf("You leap on top of the wisp!\n");
+					wisp->held = true;
+				} else {
+					iprintf("You attempt to grab the wisp, but it bobs away.\n");
+				}
+			}
 			wisp->counter = 10;
 		} else if (mdist > 5) { // don't get too far away either
 			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
