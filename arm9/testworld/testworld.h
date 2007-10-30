@@ -20,6 +20,14 @@ static inline game_t *game(map_t *map) {
 }
 //---------------------------}}}---------------------------------------------
 
+typedef enum {
+	T_NONE = 0,
+	T_TREE,
+	T_GROUND,
+	T_STAIRS,
+	T_WATER,
+} CELL_TYPE;
+
 map_t *init_test();
 
 #endif /* TESTWORLD_H */
