@@ -18,6 +18,9 @@ static inline game_t *game(map_t *map) {
 	return ((game_t*)map->game);
 }
 
+objecttype_t ot_unknown;
+objecttype_t *OT_UNKNOWN;
+
 typedef enum {
 	T_NONE = 0,
 	T_TREE,

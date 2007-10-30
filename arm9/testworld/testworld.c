@@ -8,13 +8,10 @@
 
 #include <nds/arm9/console.h>
 
-#include "willowisp.h"
-#include "fire.h"
-#include "globe.h"
 #include "sight.h"
 
-void load_map(map_t *map, size_t len, const char *desc);
-void random_map(map_t *map);
+#include "randmap.h"
+#include "loadmap.h"
 
 //---------{{{ game processes------------------------------------------------
 void process_sight(process_t *process, map_t *map) {
@@ -201,198 +198,15 @@ void new_map(map_t *map) {
 u32 random_colour(object_t *obj, map_t *map) {
 	return ((obj->type->ch)<<16) | (genrand_int32()&0xffff);
 }
-static objecttype_t ot_unknown = {
+
+objecttype_t ot_unknown = {
 	.ch = '?',
 	.col = RGB15(31,31,31),
 	.importance = 3,
 	.display = random_colour,
 	.end = NULL
 };
-static objecttype_t *OT_UNKNOWN = &ot_unknown;
-
-// {{{ map generation
-void lake(map_t *map, s32 x, s32 y) {
-	u32 wisppos = genrand_int32() & 0x3f; // between 0 and 63
-	u32 i;
-	// scour out a lake by random walk
-	for (i = 0; i < 64; i++) {
-		cell_t *cell = cell_at(map, x, y);
-		if (i == wisppos) // place the wisp
-			new_mon_WillOWisp(map, x, y);
-		if (!has_objtype(cell, OT_FIRE)) { // if the cell doesn't have a fire in it
-			cell->type = T_WATER;
-			cell->ch = '~';
-			cell->col = RGB15(6,9,31);
-			cell->opaque = false;
-		}
-		u32 a = genrand_int32();
-		if (a & 1) {
-			if (a & 2) x += 1;
-			else x -= 1;
-		} else {
-			if (a & 2) y += 1;
-			else y -= 1;
-		}
-		bounded(map, &x, &y);
-	}
-}
-
-// turn the cell into a ground cell.
-void ground(cell_t *cell) {
-	unsigned int a = genrand_int32();
-	cell->type = T_GROUND;
-	unsigned int b = a & 3; // top two bits of a
-	a >>= 2; // get rid of the used random bits
-	switch (b) {
-		case 0:
-			cell->ch = '.'; break;
-		case 1:
-			cell->ch = ','; break;
-		case 2:
-			cell->ch = '\''; break;
-		case 3:
-			cell->ch = '`'; break;
-	}
-	b = a & 3; // next two bits of a (0..3)
-	a >>= 2;
-	u8 g = a & 7; // three bits (0..7)
-	a >>= 3;
-	u8 r = a & 7; // (0..7)
-	a >>= 3;
-	cell->col = RGB15(17+r,9+g,6+b); // more randomness in red/green than in blue
-	cell->opaque = false;
-	cell->forgettable = true;
-}
-
-
-void random_map(map_t *map) {
-	s32 x,y;
-	reset_map(map);
-
-	// clear out the map to a backdrop of trees
-	for (y = 0; y < map->h; y++)
-		for (x = 0; x < map->w; x++) {
-			cell_t *cell = cell_at(map, x, y);
-			cell->opaque = true;
-			cell->type = T_TREE;
-			cell->ch = '*';
-			cell->col = RGB15(4,31,1);
-		}
-
-	// start in the centre
-	x = map->w/2; y = map->h/2;
-
-	node_t *something = new_object(map, OT_UNKNOWN, NULL);
-	insert_object(map, something, x, y);
-
-
-	// place some fires
-	u32 light1 = genrand_int32() >> 21, // between 0 and 2047
-			light2 = light1 + 40;
-
-	u32 lakepos = (genrand_int32()>>21) + 4096; // hopefully away from the fires
-
-	u32 i;
-	for (i = 8192; i > 0; i--) { // 8192 steps of the drunkard's walk
-		cell_t *cell = cell_at(map, x, y);
-		if (i == light1 || i == light2) { // place a fire here
-			// fires go on the ground
-			if (cell->type != T_GROUND) ground(cell);
-			new_obj_fire(map, x, y, 9<<12);
-		} else if (i == lakepos) {
-			lake(map, x, y);
-		} else if (cell->type == T_TREE) { // clear away some tree
-			ground(cell);
-		}
-
-		u32 a = genrand_int32();
-		if (a & 1) { // pick some bits off the number
-			if (a & 2) x += 1;
-			else x -= 1;
-		} else {
-			if (a & 2) y += 1;
-			else y -= 1;
-		}
-
-		// don't run off the edge of the map
-		bounded(map, &x, &y);
-	}
-
-	// place the stairs at the end
-	cell_t *cell = cell_at(map, x, y);
-	cell->type = T_STAIRS;
-	cell->ch = '>';
-	cell->col = RGB15(31,31,31);
-
-	// and the player at the beginning
-	map->pX = map->w/2;
-	map->pY = map->h/2;
-
-	// update opacity information
-	refresh_blockmap(map);
-}
-
-void load_map(map_t *map, size_t len, const char *desc) {
-	s32 x,y;
-	reset_map(map);
-
-	// clear the map out to ground
-	for (y = 0; y < map->h; y++)
-		for (x = 0; x < map->w; x++)
-			ground(cell_at(map, x, y));
-
-	// read the map from the string
-	for (x = 0, y = 0; len > 0; len--) {
-		u8 c = *desc++;
-		cell_t *cell = cell_at(map, x, y);
-		switch (c) {
-			case '*':
-				cell->type = T_TREE;
-				cell->ch = '*';
-				cell->col = RGB15(4,31,1);
-				cell->opaque = true;
-				break;
-			case '@':
-				ground(cell);
-				map->pX = x;
-				map->pY = y;
-				break;
-			case 'w':
-				ground(cell);
-				new_obj_fire(map, x, y, 9<<12);
-				break;
-			case 'o':
-				ground(cell);
-				new_obj_globe(map, x, y,
-						new_light(8<<12, 0.39*(1<<12), 0.05*(1<<12), 1.00*(1<<12)));
-				break;
-			case 'r':
-				ground(cell);
-				new_obj_globe(map, x, y,
-						new_light(8<<12, 1.00*(1<<12), 0.07*(1<<12), 0.07*(1<<12)));
-				break;
-			case 'g':
-				ground(cell);
-				new_obj_globe(map, x, y,
-						new_light(8<<12, 0.07*(1<<12), 1.00*(1<<12), 0.07*(1<<12)));
-				break;
-			case 'b':
-				ground(cell);
-				new_obj_globe(map, x, y,
-						new_light(8<<12, 0.07*(1<<12), 0.07*(1<<12), 1.00*(1<<12)));
-				break;
-			case '\n': // reached the end of the line, so move down
-				x = -1; // gets ++'d later
-				y++;
-				break;
-		}
-		x++;
-	}
-
-	// update opacity map
-	refresh_blockmap(map);
-}
-// }}}
+objecttype_t *OT_UNKNOWN = &ot_unknown;
 
 map_t *init_test() {
 	map_t *map = create_map(128, 128);
