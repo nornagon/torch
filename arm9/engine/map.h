@@ -11,14 +11,6 @@
 
 #include "direction.h"
 
-typedef enum {
-	T_NONE = 0,
-	T_TREE,
-	T_GROUND,
-	T_STAIRS,
-	T_WATER,
-} CELL_TYPE;
-
 // cell_t
 typedef struct {
 	u16 type;
@@ -36,6 +28,8 @@ typedef struct {
 
 	// can light pass through the cell?
 	bool opaque : 1;
+
+	bool forgettable : 1;
 
 	int32 light; // total intensity of the light falling on this cell
 	int32 recall; // how much the player remembers this cell XXX: could probably be a u16?

@@ -264,7 +264,7 @@ void draw(map_t *map) {
 					cache->last_col = col;
 					// fade out to the recalled colour (or 0 for ground)
 					int32 minval = 0;
-					if (cell->type != T_GROUND) minval = (cell->recall>>2);
+					if (!cell->forgettable) minval = (cell->recall>>2);
 					int32 val = max(minval, cell->light);
 					int32 maxcol = max(rval,max(bval,gval));
 					// scale [rgb]val by the luminance, and keep the ratio between the
@@ -316,7 +316,7 @@ void draw(map_t *map) {
 				cache->was_visible = true;
 			} else if (cache->dirty > 0 || dirty > 0 || cache->was_visible) {
 				// dirty or it was visible last frame and now isn't.
-				if (cell->recall > 0 && cell->type != T_GROUND) {
+				if (cell->recall > 0 && !cell->forgettable) {
 					u32 r = cell->col & 0x001f,
 							g = (cell->col & 0x03e0) >> 5,
 							b = (cell->col & 0x7c00) >> 10;

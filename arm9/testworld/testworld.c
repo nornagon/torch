@@ -6,6 +6,16 @@
 #include "test_map.h"
 #include "generic.h"
 
+#include <nds/arm9/console.h>
+
+typedef enum {
+	T_NONE = 0,
+	T_TREE,
+	T_GROUND,
+	T_STAIRS,
+	T_WATER,
+} CELL_TYPE;
+
 void load_map(map_t *map, size_t len, const char *desc);
 void random_map(map_t *map);
 
@@ -686,6 +696,7 @@ void ground(cell_t *cell) {
 	a >>= 3;
 	cell->col = RGB15(17+r,9+g,6+b); // more randomness in red/green than in blue
 	cell->opaque = false;
+	cell->forgettable = true;
 }
 
 
