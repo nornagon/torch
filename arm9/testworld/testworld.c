@@ -10,6 +10,7 @@
 
 #include "willowisp.h"
 #include "fire.h"
+#include "globe.h"
 #include "sight.h"
 
 void load_map(map_t *map, size_t len, const char *desc);
@@ -197,7 +198,6 @@ void new_map(map_t *map) {
 }
 //---------}}}---------------------------------------------------------------
 
-// {{{ ot_unknown
 u32 random_colour(object_t *obj, map_t *map) {
 	return ((obj->type->ch)<<16) | (genrand_int32()&0xffff);
 }
@@ -209,74 +209,6 @@ static objecttype_t ot_unknown = {
 	.end = NULL
 };
 static objecttype_t *OT_UNKNOWN = &ot_unknown;
-// }}}
-
-// {{{ lighting
-
-// {{{  a glowing, coloured light
-typedef struct {
-	node_t *light_node; // the light-drawing process node
-	node_t *obj_node; // the presence object node
-
-	light_t *light;
-
-	// cache the display colour/character so we don't have to recalculate every
-	// frame.
-	u32 display;
-} obj_light_t;
-
-// boilerplate entity-freeing functions. TODO: how to make this easier?
-void obj_light_proc_end(process_t *proc, map_t *map) {
-	obj_light_t *obj_light = (obj_light_t*)proc->data;
-	free_object(map, obj_light->obj_node);
-	free(obj_light);
-}
-
-void obj_light_obj_end(object_t *obj, map_t *map) {
-	obj_light_t *obj_light = (obj_light_t*)obj->data;
-	free_process(map, obj_light->light_node);
-	free(obj_light);
-}
-
-void obj_light_process(process_t *proc, map_t *map) {
-	obj_light_t *obj_light = (obj_light_t*)proc->data;
-	draw_light(map, game(map)->fov_light, obj_light->light);
-}
-
-u32 obj_light_display(object_t *obj, map_t *map) {
-	obj_light_t *obj_light = (obj_light_t*)obj->data;
-	return obj_light->display;
-}
-
-static objecttype_t ot_light = {
-	.ch = 'o',
-	.col = 0,
-	.importance = 64,
-	.display = obj_light_display,
-	.end = obj_light_obj_end
-};
-static objecttype_t *OT_LIGHT = &ot_light;
-
-void new_obj_light(map_t *map, s32 x, s32 y, light_t *light) {
-	obj_light_t *obj_light = malloc(sizeof(obj_light_t));
-	obj_light->light = light;
-	light->x = x<<12; light->y = y<<12;
-	// we cache the display characteristics of the light for performance reasons.
-	obj_light->display = ('o'<<16) |
-		RGB15((light->r * (31<<12))>>24,
-		      (light->g * (31<<12))>>24,
-		      (light->b * (31<<12))>>24);
-	// create the lighting process and store the node for cleanup purposes
-	obj_light->light_node = push_process(map,
-			obj_light_process, obj_light_proc_end, obj_light);
-	// create the worldly presence of the light
-	obj_light->obj_node = new_object(map, OT_LIGHT, obj_light);
-	// and add it to the map
-	insert_object(map, obj_light->obj_node, x, y);
-}
-// }}}
-
-// }}}
 
 // {{{ map generation
 void lake(map_t *map, s32 x, s32 y) {
@@ -431,22 +363,22 @@ void load_map(map_t *map, size_t len, const char *desc) {
 				break;
 			case 'o':
 				ground(cell);
-				new_obj_light(map, x, y,
+				new_obj_globe(map, x, y,
 						new_light(8<<12, 0.39*(1<<12), 0.05*(1<<12), 1.00*(1<<12)));
 				break;
 			case 'r':
 				ground(cell);
-				new_obj_light(map, x, y,
+				new_obj_globe(map, x, y,
 						new_light(8<<12, 1.00*(1<<12), 0.07*(1<<12), 0.07*(1<<12)));
 				break;
 			case 'g':
 				ground(cell);
-				new_obj_light(map, x, y,
+				new_obj_globe(map, x, y,
 						new_light(8<<12, 0.07*(1<<12), 1.00*(1<<12), 0.07*(1<<12)));
 				break;
 			case 'b':
 				ground(cell);
-				new_obj_light(map, x, y,
+				new_obj_globe(map, x, y,
 						new_light(8<<12, 0.07*(1<<12), 0.07*(1<<12), 1.00*(1<<12)));
 				break;
 			case '\n': // reached the end of the line, so move down
