@@ -20,6 +20,7 @@ void load_map(map_t *map, size_t len, const char *desc) {
 		switch (c) {
 			case '*':
 				cell->type = T_TREE;
+				cell->forgettable = false;
 				cell->ch = '*';
 				cell->col = RGB15(4,31,1);
 				cell->opaque = true;

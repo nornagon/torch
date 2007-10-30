@@ -37,6 +37,7 @@ void torch_init() {
 	BG3_XDX = 1 << 8;
 	BG3_YDX = 0;
 	BG3_YDY = 1 << 8;
+	BG_PALETTE[0] = 0;
 
 	// setup the sub screen for our text output code
 	videoSetModeSub( MODE_3_2D | DISPLAY_BG3_ACTIVE );
