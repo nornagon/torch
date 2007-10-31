@@ -224,7 +224,7 @@ void text_render_str(const char *text, int len) {
 		/* if there's a newline or we ran out of space here, render the text up to the last word and move to the next line */
 		if (text[i] == '\n' || xusage + width[c] + 2 > 256) {
 			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
-			if (lastgoodlen == 0) lastgoodlen = i; /* if there's some crazy-long word which takes up a whole line, render the whole thing */
+			if (xoffset == 0) lastgoodlen = i; /* if there's some crazy-long word which takes up a whole line, render the whole thing */
 			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
 			if (keepstate) append_console_state(text, lastgoodlen);
 			if (keepstate) append_console_state("\n", 1);
