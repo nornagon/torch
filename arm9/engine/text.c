@@ -120,7 +120,7 @@ void append_console_state(const char *text, int len) {
 	} else {
 		b = text_buffer + bs;
 	}
-	memcpy(b, text, len);
+	memmove(b, text, len);
 	b[len] = 0;
 }
 
@@ -213,6 +213,7 @@ void text_render_str(const char *text, int len) {
 			
 			text = text + lastgoodlen + 2;
 			len -= lastgoodlen + 2;
+			lastgoodlen = 0;
 			i = -1;
 
 			xoffset = xusage;
@@ -231,6 +232,7 @@ void text_render_str(const char *text, int len) {
 			if (text[lastgoodlen] == ' ') lastgoodlen += 1;
 			text = text + lastgoodlen;
 			len -= lastgoodlen;
+			lastgoodlen = 0;
 		
 			xoffset = 0;
 			xusage = 0;
