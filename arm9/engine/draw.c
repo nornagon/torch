@@ -22,17 +22,7 @@ void clss() {
 	memset32((void*)BG_BMP_RAM(0), 0, (256*192*4)/4);
 }
 
-void drawc(u32 x, u32 y, u8 c, u16 color) {
-	c -= ' '; // XXX: might want to remove this
-	color |= BIT(15);
-	u8 px,py;
-	for (py = 0; py < 8; py++)
-		for (px = 0; px < 8; px++) {
-			if (fontTiles[8*8*c+8*py+px])
-				backbuf[(y+py)*256+x+px] = color;
-		}
-}
-void drawcq(u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobbers)
+void drawch(u16* mem, u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobbers)
 	asm (
 			"adr r7, 2f\n"
 			"bx r7\n"
@@ -85,7 +75,7 @@ void drawcq(u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobbers)
 			"3:\n"
 
 			: /* no output */
-			: "r"(x), "r"(y), "r"(c), "r"(color), "r"(backbuf), "r"(fontTiles)
+			: "r"(x), "r"(y), "r"(c), "r"(color), "r"(mem), "r"(fontTiles)
 			: "r6", "r7", "r8", "r9"
 			);
 }

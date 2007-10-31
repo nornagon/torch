@@ -16,11 +16,11 @@ void cls();
 // clear the backbuf and the displayed screen. VDRAW-unfriendly.
 void clss();
 
-// Draw a character at the given (x,y) pixel location in the given colour.
-void drawc(u32 x, u32 y, u8 c, u16 color);
+void drawch(u16 *mem, u32 x, u32 y, u32 c, u32 color);
 
-// Same as above, but faster and doesn't consider transparency.
-void drawcq(u32 x, u32 y, u32 c, u32 color);
+static inline drawcq(u32 x, u32 y, u32 c, u32 color) {
+	drawch(backbuf, x, y, c, color);
+}
 
 #endif /* DRAW_H */
 
