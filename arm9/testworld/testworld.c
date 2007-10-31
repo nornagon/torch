@@ -16,16 +16,16 @@
 //---------{{{ game processes------------------------------------------------
 void process_sight(process_t *process, map_t *map) {
 	fov_settings_type *sight = (fov_settings_type*)process->data;
-	game(map)->player_light->x = map->pX << 12;
-	game(map)->player_light->y = map->pY << 12;
-	fov_circle(sight, map, game(map)->player_light, map->pX, map->pY, 32);
+	game(map)->player->light->x = map->pX << 12;
+	game(map)->player->light->y = map->pY << 12;
+	fov_circle(sight, map, game(map)->player->light, map->pX, map->pY, 32);
 	cell_t *cell = cell_at(map, map->pX, map->pY);
 	cell->light = (1<<12);
 	cell->visible = true;
 	cache_t *cache = cache_at(map, map->pX, map->pY);
-	cache->lr = game(map)->player_light->r;
-	cache->lg = game(map)->player_light->g;
-	cache->lb = game(map)->player_light->b;
+	cache->lr = game(map)->player->light->r;
+	cache->lg = game(map)->player->light->g;
+	cache->lb = game(map)->player->light->b;
 	cell->recall = 1<<12;
 }
 
@@ -54,7 +54,7 @@ void process_keys(process_t *process, map_t *map) {
 		// parent node (calling any ending handlers), so be sure that there are no
 		// mixups.
 		new_map(map);
-		process->data = new_obj_player(map);
+		((player_t*)process->data)->obj = new_obj_player(map);
 		game(map)->frm = 5;
 		map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 		dirty_screen();
@@ -64,8 +64,8 @@ void process_keys(process_t *process, map_t *map) {
 	}
 	if (down & KEY_SELECT) {
 		load_map(map, strlen(test_map), test_map);
+		((player_t*)process->data)->obj = new_obj_player(map);
 		reset_cache(map); // cache is origin-agnostic
-		process->data = new_obj_player(map);
 		game(map)->frm = 5;
 		map->scrollX = 0; map->scrollY = 0;
 
@@ -83,15 +83,13 @@ void process_keys(process_t *process, map_t *map) {
 		reset_luminance();
 		return;
 	}
-	if (down & KEY_B)
-		game(map)->torch_on = !game(map)->torch_on;
 
 	if (game(map)->frm == 0) { // we don't check these things every frame; that's way too fast.
 		u32 keys = keysHeld();
 		if (keys & KEY_A && cell_at(map, map->pX, map->pY)->type == T_STAIRS) {
 			//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
 			new_map(map);
-			process->data = new_obj_player(map);
+			((player_t*)process->data)->obj = new_obj_player(map);
 			map->pX = map->w/2;
 			map->pY = map->h/2;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
@@ -134,7 +132,7 @@ void process_keys(process_t *process, map_t *map) {
 			else game(map)->frm = 5;
 			cell = cell_at(map, pX + dpX, pY + dpY);
 			cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
-			move_object(map, process->data, pX + dpX, pY + dpY); // move the player object
+			move_object(map, ((player_t*)process->data)->obj, pX + dpX, pY + dpY); // move the player object
 			pX += dpX; map->pX = pX;
 			pY += dpY; map->pY = pY;
 
@@ -179,9 +177,15 @@ node_t *new_obj_player(map_t *map) {
 	return node;
 }
 void new_player(map_t *map) {
-	node_t *proc_node = push_high_process(map, process_keys, NULL, NULL);
+	player_t *player = malloc(sizeof(player_t));
+	node_t *proc_node = push_high_process(map, process_keys, NULL, player);
 	process_t *proc = node_data(proc_node);
-	proc->data = new_obj_player(map);
+
+	player->obj = new_obj_player(map);
+	player->bag = NULL;
+	player->light = new_light(7<<12, 1.00*(1<<12), 0.90*(1<<12), 0.85*(1<<12));
+
+	game(map)->player = player;
 }
 
 void new_map(map_t *map) {
@@ -190,8 +194,6 @@ void new_map(map_t *map) {
 				IPC->time.rtc.weekday*7*24*60*60));
 	random_map(map);
 	reset_cache(map);
-
-	game(map)->torch_on = true;
 }
 //---------}}}---------------------------------------------------------------
 
@@ -219,9 +221,6 @@ map_t *init_test() {
 	fov_settings_set_opacity_test_function(light, opacity_test);
 	fov_settings_set_apply_lighting_function(light, apply_light);
 	game(map)->fov_light = light;
-
-	// this is the player's light
-	game(map)->player_light = new_light(7<<12, 1.00*(1<<12), 0.90*(1<<12), 0.85*(1<<12));
 
 	new_map(map);
 	new_sight(map);

@@ -6,10 +6,16 @@
 #include "fov.h"
 #include "map.h"
 
+typedef struct player_s {
+	node_t *bag;
+	node_t *obj;
+	light_t *light;
+} player_t;
+
 typedef struct game_s {
-	light_t *player_light;
-	bool torch_on;
 	fov_settings_type *fov_light;
+
+	player_t *player;
 
 	unsigned int frm; // 'global cooldown' sorta thing
 } game_t;
