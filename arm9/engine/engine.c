@@ -39,27 +39,9 @@ void torch_init() {
 	BG3_YDY = 1 << 8;
 	BG_PALETTE[0] = 0;
 
-	// setup the sub screen for our text output code
-	videoSetModeSub( MODE_3_2D | DISPLAY_BG3_ACTIVE );
-	vramSetBankC(VRAM_C_SUB_BG_0x06200000);
-	// paletted mode
-	SUB_BG3_CR = BG_BMP8_256x256;
-	// no rotation, no scale
-	SUB_BG3_XDY = 0;
-	SUB_BG3_XDX = 1 << 8;
-	SUB_BG3_YDX = 0;
-	SUB_BG3_YDY = 1 << 8;
-	// background
-	BG_PALETTE_SUB[0] = RGB15(0, 0, 0);
-	// foreground
-	BG_PALETTE_SUB[1] = RGB15(31, 31, 31);
-	BG_PALETTE_SUB[2] = RGB15(31, 0, 0);
-	BG_PALETTE_SUB[3] = RGB15(0, 31, 0);
-	BG_PALETTE_SUB[4] = RGB15(0, 0, 31);
-
 	// some text test stuff
 	text_init();
-	text_console_render("This is \1\2Torch\1\1, an engine from \1\3nornagon\1\1. Starting up..\n");
+	text_console_render("This is \1\xDD\xDDTorch\1\xFF\xFF, an engine from \1\xAA\xAAnornagon\1\xFF\xFF. Starting up..\n");
 
 	// not sure if this is necessary, but we don't want any surprises. TIMER_DATA
 	// is what the timer resets to when you start it (or it overflows)

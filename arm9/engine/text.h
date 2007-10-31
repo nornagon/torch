@@ -9,6 +9,6 @@ void text_console_clear();
 void text_console_rerender();
 void text_console_render(const char *text);
 
-void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, unsigned char fgcolor);
+void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, unsigned short fgcolor);
 
 #endif /* TEXT_H */

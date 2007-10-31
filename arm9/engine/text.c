@@ -37,8 +37,7 @@ void text_init() {
 	devoptab_list[STD_OUT] = &dotab_textout;
 	setvbuf(stdout, NULL , _IONBF, 0);
 
-	/* video setup is done elsewhere */
-	text_console_clear();
+	text_display_setup();
 
 	/* work out the offset/width of each character */
 	/* XXX: this could be precalculated with a clever build system */
@@ -56,14 +55,28 @@ void text_init() {
 	width[k] = i - offset[k];
 }
 
+u16 *subfrontbuf;
+void text_display_setup() {
+	// setup the sub screen for our text output code
+	videoSetModeSub( MODE_3_2D | DISPLAY_BG3_ACTIVE );
+	vramSetBankC(VRAM_C_SUB_BG_0x06200000);
+	// bitmap mode
+	SUB_BG3_CR = BG_BMP16_256x256 | BG_BMP_BASE(0);
+	subfrontbuf = (u16*)BG_BMP_RAM_SUB(0);
+	// no rotation, no scale
+	SUB_BG3_XDY = 0;
+	SUB_BG3_XDX = 1 << 8;
+	SUB_BG3_YDX = 0;
+	SUB_BG3_YDY = 1 << 8;
+
+	text_console_clear();
+}
+
 /* blank the screen that the text renderer is using */
 void text_display_clear() {
 	int i;
 
-	/* zap background */
-	u16 *vram = (u16 *)BG_BMP_RAM_SUB(0);
-	for (i = 0; i < (256 * 256) / 2; i++)
-		vram[i] = 0;
+	sub_clear();
 
 	xoffset = 0;
 	yoffset = 1;
@@ -110,6 +123,10 @@ void text_console_render(const char *text) {
 
 /*** internal functions ***/
 
+void sub_clear() {
+	memset32((void*)subfrontbuf, 0, (256*192*2)/4);
+}
+
 void append_console_state(const char *text, int len) {
 	/* XXX: meh, this isn't great */
 	int bs = strlen(text_buffer);
@@ -124,14 +141,12 @@ void append_console_state(const char *text, int len) {
 	b[len] = 0;
 }
 
-inline u16 colourPixel(u8 data, u8 fgcolor) {
+inline u16 colourPixel(u8 data, u16 fgcolor) {
 	if (data) return fgcolor;
 	else return 0;
 }
 
-void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, u8 fgcolor) {
-	u16 *vram = (u16 *)BG_BMP_RAM_SUB(0);
-	
+void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, u16 fgcolor) {
 	int i, o = 0;
 	for (i = 0; i < textlen; i++) {
 		int y, c;
@@ -142,31 +157,16 @@ void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, u8
 		for (y = 0; y < CHAR_HEIGHT; y++) {
 			int x, s = (y + 1) * bitmapwidth;
 			/* dest points into vram, it's where we're going to write this row to */
-			u8*dest = (u8*)vram + o + xoffset + (256 * (y + yoffset));
+			u16*dest = subfrontbuf + o + xoffset + (256 * (y + yoffset));
 			/* src is the location of the row of bitmap data */
 			u8*src = (u8*)propfontBitmap + s + offset[c];
 			/* this is how many bytes we're going to copy - the width of the bitmap data */
 			int count = width[c];
 			
-			// we can't do unaligned writes into vram, so do trickery to copy a first unaligned byte if needed
-			if ((int)dest & 1) {
-				dest--;
-				*(u16*)dest = (*(u16*)dest & 0xFF) + (colourPixel(*src, fgcolor) << 8);
-				dest+=2;
-				src++;
-				count--;
-			}
-
 			// src might be unaligned, so we read two u8s and merge them :-(
-			for (x = 0; x < count / 2; x++) {
-				*(u16*)dest = colourPixel(*src, fgcolor) + (colourPixel(*(src + 1), fgcolor) << 8);
-				dest += 2; src += 2;
-			}
-
-			// if we have one last, lonely byte, copy that too
-			if (x != (count + 1) / 2) {
-				// no need to preserve the rest of the contents!
-				*(u16*)dest = colourPixel(*src, fgcolor);
+			for (x = 0; x < count; x++) {
+				*dest = colourPixel(*src, fgcolor);
+				dest++; src++;
 			}
 		}
 
@@ -177,25 +177,25 @@ void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, u8
 
 void text_scroll() {
 	int i;
-	u16 *vram = (u16 *)BG_BMP_RAM_SUB(0);
 	
 	yoffset -= CHAR_HEIGHT + 2;
 
 	/* fuzzie is lazy. DMA is easy. whoo! */
 	/* XXX: this is probably dumb */
-	DMA_SRC(3) = (uint32)&vram[(256 * (CHAR_HEIGHT + 2)) >> 1];
-	DMA_DEST(3) = (uint32)&vram[0];
-	DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | (256 * (192 - (CHAR_HEIGHT + 2))) >> 2;
+	DMA_SRC(3) = (uint32)&subfrontbuf[256 * (CHAR_HEIGHT + 2)];
+	DMA_DEST(3) = (uint32)&subfrontbuf[0];
+	DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | (256 * (192 - (CHAR_HEIGHT + 2))) >> 1;
 	while (dmaBusy(3));
 
 	/* wipe rest of screen */
-	for (i = 256 * (192 - (CHAR_HEIGHT + 2)) >> 1; i < (256 * 192) / 2; i++)
-		vram[i] = 0;
+	/* TODO: use memset32? */
+	for (i = 256 * (192 - (CHAR_HEIGHT + 2)); i < (256 * 192); i++)
+		subfrontbuf[i] = 0;
 }
 
 void text_render_str(const char *text, int len) {
 	int i, xusage = xoffset, lastgoodlen = 0;
-	u8 fgcolor = 1;
+	u16 fgcolor = 0xFFFF;
 
 	for (i = 0; i < len; i++) {
 		int c = text[i] - ' ';
@@ -206,13 +206,14 @@ void text_render_str(const char *text, int len) {
 		
 		/* if there's a colour change here, render the text so far and change colour */
 		if (text[i] == '\1') {
+			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
 			lastgoodlen = i;
 			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
-			if (keepstate) append_console_state(text, lastgoodlen + 2);
-			fgcolor = text[i + 1];
+			if (keepstate) append_console_state(text, lastgoodlen + 3);
+			fgcolor = (uint16)text[i + 2] + ((uint16)text[i + 2] << 8);
 			
-			text = text + lastgoodlen + 2;
-			len -= lastgoodlen + 2;
+			text = text + lastgoodlen + 3;
+			len -= lastgoodlen + 3;
 			lastgoodlen = 0;
 			i = -1;
 
