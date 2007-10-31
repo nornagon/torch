@@ -121,13 +121,13 @@ void text_scroll() {
 
 	/* fuzzie is lazy. DMA is easy. whoo! */
 	/* XXX: this is probably dumb */
-	DMA_SRC(3) = (unsigned int)vram + (256 * (CHAR_HEIGHT + 2));
-	DMA_DEST(3) = (unsigned int)vram;
-	DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | (256 * (192 - (CHAR_HEIGHT + 2))) << 1;
+	DMA_SRC(3) = (uint32)&vram[(256 * (CHAR_HEIGHT + 2)) >> 1];
+	DMA_DEST(3) = (uint32)&vram[0];
+	DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | (256 * (192 - (CHAR_HEIGHT + 2))) >> 2;
 	while (dmaBusy(3));
 
 	/* wipe rest of screen */
-	for (i = 256 * (192 - (CHAR_HEIGHT + 2)) << 1; i < (256 * 256) / 2; i++)
+	for (i = 256 * (192 - (CHAR_HEIGHT + 2)) >> 1; i < (256 * 192) / 2; i++)
 		vram[i] = 0;
 }
 
