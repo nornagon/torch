@@ -18,9 +18,7 @@ void clss();
 
 void drawch(u16 *mem, u32 x, u32 y, u32 c, u32 color);
 
-static inline drawcq(u32 x, u32 y, u32 c, u32 color) {
-	drawch(backbuf, x, y, c, color);
-}
+void drawcq(u32 x, u32 y, u32 c, u32 color);
 
 #endif /* DRAW_H */
 
