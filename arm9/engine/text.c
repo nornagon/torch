@@ -229,7 +229,7 @@ void text_render_str(const char *text, int len) {
 			if (keepstate) append_console_state("\n", 1);
 			
 			if (text[i] == '\n') { lastgoodlen += 1; }
-			if (text[lastgoodlen] == ' ') lastgoodlen += 1;
+			else if (text[lastgoodlen] == ' ') lastgoodlen += 1;
 			text = text + lastgoodlen;
 			len -= lastgoodlen;
 			lastgoodlen = 0;
