@@ -13,7 +13,6 @@
 #include "randmap.h"
 #include "loadmap.h"
 
-//---------{{{ game processes------------------------------------------------
 void process_sight(process_t *process, map_t *map) {
 	fov_settings_type *sight = (fov_settings_type*)process->data;
 	game(map)->player->light->x = map->pX << 12;
@@ -47,6 +46,7 @@ node_t *new_obj_player(map_t *map);
 void new_map(map_t *map);
 
 void process_keys(process_t *process, map_t *map) {
+	player_t *player = process->data;
 	scanKeys();
 	u32 down = keysDown();
 	if (down & KEY_START) {
@@ -54,7 +54,7 @@ void process_keys(process_t *process, map_t *map) {
 		// parent node (calling any ending handlers), so be sure that there are no
 		// mixups.
 		new_map(map);
-		((player_t*)process->data)->obj = new_obj_player(map);
+		player->obj = new_obj_player(map);
 		game(map)->frm = 5;
 		map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
 		dirty_screen();
@@ -64,7 +64,7 @@ void process_keys(process_t *process, map_t *map) {
 	}
 	if (down & KEY_SELECT) {
 		load_map(map, strlen(test_map), test_map);
-		((player_t*)process->data)->obj = new_obj_player(map);
+		player->obj = new_obj_player(map);
 		reset_cache(map); // cache is origin-agnostic
 		game(map)->frm = 5;
 		map->scrollX = 0; map->scrollY = 0;
@@ -89,7 +89,7 @@ void process_keys(process_t *process, map_t *map) {
 		if (keys & KEY_A && cell_at(map, map->pX, map->pY)->type == T_STAIRS) {
 			//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
 			new_map(map);
-			((player_t*)process->data)->obj = new_obj_player(map);
+			player->obj = new_obj_player(map);
 			map->pX = map->w/2;
 			map->pY = map->h/2;
 			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
@@ -111,7 +111,7 @@ void process_keys(process_t *process, map_t *map) {
 		if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
 		if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
 		cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
-		if (cell->opaque) { // XXX: is opacity equivalent to solidity?
+		if (solid(map, cell)) {
 			int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
 			if (rec != cell->recall) {
 				cell->recall = rec;
@@ -132,9 +132,18 @@ void process_keys(process_t *process, map_t *map) {
 			else game(map)->frm = 5;
 			cell = cell_at(map, pX + dpX, pY + dpY);
 			cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
-			move_object(map, ((player_t*)process->data)->obj, pX + dpX, pY + dpY); // move the player object
+			move_object(map, player->obj, pX + dpX, pY + dpY); // move the player object
 			pX += dpX; map->pX = pX;
 			pY += dpY; map->pY = pY;
+
+			// trigger any objects in the cell. XXX: move to engine maybe?
+			node_t *node = cell->objects;
+			for (; node; node = node->next) {
+				if (node == player->obj) continue;
+				object_t *obj = node_data(node);
+				if (obj->type->entered)
+					obj->type->entered(obj, node_data(player->obj), map);
+			}
 
 			s32 dsX = 0, dsY = 0;
 			// keep the screen vaguely centred on the player (gap of 8 cells)
@@ -179,7 +188,6 @@ node_t *new_obj_player(map_t *map) {
 void new_player(map_t *map) {
 	player_t *player = malloc(sizeof(player_t));
 	node_t *proc_node = push_high_process(map, process_keys, NULL, player);
-	process_t *proc = node_data(proc_node);
 
 	player->obj = new_obj_player(map);
 	player->bag = NULL;
@@ -195,7 +203,6 @@ void new_map(map_t *map) {
 	random_map(map);
 	reset_cache(map);
 }
-//---------}}}---------------------------------------------------------------
 
 u32 random_colour(object_t *obj, map_t *map) {
 	return ((obj->type->ch)<<16) | (genrand_int32()&0xffff);
@@ -209,6 +216,14 @@ objecttype_t ot_unknown = {
 	.end = NULL
 };
 objecttype_t *OT_UNKNOWN = &ot_unknown;
+
+
+
+
+bool solid(map_t *map, cell_t *cell) {
+	if (cell->type == T_TREE) return true;
+	return false;
+}
 
 map_t *init_test() {
 	map_t *map = create_map(128, 128);

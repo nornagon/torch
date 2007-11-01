@@ -9,6 +9,7 @@ objecttype_t ot_wisp = {
 	.col = RGB15(7,31,27),
 	.importance = 128,
 	.display = NULL,
+	.entered = mon_WillOWisp_entered,
 	.end = mon_WillOWisp_obj_end
 };
 objecttype_t *OT_WISP = &ot_wisp;
@@ -117,6 +118,24 @@ void mon_WillOWisp_randdir(DIRECTION dir, int *dX, int *dY) {
 	}
 }
 
+void mon_WillOWisp_entered(object_t *obj_wisp, object_t *incoming, map_t *map) {
+	mon_WillOWisp_t *wisp = obj_wisp->data;
+	object_t *obj = node_data(wisp->obj_node);
+	int escapeX, escapeY;
+	mon_WillOWisp_randdir(D_NONE, &escapeX, &escapeY);
+	if (solid(map, cell_at(map, obj->x + escapeX, obj->y + escapeY)))
+		escapeX = escapeY = 0;
+	if (genrand_int32() < (u32)(0.1*0xffffffff) || (!escapeX && !escapeY)) {
+		iprintf("You leap on top of the wisp!\n");
+		wisp->held = true;
+	} else {
+		iprintf("You attempt to grab the wisp, but it bobs away.\n");
+		displace_object(wisp->obj_node, map, escapeX, escapeY);
+		wisp->light.x = obj->x << 12;
+		wisp->light.y = obj->y << 12;
+	}
+}
+
 void mon_WillOWisp_wander(process_t *process, map_t *map) {
 	mon_WillOWisp_t *wisp = process->data;
 	object_t *obj = node_data(wisp->obj_node);
@@ -169,9 +188,16 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 			wisp->light.y = obj->y << 12;
 		}
 		if (genrand_int32() < (u32)(0.01*0xffffffff)) {
-			if (genrand_int32() > (u32)(0.5*0xffffffff)) {
+			int escX, escY;
+			mon_WillOWisp_randdir(D_NONE, &escX, &escY);
+			if (solid(map, cell_at(map, obj->x + escX, obj->y + escY)))
+				escX = escY = 0;
+			if ((escX || escY) && genrand_int32() > (u32)(0.5*0xffffffff)) {
 				iprintf("The wisp escapes your grasp!\n");
 				wisp->held = false;
+				displace_object(wisp->obj_node, map, escX, escY);
+				wisp->light.x = obj->x << 12;
+				wisp->light.y = obj->y << 12;
 			} else
 				iprintf("The wisp struggles.\n");
 		}
@@ -185,16 +211,7 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 			// randdir returns a position delta *towards* the player, so invert it
 			dX = -dX;
 			dY = -dY;
-			int beforeX = obj->x, beforeY = obj->y;
 			displace_object(wisp->obj_node, map, dX, dY);
-			if (dir == D_NONE) {
-				if ((beforeX == obj->x && beforeY == obj->y) || genrand_int32() < (u32)(0.1*0xffffffff)) {
-					iprintf("You leap on top of the wisp!\n");
-					wisp->held = true;
-				} else {
-					iprintf("You attempt to grab the wisp, but it bobs away.\n");
-				}
-			}
 			wisp->counter = 10;
 		} else if (mdist > 5) { // don't get too far away either
 			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);

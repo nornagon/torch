@@ -27,6 +27,8 @@ typedef struct {
 	bool held : 1;
 } mon_WillOWisp_t;
 
+void mon_WillOWisp_entered(object_t *object, object_t *incoming, map_t *map);
+
 void mon_WillOWisp_light(process_t *process, map_t *map);
 
 void mon_WillOWisp_wander(process_t *process, map_t *map);

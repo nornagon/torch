@@ -30,6 +30,8 @@ typedef struct objecttype_s {
 
 	// called when an object of this type is about to be destroyed.
 	void (*end)(object_t *obj, struct map_s *map);
+
+	void (*entered)(object_t *obj, object_t *incoming, struct map_s *map);
 } objecttype_t;
 
 #endif /* OBJECT_H */

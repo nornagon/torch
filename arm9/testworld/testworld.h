@@ -35,6 +35,8 @@ typedef enum {
 	T_WATER,
 } CELL_TYPE;
 
+bool solid(map_t *map, cell_t *cell);
+
 map_t *init_test();
 
 #endif /* TESTWORLD_H */
