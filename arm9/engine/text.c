@@ -210,8 +210,8 @@ void text_render_str(const char *text, int len) {
 			lastgoodlen = i;
 			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
 			if (keepstate) append_console_state(text, lastgoodlen + 3);
-			fgcolor = (uint16)text[i + 2] + ((uint16)text[i + 2] << 8);
-			
+			fgcolor = (uint16)text[i + 2] | ((uint16)text[i + 1] << 8) | BIT(15);
+
 			text = text + lastgoodlen + 3;
 			len -= lastgoodlen + 3;
 			lastgoodlen = 0;
