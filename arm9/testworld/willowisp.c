@@ -21,7 +21,6 @@ void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 	wisp->homeX = x;
 	wisp->homeY = y;
 	wisp->counter = 0;
-	wisp->held = false;
 
 	// set up lighting and AI processes
 	wisp->light_node = push_process(map,
@@ -127,12 +126,37 @@ void mon_WillOWisp_entered(object_t *obj_wisp, object_t *incoming, map_t *map) {
 		escapeX = escapeY = 0;
 	if (genrand_int32() < (u32)(0.1*0xffffffff) || (!escapeX && !escapeY)) {
 		iprintf("You leap on top of the wisp!\n");
-		wisp->held = true;
+		process_t *proc = node_data(wisp->thought_node);
+		proc->process = mon_WillOWisp_held;
 	} else {
 		iprintf("You attempt to grab the wisp, but it bobs away.\n");
 		displace_object(wisp->obj_node, map, escapeX, escapeY);
 		wisp->light.x = obj->x << 12;
 		wisp->light.y = obj->y << 12;
+	}
+}
+
+void mon_WillOWisp_held(process_t *process, map_t *map) {
+	mon_WillOWisp_t *wisp = process->data;
+	object_t *obj = node_data(wisp->obj_node);
+	if (map->pX != obj->x || map->pY != obj->y) {
+		move_object(map, wisp->obj_node, map->pX, map->pY);
+		wisp->light.x = obj->x << 12;
+		wisp->light.y = obj->y << 12;
+	}
+	if (genrand_int32() < (u32)(0.01*0xffffffff)) {
+		int escX, escY;
+		mon_WillOWisp_randdir(D_NONE, &escX, &escY);
+		if (solid(map, cell_at(map, obj->x + escX, obj->y + escY)))
+			escX = escY = 0;
+		if ((escX || escY) && genrand_int32() > (u32)(0.5*0xffffffff)) {
+			iprintf("The wisp escapes your grasp!\n");
+			process->process = mon_WillOWisp_follow;
+			displace_object(wisp->obj_node, map, escX, escY);
+			wisp->light.x = obj->x << 12;
+			wisp->light.y = obj->y << 12;
+		} else
+			iprintf("The wisp struggles.\n");
 	}
 }
 
@@ -181,26 +205,6 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 	if (!cell->visible) {
 		// if we can't see the player, go back to wandering
 		process->process = mon_WillOWisp_wander;
-	} else if (wisp->held) {
-		if (map->pX != obj->x || map->pY != obj->y) {
-			move_object(map, wisp->obj_node, map->pX, map->pY);
-			wisp->light.x = obj->x << 12;
-			wisp->light.y = obj->y << 12;
-		}
-		if (genrand_int32() < (u32)(0.01*0xffffffff)) {
-			int escX, escY;
-			mon_WillOWisp_randdir(D_NONE, &escX, &escY);
-			if (solid(map, cell_at(map, obj->x + escX, obj->y + escY)))
-				escX = escY = 0;
-			if ((escX || escY) && genrand_int32() > (u32)(0.5*0xffffffff)) {
-				iprintf("The wisp escapes your grasp!\n");
-				wisp->held = false;
-				displace_object(wisp->obj_node, map, escX, escY);
-				wisp->light.x = obj->x << 12;
-				wisp->light.y = obj->y << 12;
-			} else
-				iprintf("The wisp struggles.\n");
-		}
 	} else if (wisp->counter == 0) { // time to do something
 		unsigned int mdist = manhdist(obj->x, obj->y, map->pX, map->pY);
 		if (mdist < 4) { // don't get too close
