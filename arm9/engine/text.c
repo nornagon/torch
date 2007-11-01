@@ -246,9 +246,12 @@ void text_render_str(const char *text, int len) {
 		xusage += width[c];
 	}
 	
-	/* render any leftover text */
-	if (renderconsole) text_render_raw(xoffset, yoffset, text, len, fgcolor);
-	if (keepstate) append_console_state(text, len);
-	xoffset = xusage;
+	if (len > 0) {
+		/* render any leftover text */
+		while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
+		if (renderconsole) text_render_raw(xoffset, yoffset, text, len, fgcolor);
+		if (keepstate) append_console_state(text, len);
+		xoffset = xusage;
+	}
 }
 
