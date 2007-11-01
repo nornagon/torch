@@ -4,12 +4,17 @@
 #include "mersenne.h"
 #include "generic.h"
 
+gameobjtype_t go_wisp = {
+	.obtainable = false,
+};
+
 objecttype_t ot_wisp = {
 	.ch = 'o',
 	.col = RGB15(7,31,27),
 	.importance = 128,
 	.display = NULL,
 	.entered = mon_WillOWisp_entered,
+	.data = &go_wisp,
 	.end = mon_WillOWisp_obj_end
 };
 objecttype_t *OT_WISP = &ot_wisp;

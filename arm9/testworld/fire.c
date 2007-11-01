@@ -3,11 +3,17 @@
 #include "generic.h"
 #include "testworld.h"
 
+gameobjtype_t go_fire = {
+	.obtainable = false,
+	.singular = "fire",
+};
+
 objecttype_t ot_fire = {
 	.ch = 'w',
 	.col = RGB15(31,12,0),
 	.importance = 64,
 	.display = NULL,
+	.data = &go_fire,
 	.end = obj_fire_obj_end
 };
 objecttype_t *OT_FIRE = &ot_fire;

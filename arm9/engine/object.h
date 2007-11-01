@@ -10,6 +10,7 @@ typedef struct {
 	s32 x,y;
 	struct objecttype_s* type; // index into array of objecttype_ts
 	void* data;
+	u8 quantity;
 } object_t;
 
 // objecttype_ts are kept in an array, and define various properties of
@@ -30,6 +31,8 @@ typedef struct objecttype_s {
 
 	// called when an object of this type is about to be destroyed.
 	void (*end)(object_t *obj, struct map_s *map);
+
+	void *data;
 
 	void (*entered)(object_t *obj, object_t *incoming, struct map_s *map);
 } objecttype_t;

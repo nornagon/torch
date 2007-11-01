@@ -135,12 +135,21 @@ void process_keys(process_t *process, map_t *map) {
 			move_object(map, player->obj, pX + dpX, pY + dpY); // move the player object
 			pX += dpX; map->pX = pX;
 			pY += dpY; map->pY = pY;
+			cache_at(map, pX, pY)->dirty = 2;
 
 			// trigger any objects in the cell. XXX: move to engine maybe?
 			node_t *node = cell->objects;
 			for (; node; node = node->next) {
 				if (node == player->obj) continue;
 				object_t *obj = node_data(node);
+				if (obj->quantity == 1) {
+					iprintf("You see here a %s.\n", gobjt(obj)->singular);
+				} else {
+					if (gobjt(obj)->plural)
+						iprintf("You see here %d %s.\n", obj->quantity, gobjt(obj)->plural);
+					else
+						iprintf("You see here %d %ss.\n", obj->quantity, gobjt(obj)->singular);
+				}
 				if (obj->type->entered)
 					obj->type->entered(obj, node_data(player->obj), map);
 			}
@@ -171,11 +180,15 @@ void process_keys(process_t *process, map_t *map) {
 		game(map)->frm--;
 }
 
+gameobjtype_t go_player = {
+	.obtainable = false,
+};
 objecttype_t ot_player = {
 	.ch = '@',
 	.col = RGB15(31,31,31),
-	.importance = 254,
+	.importance = 255,
 	.display = NULL,
+	.data = &go_player,
 	.end = NULL
 };
 objecttype_t *OT_PLAYER = &ot_player;
@@ -187,7 +200,7 @@ node_t *new_obj_player(map_t *map) {
 }
 void new_player(map_t *map) {
 	player_t *player = malloc(sizeof(player_t));
-	node_t *proc_node = push_high_process(map, process_keys, NULL, player);
+	push_high_process(map, process_keys, NULL, player);
 
 	player->obj = new_obj_player(map);
 	player->bag = NULL;

@@ -6,6 +6,15 @@
 #include "fov.h"
 #include "map.h"
 
+typedef struct gameobjtype_s {
+	const char *singular, *plural;
+	bool obtainable : 1;
+} gameobjtype_t;
+
+static inline gameobjtype_t *gobjt(object_t *obj) {
+	return obj->type->data;
+}
+
 typedef struct player_s {
 	node_t *bag;
 	node_t *obj;

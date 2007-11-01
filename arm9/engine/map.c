@@ -132,6 +132,7 @@ node_t *new_object(map_t *map, objecttype_t *type, void* data) {
   object_t *obj = node_data(node);
   obj->type = type;
   obj->data = data;
+  obj->quantity = 1;
   return node;
 }
 

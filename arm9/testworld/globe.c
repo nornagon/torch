@@ -2,11 +2,17 @@
 #include "generic.h"
 #include "testworld.h"
 
+gameobjtype_t go_globe = {
+	.obtainable = false,
+	.singular = "glowing globe",
+};
+
 objecttype_t ot_globe = {
 	.ch = 'o',
 	.col = 0,
 	.importance = 64,
 	.display = obj_globe_display,
+	.data = &go_globe,
 	.end = obj_globe_obj_end
 };
 objecttype_t *OT_GLOBE = &ot_globe;
