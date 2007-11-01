@@ -142,13 +142,15 @@ void process_keys(process_t *process, map_t *map) {
 			for (; node; node = node->next) {
 				if (node == player->obj) continue;
 				object_t *obj = node_data(node);
-				if (obj->quantity == 1) {
-					iprintf("You see here a %s.\n", gobjt(obj)->singular);
-				} else {
-					if (gobjt(obj)->plural)
-						iprintf("You see here %d %s.\n", obj->quantity, gobjt(obj)->plural);
-					else
-						iprintf("You see here %d %ss.\n", obj->quantity, gobjt(obj)->singular);
+				if (gobjt(obj)->obtainable) {
+					if (obj->quantity == 1) {
+						iprintf("You see here a %s.\n", gobjt(obj)->singular);
+					} else {
+						if (gobjt(obj)->plural)
+							iprintf("You see here %d %s.\n", obj->quantity, gobjt(obj)->plural);
+						else
+							iprintf("You see here %d %ss.\n", obj->quantity, gobjt(obj)->singular);
+					}
 				}
 				if (obj->type->entered)
 					obj->type->entered(obj, node_data(player->obj), map);
