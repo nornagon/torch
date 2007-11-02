@@ -15,7 +15,7 @@ include $(DEVKITARM)/ds_rules
 # all directories are relative to this makefile
 #---------------------------------------------------------------------------------
 
-WORLDS   := testworld
+WORLDS   := testworld robotfindskitten
 
 BUILD    := build
 SOURCES  := engine source generic $(WORLDS)
