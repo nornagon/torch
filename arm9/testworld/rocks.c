@@ -5,9 +5,14 @@ void obj_rock_end(object_t *obj, map_t *map) {
 	free(obj->data);
 }
 
+bool obj_rock_combinable(object_t *obj, object_t *other) {
+	return true;
+}
+
 gameobjtype_t go_rocks = {
 	.obtainable = true,
 	.singular = "rock",
+	.combinable = obj_rock_combinable,
 };
 
 objecttype_t ot_rocks = {

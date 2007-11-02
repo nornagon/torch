@@ -169,8 +169,6 @@ void process_keys(process_t *process, map_t *map) {
 				object_t *obj = node_data(node);
 				if (gobjt(obj)->obtainable) {
 					node_t *next = node->next;
-					cell->objects = remove_node(cell->objects, node);
-					push_node(&game(map)->player->bag, node);
 					// TODO: hrmph. unwieldy, this is.
 					if (obj->quantity == 1) {
 						iprintf("You pick up a %s.\n", gobjt(obj)->singular);
@@ -180,6 +178,25 @@ void process_keys(process_t *process, map_t *map) {
 						else
 							iprintf("You pick up %d %ss.\n", obj->quantity, gobjt(obj)->singular);
 					}
+					cell->objects = remove_node(cell->objects, node);
+					node_t *k = game(map)->player->bag;
+					if (gobjt(obj)->combinable) {
+						for (; k; k = k->next) {
+							object_t *other = node_data(k);
+							if (gobjt(obj)->combinable(obj, other)) {
+								u32 q = (u32)obj->quantity + (u32)other->quantity;
+								if (q > 0xff)
+									push_node(&game(map)->player->bag, node);
+								else {
+									other->quantity = q;
+									free_object(map, node);
+								}
+								break;
+							}
+						}
+						if (!k) push_node(&game(map)->player->bag, node);
+					} else
+						push_node(&game(map)->player->bag, node);
 					node = next;
 				} else {
 					node = node->next;
