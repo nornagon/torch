@@ -78,8 +78,6 @@ void text_display_setup() {
 
 /* blank the screen that the text renderer is using */
 void text_display_clear() {
-	int i;
-
 	sub_clear();
 
 	xoffset = 0;
@@ -196,14 +194,19 @@ void text_scroll() {
 		subfrontbuf[i] = 0;
 }
 
+inline char calculateDisplayChar(char c) {
+	int k = c - ' ';
+	if (k < 0 || k >= NO_CHARS) k = '?' - ' ';
+	return k;
+}
+
 void text_render_str(const char *text, int len) {
 	int i, xusage = xoffset, lastgoodlen = 0;
 	u16 fgcolor = 0xFFFF;
 
 	for (i = 0; i < len; i++) {
-		int c = text[i] - ' ';
-		if (c < 0 || c >= NO_CHARS) c = '?' - ' ';
-
+		int c = calculateDisplayChar(text[i]);
+	
 		/* if we're encountering a word break (space or newline), change the location of the 'last word' */
 		if (c == 0 || text[i] == '\n') lastgoodlen = i;
 		
@@ -227,7 +230,7 @@ void text_render_str(const char *text, int len) {
 		/* if there's a newline or we ran out of space here, render the text up to the last word and move to the next line */
 		if (text[i] == '\n' || xusage + width[c] + 2 > 256) {
 			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
-			if (xoffset == 0) lastgoodlen = i; /* if there's some crazy-long word which takes up a whole line, render the whole thing */
+			if (xoffset == 0 && lastgoodlen == 0) lastgoodlen = i; /* if there's some crazy-long word which takes up a whole line, render the whole thing */
 			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
 			if (keepstate) append_console_state(text, lastgoodlen);
 			if (keepstate) append_console_state("\n", 1);
