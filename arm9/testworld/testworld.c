@@ -44,6 +44,7 @@ void new_sight(map_t *map) {
 
 void manage_inventory(map_t *map) {
 	// XXX: hax here, non-portable, etc.
+	lcdMainOnTop();
 	u16* vram = BG_BMP_RAM_SUB(0);
 	u32 sel = 0;
 	u32 begin = 0;
@@ -114,6 +115,7 @@ void manage_inventory(map_t *map) {
 done:
 		break;
 	}
+	lcdMainOnBottom();
 	text_console_rerender();
 }
 
@@ -361,6 +363,8 @@ bool solid(map_t *map, cell_t *cell) {
 }
 
 map_t *init_test() {
+	lcdMainOnBottom();
+
 	map_t *map = create_map(128, 128);
 	map->game = malloc(sizeof(game_t));
 
