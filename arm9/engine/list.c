@@ -37,3 +37,10 @@ node_t *remove_node(node_t *list, node_t *node) {
 		prev->next = k->next;
 	return list;
 }
+
+unsigned int listlen(node_t *head) {
+	unsigned int sz = 0;
+	for (; head; head = head->next)
+		sz++;
+	return sz;
+}

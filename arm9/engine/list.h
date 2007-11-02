@@ -81,4 +81,6 @@ static inline void push_node(node_t **head, node_t *node) {
 	*head = node;
 }
 
+unsigned int listlen(node_t *head);
+
 #endif /* LLPOOL_H */

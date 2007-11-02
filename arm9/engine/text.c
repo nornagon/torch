@@ -26,6 +26,10 @@ int text_write(struct _reent *r, int fd, const char *ptr, int len) {
 }
 const devoptab_t dotab_textout = { "con", 0, NULL, NULL, text_write, NULL, NULL, NULL };
 
+unsigned char widthof(int c) {
+	return width[c];
+}
+
 /* initialise the text renderer */
 void text_init() {
 	unsigned int i, k;
@@ -163,7 +167,6 @@ void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, u1
 			/* this is how many bytes we're going to copy - the width of the bitmap data */
 			int count = width[c];
 			
-			// src might be unaligned, so we read two u8s and merge them :-(
 			for (x = 0; x < count; x++) {
 				*dest = colourPixel(*src, fgcolor);
 				dest++; src++;

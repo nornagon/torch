@@ -42,6 +42,81 @@ void new_sight(map_t *map) {
 	push_high_process(map, process_sight, end_sight, sight);
 }
 
+void manage_inventory(map_t *map) {
+	// XXX: hax here, non-portable, etc.
+	u16* vram = BG_BMP_RAM_SUB(0);
+	u32 sel = 0;
+	u32 begin = 0;
+	char buf[128];
+	u32 invsz = listlen(game(map)->player->bag);
+	while (1) {
+		text_display_clear();
+		u32 i;
+		for (i = 3; i < 252; i++) {
+			vram[i+3*256] = 0xffff;
+			vram[i+(192-5)*256] = 0xffff;
+		}
+		for (i = 4; i < 192-5; i++) {
+			vram[i*256+3] = 0xffff;
+			vram[i*256+256-5] = 0xffff;
+		}
+		text_render_raw(6, 0, "Inventory", 9, 0xffff);
+		node_t *inv = game(map)->player->bag;
+		node_t *k = inv;
+		for (i = 0; k && i < begin + 19; i++, k = k->next) {
+			if (i < begin) continue;
+			u32 j = i - begin;
+			object_t *obj = node_data(k);
+			int len = 0;
+			if (obj->quantity == 1) {
+				len = sniprintf(buf, 128, "a %s", gobjt(obj)->singular);
+			} else {
+				if (gobjt(obj)->plural)
+					len = sniprintf(buf, 128, "%d %s", obj->quantity, gobjt(obj)->plural);
+				else
+					len = sniprintf(buf, 128, "%d %ss", obj->quantity, gobjt(obj)->singular);
+			}
+			if (i == sel)
+				text_render_raw(7, 10+j*8+j+2, "*", 1, 0xffff);
+			text_render_raw(7+widthof('*')+3, 10+j*8+j+2, buf, len, i == sel ? 0xaaaa:0xffff);
+		}
+		bool changed = false;
+		while (!changed) {
+			swiWaitForVBlank();
+			scanKeys();
+			u32 down = keysDown();
+			if (down & KEY_DOWN && sel < invsz-1) {
+				sel++;
+				if (sel > begin + 15 && begin < invsz - 19) begin++;
+				changed = true;
+			}
+			if (down & KEY_UP && sel > 0) {
+				sel--;
+				if (sel < begin + 3 && begin > 0) begin--;
+				changed = true;
+			}
+			if (down & KEY_R) {
+				sel += min(10, invsz-1 - sel);
+				if (invsz > 19)
+					if (sel > begin + 15) begin = min(invsz - 19, sel - 15);
+				changed = true;
+			}
+			if (down & KEY_L) {
+				sel -= min(sel, 10);
+				if (invsz > 19)
+					if (sel < begin + 3) begin = sel - min(sel, 3);
+				changed = true;
+			}
+			if (down & KEY_B)
+				goto done;
+		}
+		continue;
+done:
+		break;
+	}
+	text_console_rerender();
+}
+
 node_t *new_obj_player(map_t *map);
 void new_map(map_t *map);
 
@@ -82,6 +157,35 @@ void process_keys(process_t *process, map_t *map) {
 		dirty_screen();
 		reset_luminance();
 		return;
+	}
+	if (down & KEY_X) {
+		manage_inventory(map);
+	}
+	if (down & KEY_A) {
+		cell_t *cell = cell_at(map, map->pX, map->pY);
+		if (cell->objects->next) { // skip over the player object
+			node_t *node = cell->objects->next;
+			while (node) {
+				object_t *obj = node_data(node);
+				if (gobjt(obj)->obtainable) {
+					node_t *next = node->next;
+					cell->objects = remove_node(cell->objects, node);
+					push_node(&game(map)->player->bag, node);
+					// TODO: hrmph. unwieldy, this is.
+					if (obj->quantity == 1) {
+						iprintf("You pick up a %s.\n", gobjt(obj)->singular);
+					} else {
+						if (gobjt(obj)->plural)
+							iprintf("You pick up %d %s.\n", obj->quantity, gobjt(obj)->plural);
+						else
+							iprintf("You pick up %d %ss.\n", obj->quantity, gobjt(obj)->singular);
+					}
+					node = next;
+				} else {
+					node = node->next;
+				}
+			}
+		}
 	}
 
 	if (game(map)->frm == 0) { // we don't check these things every frame; that's way too fast.

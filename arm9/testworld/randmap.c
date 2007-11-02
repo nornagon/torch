@@ -100,7 +100,7 @@ void random_map(map_t *map) {
 			ground(cell);
 		}
 
-		if (genrand_int32() < (0.005)*0xffffffff) {
+		if (genrand_int32() < (0.05)*0xffffffff) {
 			u32 a = genrand_int32();
 			a = (a & 3) + ((a >> 2) & 3);
 			new_obj_rock(map, x, y, a + 1);

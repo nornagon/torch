@@ -11,4 +11,6 @@ void text_console_render(const char *text);
 
 void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, unsigned short fgcolor);
 
+unsigned char widthof(int c);
+
 #endif /* TEXT_H */
