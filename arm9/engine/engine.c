@@ -8,22 +8,16 @@ DIRECTION just_scrolled = 0;
 int dirty;
 u32 low_luminance = 0; // for luminance window stuff
 
-vu32 vblnks = 0, frames = 0, hblnks = 0;
-int vblnkDirty = 0;
+vu32 vblnks = 0;
 void vblank_counter() {
-	vblnkDirty = 1;
 	vblnks += 1;
-}
-void hblank_counter() {
-	hblnks += 1;
 }
 
 void torch_init() {
 	// Set up IRQs to call our stuff when we need it
 	irqInit();
 	irqSet(IRQ_VBLANK, vblank_counter);
-	irqSet(IRQ_HBLANK, hblank_counter);
-	irqEnable(IRQ_VBLANK | IRQ_HBLANK);
+	irqEnable(IRQ_VBLANK);
 
 	// a bunch of other stuff (draw.c, from memory) relies on the below being the
 	// case (i.e, VRAM banks being mapped like that and the BG modes set thus), so
@@ -356,14 +350,7 @@ void draw(map_t *map) {
 }
 
 void run(map_t *map) {
-	u32 draw_blnks = 0, proc_blnks = 0;
-	u32 total = 0;
 	while (1) {
-		u32 frm_begin = hblnks;
-		if (!vblnkDirty)
-			swiWaitForVBlank();
-		vblnkDirty = 0;
-
 		// TODO: is DMA actually asynchronous?
 		bool copying = false;
 
@@ -374,33 +361,20 @@ void run(map_t *map) {
 			just_scrolled = 0;
 		}
 
-		u32 begin = hblnks;
 		// run important processes first
 		run_processes(map, &map->high_processes);
 		// then everything else
 		run_processes(map, &map->processes);
-		proc_blnks += hblnks - begin;
 
 		// wait for DMA to finish
 		if (copying)
 			while (dmaBusy(3));
 
-		// TODO: give processes extra time and drawing less time in order to reduce
-		// framerate to 30fps
-		begin = hblnks;
 		// draw loop
 		draw(map);
-		draw_blnks += hblnks - begin;
 
+		while (vblnks < 2) swiWaitForVBlank();
+		vblnks = 0;
 		swapbufs();
-		total += hblnks - frm_begin;
-		frames += 1;
-		if (vblnks >= 60) {
-			/*iprintf("\x1b[0;19H%02dfps", (frames * 64 - frames * 4) / vblnks);
-			iprintf("\x1b[0;0HProcess: %05d\nDrawing: %05d\n", proc_blnks, draw_blnks);
-			iprintf("Left:    %05d\n", total - proc_blnks - draw_blnks);*/
-			draw_blnks = proc_blnks = total =0;
-			vblnks = frames = 0;
-		}
 	}
 }
