@@ -80,6 +80,6 @@ void drawch(u16* mem, u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobb
 
 			: /* no output */
 			: "r"(x), "r"(y), "r"(c), "r"(color), "r"(mem), "r"(fontTiles)
-			: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"
+			: "r0", "r1", "r5", "r6", "r7", "r8", "r9"
 			);
 }

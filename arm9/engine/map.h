@@ -23,16 +23,17 @@ typedef struct {
 
 	// visible is true if the cell is on-screen *and* in the player's LOS
 	bool visible : 1;
-	// which direction is the player seeing this cell from?
-	DIRECTION seen_from : 5;
 
 	// can light pass through the cell?
 	bool opaque : 1;
 
 	bool forgettable : 1;
 
-	int32 light; // total intensity of the light falling on this cell
-	int32 recall; // how much the player remembers this cell XXX: could probably be a u16?
+	// which direction is the player seeing this cell from?
+	DIRECTION seen_from : 5;
+
+	int16 light; // total intensity of the light falling on this cell
+	int16 recall; // how much the player remembers this cell
 
 	// what things are here? A ball of string and some sealing wax.
 	node_t *objects;
