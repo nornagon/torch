@@ -10,6 +10,7 @@ typedef struct gameobjtype_s {
 	const char *singular, *plural;
 	bool obtainable : 1;
 	bool (*combinable)(object_t *obj, object_t *other);
+	void (*entered)(object_t *obj, object_t *incoming, struct map_s *map);
 } gameobjtype_t;
 
 static inline gameobjtype_t *gobjt(object_t *obj) {

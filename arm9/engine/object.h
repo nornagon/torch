@@ -33,8 +33,6 @@ typedef struct objecttype_s {
 	void (*end)(object_t *obj, struct map_s *map);
 
 	void *data;
-
-	void (*entered)(object_t *obj, object_t *incoming, struct map_s *map);
 } objecttype_t;
 
 #endif /* OBJECT_H */

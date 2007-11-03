@@ -6,6 +6,7 @@
 
 gameobjtype_t go_wisp = {
 	.obtainable = false,
+	.entered = mon_WillOWisp_entered
 };
 
 objecttype_t ot_wisp = {
@@ -13,7 +14,6 @@ objecttype_t ot_wisp = {
 	.col = RGB15(7,31,27),
 	.importance = 128,
 	.display = NULL,
-	.entered = mon_WillOWisp_entered,
 	.data = &go_wisp,
 	.end = mon_WillOWisp_obj_end
 };

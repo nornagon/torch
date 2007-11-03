@@ -278,8 +278,8 @@ void process_keys(process_t *process, map_t *map) {
 							iprintf("You see here %d %ss.\n", obj->quantity, gobjt(obj)->singular);
 					}
 				}
-				if (obj->type->entered)
-					obj->type->entered(obj, node_data(player->obj), map);
+				if (gobjt(obj)->entered)
+					gobjt(obj)->entered(obj, node_data(player->obj), map);
 			}
 
 			s32 dsX = 0, dsY = 0;
