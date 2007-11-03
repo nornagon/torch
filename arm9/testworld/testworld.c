@@ -190,9 +190,11 @@ void process_keys(process_t *process, map_t *map) {
 							object_t *other = node_data(k);
 							if (gobjt(obj)->combinable(obj, other)) {
 								u32 q = (u32)obj->quantity + (u32)other->quantity;
-								if (q > 0xff)
+								if (q > 0xff) {
+									obj->quantity -= 0xff - other->quantity;
+									other->quantity = 0xff;
 									push_node(&game(map)->player->bag, node);
-								else {
+								} else {
 									other->quantity = q;
 									free_object(map, node);
 								}
