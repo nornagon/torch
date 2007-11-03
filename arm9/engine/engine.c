@@ -221,7 +221,10 @@ void draw(map_t *map) {
 						ch = objtype->ch;
 						col = objtype->col;
 					}
-				}
+					cell->recalled_ch = ch;
+					cell->recalled_col = col;
+				} else
+					cell->recalled_ch = cell->recalled_col = 0;
 				int32 rval = cache->lr,
 							gval = cache->lg,
 							bval = cache->lb;
@@ -293,10 +296,19 @@ void draw(map_t *map) {
 				cache->was_visible = true;
 			} else if (cache->dirty > 0 || dirty > 0 || cache->was_visible) {
 				// dirty or it was visible last frame and now isn't.
-				if (cell->recall > 0 && !cell->forgettable) {
-					u32 r = cell->col & 0x001f,
-							g = (cell->col & 0x03e0) >> 5,
-							b = (cell->col & 0x7c00) >> 10;
+				if (cell->recall > 0 && (!cell->forgettable || cell->recalled_ch)) {
+					u16 col;
+					u8 ch;
+					if (cell->recalled_ch) {
+						col = cell->recalled_col;
+						ch = cell->recalled_ch;
+					} else {
+						col = cell->col;
+						ch = cell->ch;
+					}
+					u32 r = col & 0x001f,
+							g = (col & 0x03e0) >> 5,
+							b = (col & 0x7c00) >> 10;
 					int32 val = (cell->recall>>2);
 					r = ((r<<12) * val) >> 24;
 					g = ((g<<12) * val) >> 24;
@@ -308,7 +320,7 @@ void draw(map_t *map) {
 					cache->last_lb = 0;
 					cache->last_light = 0;
 					start_stopwatch();
-					drawcq(x*8, y*8, cell->ch, cache->last_col_final);
+					drawcq(x*8, y*8, ch, cache->last_col_final);
 					drawing += read_stopwatch();
 				} else {
 					drawcq(x*8, y*8, ' ', 0); // clear

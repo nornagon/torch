@@ -41,25 +41,18 @@ void reset_map(map_t* map) {
 	for (y = 0; y < h; y++)
 		for (x = 0; x < w; x++) {
 			cell_t* cell = cell_at(map, x, y);
-			cell->type = 0;
-			cell->ch = 0;
-			cell->col = 0;
-			cell->light = 0;
-			cell->recall = 0;
-			cell->forgettable = 0;
-			cell->visible = 0;
-			cell->blocked_from = 0;
-			cell->seen_from = 0;
+			node_t* objects = cell->objects;
+			memset(cell, 0, sizeof(cell));
 
 			// clear the object list
-			while (cell->objects) {
-				node_t *next = cell->objects->next;
-				object_t *obj = (object_t*)node_data(cell->objects);
+			while (objects) {
+				node_t *next = objects->next;
+				object_t *obj = (object_t*)node_data(objects);
 				objecttype_t *type = obj->type;
 				if (type->end)
 					type->end(obj, map);
-				free_node(map->object_pool, cell->objects);
-				cell->objects = next;
+				free_node(map->object_pool, objects);
+				objects = next;
 			}
 		}
 	// free all the objects

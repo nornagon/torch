@@ -17,6 +17,9 @@ typedef struct {
 	u16 col;
 	u8 ch;
 
+	u8 recalled_ch;
+	u16 recalled_col;
+
 	// blocked_from is cache for working out which sides of an opaque cell we
 	// should light
 	unsigned int blocked_from : 4;

@@ -5,8 +5,10 @@
 #include "engine.h"
 #include "test_map.h"
 #include "generic.h"
+#include "text.h"
 
 #include <nds/arm9/console.h>
+#include <stdio.h>
 
 #include "sight.h"
 
@@ -45,7 +47,7 @@ void new_sight(map_t *map) {
 void manage_inventory(map_t *map) {
 	// XXX: hax here, non-portable, etc.
 	lcdMainOnTop();
-	u16* vram = BG_BMP_RAM_SUB(0);
+	u16* vram = (u16*)BG_BMP_RAM_SUB(0);
 	u32 sel = 0;
 	u32 begin = 0;
 	char buf[128];
