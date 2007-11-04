@@ -20,10 +20,6 @@ typedef struct {
 
 	// the wisp will try to stay close to its home
 	s32 homeX, homeY;
-
-	// the wisp shouldn't move too fast, so we keep a counter.
-	// TODO: maybe allow processes to be called at longer intervals?
-	u32 counter;
 } mon_WillOWisp_t;
 
 void mon_WillOWisp_entered(object_t *object, object_t *incoming, map_t *map);

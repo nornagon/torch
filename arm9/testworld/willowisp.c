@@ -25,7 +25,6 @@ void new_mon_WillOWisp(map_t *map, s32 x, s32 y) {
 
 	wisp->homeX = x;
 	wisp->homeY = y;
-	wisp->counter = 0;
 
 	// set up lighting and AI processes
 	wisp->light_node = push_process(map,
@@ -169,38 +168,37 @@ void mon_WillOWisp_wander(process_t *process, map_t *map) {
 	mon_WillOWisp_t *wisp = process->data;
 	object_t *obj = node_data(wisp->obj_node);
 	cell_t *cell = cell_at(map, obj->x, obj->y);
+
 	if (cell->visible) { // if they can see us, we can see them...
 		process->process = mon_WillOWisp_follow;
-		wisp->counter = 0;
-	} else if (wisp->counter == 0) {
-		int dir = genrand_int32() % 4;
-		int dX = 0, dY = 0;
-		switch (dir) {
-			case 0: dX = 1; dY = 0; break;
-			case 1: dX = -1; dY = 0; break;
-			case 2: dX = 0; dY = 1; break;
-			case 3: dX = 0; dY = -1; break;
-		}
+		process->counter = 0;
+		return;
+	}
 
-		object_t *obj = node_data(wisp->obj_node);
+	int dir = genrand_int32() % 4;
+	int dX = 0, dY = 0;
+	switch (dir) {
+		case 0: dX = 1; dY = 0; break;
+		case 1: dX = -1; dY = 0; break;
+		case 2: dX = 0; dY = 1; break;
+		case 3: dX = 0; dY = -1; break;
+	}
 
-		// try to stay close to the home
-		if (dX < 0 && obj->x + dX < wisp->homeX - 20) // too far west
-			dX = 1;
-		else if (dX > 0 && obj->x + dX > wisp->homeX + 20) // too far east
-			dX = -1;
-		else if (dY < 0 && obj->y + dY < wisp->homeY - 20) // too far north
-			dY = 1;
-		else if (dY > 0 && obj->y + dY > wisp->homeY + 20) // too far south
-			dY = -1;
+	// try to stay close to the home
+	if (dX < 0 && obj->x + dX < wisp->homeX - 20) // too far west
+		dX = 1;
+	else if (dX > 0 && obj->x + dX > wisp->homeX + 20) // too far east
+		dX = -1;
+	else if (dY < 0 && obj->y + dY < wisp->homeY - 20) // too far north
+		dY = 1;
+	else if (dY > 0 && obj->y + dY > wisp->homeY + 20) // too far south
+		dY = -1;
 
-		displace_object(wisp->obj_node, map, dX, dY);
+	displace_object(wisp->obj_node, map, dX, dY);
 
-		wisp->light.x = obj->x << 12;
-		wisp->light.y = obj->y << 12;
-		wisp->counter = 40;
-	} else
-		wisp->counter--;
+	wisp->light.x = obj->x << 12;
+	wisp->light.y = obj->y << 12;
+	process->counter = 40;
 }
 
 void mon_WillOWisp_follow(process_t *process, map_t *map) {
@@ -210,39 +208,38 @@ void mon_WillOWisp_follow(process_t *process, map_t *map) {
 	if (!cell->visible) {
 		// if we can't see the player, go back to wandering
 		process->process = mon_WillOWisp_wander;
-	} else if (wisp->counter == 0) { // time to do something
-		unsigned int mdist = manhdist(obj->x, obj->y, map->pX, map->pY);
-		if (mdist < 4) { // don't get too close
-			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
-			// the player is in the direction dir (direction from obj to player)
-			int dX = 0, dY = 0;
-			mon_WillOWisp_randdir(dir, &dX, &dY);
-			// randdir returns a position delta *towards* the player, so invert it
-			dX = -dX;
-			dY = -dY;
-			displace_object(wisp->obj_node, map, dX, dY);
-			wisp->counter = 10;
-		} else if (mdist > 5) { // don't get too far away either
-			DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
-			int dX = 0, dY = 0;
-			mon_WillOWisp_randdir(dir, &dX, &dY);
-			displace_object(wisp->obj_node, map, dX, dY);
-			wisp->counter = 10;
-		} else { // meander around
-			u32 a = genrand_int32();
-			int dX = 0, dY = 0;
-			// move randomly in one of four directions.
-			switch (a&3) {
-				case 0: dX = 1; dY = 0; break;
-				case 1: dX = -1; dY = 0; break;
-				case 2: dX = 0; dY = 1; break;
-				case 3: dX = 0; dY = -1; break;
-			}
-			displace_object(wisp->obj_node, map, dX, dY);
-			wisp->counter = 20;
+		return;
+	}
+	unsigned int mdist = manhdist(obj->x, obj->y, map->pX, map->pY);
+	if (mdist < 4) { // don't get too close
+		DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
+		// the player is in the direction dir (direction from obj to player)
+		int dX = 0, dY = 0;
+		mon_WillOWisp_randdir(dir, &dX, &dY);
+		// randdir returns a position delta *towards* the player, so invert it
+		dX = -dX;
+		dY = -dY;
+		displace_object(wisp->obj_node, map, dX, dY);
+		process->counter = 10;
+	} else if (mdist > 5) { // don't get too far away either
+		DIRECTION dir = direction(map->pX, map->pY, obj->x, obj->y);
+		int dX = 0, dY = 0;
+		mon_WillOWisp_randdir(dir, &dX, &dY);
+		displace_object(wisp->obj_node, map, dX, dY);
+		process->counter = 10;
+	} else { // meander around
+		u32 a = genrand_int32();
+		int dX = 0, dY = 0;
+		// move randomly in one of four directions.
+		switch (a&3) {
+			case 0: dX = 1; dY = 0; break;
+			case 1: dX = -1; dY = 0; break;
+			case 2: dX = 0; dY = 1; break;
+			case 3: dX = 0; dY = -1; break;
 		}
-		wisp->light.x = obj->x << 12;
-		wisp->light.y = obj->y << 12;
-	} else
-		wisp->counter--;
+		displace_object(wisp->obj_node, map, dX, dY);
+		process->counter = 20;
+	}
+	wisp->light.x = obj->x << 12;
+	wisp->light.y = obj->y << 12;
 }

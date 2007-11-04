@@ -212,16 +212,6 @@ void process_keys(process_t *process, map_t *map) {
 
 	if (game(map)->frm == 0) { // we don't check these things every frame; that's way too fast.
 		u32 keys = keysHeld();
-		if (keys & KEY_A && cell_at(map, map->pX, map->pY)->type == T_STAIRS) {
-			//iprintf("You fall down the stairs...\nYou are now on level %d.\n", ++level);
-			new_map(map);
-			player->obj = new_obj_player(map);
-			map->pX = map->w/2;
-			map->pY = map->h/2;
-			map->scrollX = map->w/2 - 16; map->scrollY = map->h/2 - 12;
-			dirty_screen();
-			return;
-		}
 
 		int dpX = 0, dpY = 0;
 		if (keys & KEY_RIGHT)

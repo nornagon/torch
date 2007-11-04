@@ -10,6 +10,7 @@ typedef void (*process_func)(process_t *process, struct map_s *map);
 struct process_s {
 	process_func process, end;
 	void *data;
+	u16 counter;
 };
 
 #endif /* PROCESS_H */

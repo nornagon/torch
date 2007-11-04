@@ -116,6 +116,7 @@ node_t *_push_process(map_t *map, node_t **stack, process_func process, process_
 	proc->process = process;
 	proc->end = end;
 	proc->data = data;
+	proc->counter = 0;
 	push_node(stack, node);
 	return node;
 }
