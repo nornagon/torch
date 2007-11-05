@@ -1,4 +1,3 @@
-* think about remembering objects? cell->recalled_obj?
 * add a typedef for num2012 and make everything that wants 20.12 say so.
 * think about naming conventions
 * serialisation
