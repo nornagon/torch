@@ -9,13 +9,17 @@
 typedef struct gameobjtype_s {
 	const char *singular, *plural;
 	bool obtainable : 1;
+	bool creature : 1;
 	bool (*combinable)(object_t *obj, object_t *other);
-	void (*entered)(object_t *obj, object_t *incoming, struct map_s *map);
+	void (*entered)(object_t *obj, object_t *incoming, map_t *map);
+	bool (*obstructs)(object_t *obj, map_t *map);
 } gameobjtype_t;
 
 static inline gameobjtype_t *gobjt(object_t *obj) {
 	return obj->type->data;
 }
+
+bool does_obstruct(object_t *obj, map_t *map); // default 'yes' implementation
 
 typedef struct player_s {
 	node_t *bag;

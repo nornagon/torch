@@ -7,6 +7,8 @@
 #include "generic.h"
 #include "text.h"
 
+#include "creature.h"
+
 #include <nds/arm9/console.h>
 #include <stdio.h>
 
@@ -14,6 +16,10 @@
 
 #include "randmap.h"
 #include "loadmap.h"
+
+bool does_obstruct(object_t *obj, map_t *map) {
+	return true;
+}
 
 void process_sight(process_t *process, map_t *map) {
 	fov_settings_type *sight = (fov_settings_type*)process->data;
@@ -121,6 +127,62 @@ done:
 	text_console_rerender();
 }
 
+
+node_t *find_close_creature(map_t *map, s32 x, s32 y) {
+	// concentric squares
+	int r;
+	for (r = 1; r <= 2; r++) {
+		int px = x - r,
+		    py = y - r;
+		int l = r*2;
+		int k;
+		for (k = 0; k <= l; k++) {
+			cell_t *c = cell_at(map, px+k, py);
+			node_t *m = c->objects;
+			// creatures should be on top, so avoid traversing the whole list
+			if (m && gobjt(node_data(m))->creature)
+				return m;
+			c = cell_at(map, px+k, py+l);
+			m = c->objects;
+			if (m && gobjt(node_data(m))->creature)
+				return m;
+		}
+		for (k = 1; k <= l-1; k++) {
+			cell_t *c = cell_at(map, px, py+k);
+			node_t *m = c->objects;
+			if (m && gobjt(node_data(m))->creature)
+				return m;
+			c = cell_at(map, px+l, py+k);
+			m = c->objects;
+			if (m && gobjt(node_data(m))->creature)
+				return m;
+		}
+	}
+	return NULL;
+}
+
+inline bool adjacent(s32 x0, s32 y0, s32 x1, s32 y1) {
+	return abs(x0-x1) <= 1 && abs(y0-y1) <= 1;
+}
+
+
+bool solid(map_t *map, cell_t *cell) {
+	if (cell->type == T_TREE) return true;
+	return false;
+}
+
+bool obstructs(map_t *map, cell_t *cell) {
+	if (solid(map, cell)) return true;
+	node_t *k = cell->objects;
+	for (; k; k = k->next) {
+		object_t *obj = node_data(k);
+		gameobjtype_t *gt = gobjt(obj);
+		if (gt->obstructs && gt->obstructs(obj, map))
+			return true;
+	}
+	return false;
+}
+
 node_t *new_obj_player(map_t *map);
 void new_map(map_t *map);
 
@@ -182,7 +244,7 @@ void process_keys(process_t *process, map_t *map) {
 						else
 							iprintf("You pick up %d %ss.\n", obj->quantity, gobjt(obj)->singular);
 					}
-					game(map)->frm = 5;
+					game(map)->frm += 5;
 					cell->objects = remove_node(cell->objects, node);
 					node_t *k = game(map)->player->bag;
 					if (gobjt(obj)->combinable) {
@@ -214,6 +276,7 @@ void process_keys(process_t *process, map_t *map) {
 		u32 keys = keysHeld();
 
 		int dpX = 0, dpY = 0;
+
 		if (keys & KEY_RIGHT)
 			dpX = 1;
 		if (keys & KEY_LEFT)
@@ -222,12 +285,49 @@ void process_keys(process_t *process, map_t *map) {
 			dpY = 1;
 		if (keys & KEY_UP)
 			dpY = -1;
-		if (!dpX && !dpY) return;
+
+		if (!dpX && !dpY) {
+			if (keys & KEY_Y) {
+				node_t *mon_node = find_close_creature(map, map->pX, map->pY);
+				if (!mon_node) return;
+				object_t *mon = node_data(mon_node);
+				if (adjacent(mon->x, mon->y, map->pX, map->pY)) {
+					if (genrand_int32() < 0.8*(0xffffffff)) {
+						u32 damage = genrand_int32() & 7;
+						creature_t *c = (creature_t*)mon->data;
+						c->hp -= damage;
+						iprintf("You strike the %s!", gobjt(mon)->singular);
+						if (c->hp < 0) {
+							iprintf(" The %s dies.", gobjt(mon)->singular);
+							free_object(map, mon_node);
+						}
+						iprintf("\n");
+					} else {
+						iprintf("You swing at the %s, but you miss.\n", gobjt(mon)->singular);
+					}
+					game(map)->frm = 7;
+					return;
+				} else {
+					int dx = mon->x - map->pX,
+					    dy = mon->y - map->pY;
+					if (abs(dx) > abs(dy)) {
+						dpX = (dx > 0 ? 1 : -1);
+					} else if (abs(dy) > abs(dx)) {
+						dpY = (dy > 0 ? 1 : -1);
+					} else {
+						dpX = (dx > 0 ? 1 : -1);
+						dpY = (dy > 0 ? 1 : -1);
+					}
+				}
+			} else return;
+		}
+
 		s32 pX = map->pX, pY = map->pY;
 		if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
 		if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
 		cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
-		if (solid(map, cell)) {
+		if (obstructs(map, cell)) {
+			// TODO: make a ? for objects in the cell (recalled_ch/col) if blind
 			int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
 			if (rec != cell->recall) {
 				cell->recall = rec;
@@ -253,7 +353,7 @@ void process_keys(process_t *process, map_t *map) {
 			pY += dpY; map->pY = pY;
 			cache_at(map, pX, pY)->dirty = 2;
 
-			// trigger any objects in the cell. XXX: move to engine maybe?
+			// trigger any objects in the cell.
 			node_t *node = cell->objects;
 			for (; node; node = node->next) {
 				if (node == player->obj) continue;
@@ -350,11 +450,6 @@ objecttype_t *OT_UNKNOWN = &ot_unknown;
 
 
 
-
-bool solid(map_t *map, cell_t *cell) {
-	if (cell->type == T_TREE) return true;
-	return false;
-}
 
 map_t *init_test() {
 	lcdMainOnBottom();
