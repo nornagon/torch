@@ -58,12 +58,12 @@ void run_processes(map_t *map, node_t **processes) {
 	while (node) {
 		process_t *proc = node_data(node);
 		if (proc->process) {
-			if (proc->counter == 0) {
+			if (proc->counter == 0)
 				proc->process(proc, map);
-				prev = node;
-				node = node->next;
-			} else
+			else
 				proc->counter--;
+			prev = node;
+			node = node->next;
 		} else { // a NULL process callback means free the process
 			if (proc->end)
 				proc->end(proc, map);
