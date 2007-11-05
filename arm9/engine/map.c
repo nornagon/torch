@@ -42,7 +42,7 @@ void reset_map(map_t* map) {
 		for (x = 0; x < w; x++) {
 			cell_t* cell = cell_at(map, x, y);
 			node_t* objects = cell->objects;
-			memset(cell, 0, sizeof(cell));
+			memset(cell, 0, sizeof(cell_t));
 
 			// clear the object list
 			while (objects) {
