@@ -2,7 +2,7 @@
 
 #include "fire.h"
 #include "globe.h"
-#include "testworld.h"
+#include "world.h"
 
 void load_map(map_t *map, size_t len, const char *desc) {
 	s32 x,y;

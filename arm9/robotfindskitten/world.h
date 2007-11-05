@@ -3,6 +3,6 @@
 
 #include "torch.h"
 
-map_t *init_rfk();
+map_t *init_world();
 
 #endif /* ROBOTFINDSKITTEN_H */

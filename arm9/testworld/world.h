@@ -52,6 +52,6 @@ typedef enum {
 
 bool solid(map_t *map, cell_t *cell);
 
-map_t *init_test();
+map_t *init_world();
 
 #endif /* TESTWORLD_H */

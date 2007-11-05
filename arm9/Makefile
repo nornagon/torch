@@ -15,11 +15,13 @@ include $(DEVKITARM)/ds_rules
 # all directories are relative to this makefile
 #---------------------------------------------------------------------------------
 
-WORLDS   := testworld robotfindskitten
+ifeq ($(strip $(WORLD)),)
+	WORLD := testworld
+endif
 
-BUILD    := build
-SOURCES  := engine source generic $(WORLDS)
-INCLUDES := include engine generic $(WORLDS)
+BUILD    := build/$(WORLD)
+SOURCES  := engine source generic $(WORLD)
+INCLUDES := include engine generic $(WORLD)
 DATA     :=
 GRAPHICS := graphics
 
@@ -31,7 +33,8 @@ ARCH    := -mthumb -mthumb-interwork
 CFLAGS  := -g -Wall -O2\
            -march=armv5te -mtune=arm946e-s -fomit-frame-pointer\
            -ffast-math \
-           $(ARCH)
+           $(ARCH) \
+           -DWORLD=$(WORLD)
 
 CFLAGS   += $(INCLUDE) -DARM9
 CXXFLAGS := $(CFLAGS) -fno-rtti -fno-exceptions
@@ -55,7 +58,7 @@ LIBDIRS := $(LIBNDS)
 # no real need to edit anything past this point unless you need to add additional
 # rules for different file extensions
 #---------------------------------------------------------------------------------
-ifneq ($(BUILD),$(notdir $(CURDIR)))
+ifndef REALBUILD
 #---------------------------------------------------------------------------------
  
 export ARM9BIN := $(TOPDIR)/$(TARGET).arm9
@@ -101,7 +104,7 @@ export LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 #---------------------------------------------------------------------------------
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
-	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile REALBUILD=1
  
 #---------------------------------------------------------------------------------
 clean:

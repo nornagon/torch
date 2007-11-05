@@ -3,14 +3,14 @@
 
 #include "engine.h"
 
-#include "testworld.h"
+#include "world.h"
 
 int main(void) {
 	torch_init();
 
 	dirty_screen(); // the whole screen is dirty first frame.
 
-	run(init_test());
+	run(init_world());
 
 	return 0;
 }

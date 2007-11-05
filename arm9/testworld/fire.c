@@ -1,7 +1,7 @@
 #include "fire.h"
 #include "mersenne.h"
 #include "generic.h"
-#include "testworld.h"
+#include "world.h"
 
 gameobjtype_t go_fire = {
 	.obtainable = false,

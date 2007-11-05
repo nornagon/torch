@@ -1,4 +1,4 @@
-#include "robotfindskitten.h"
+#include "world.h"
 #include "messages.h"
 
 #include "fov.h"
@@ -207,7 +207,7 @@ void process_robot(process_t *proc, map_t *map) {
 		frm--;
 }
 
-map_t *init_rfk() {
+map_t *init_world() {
 	map_t *map = create_map(256/8, 192/8);
 
 	fov_light = malloc(sizeof(fov_settings_type));

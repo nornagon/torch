@@ -1,5 +1,5 @@
 #include "randmap.h"
-#include "testworld.h"
+#include "world.h"
 #include "mersenne.h"
 
 #include "willowisp.h"

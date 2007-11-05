@@ -1,4 +1,4 @@
-#include "testworld.h"
+#include "world.h"
 #include "object.h"
 #include "mersenne.h"
 #include "util.h"
@@ -451,7 +451,7 @@ objecttype_t *OT_UNKNOWN = &ot_unknown;
 
 
 
-map_t *init_test() {
+map_t *init_world() {
 	lcdMainOnBottom();
 
 	map_t *map = create_map(128, 128);

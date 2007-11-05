@@ -1,5 +1,5 @@
 #include "rocks.h"
-#include "testworld.h"
+#include "world.h"
 
 void obj_rock_end(object_t *obj, map_t *map) {
 	free(obj->data);
