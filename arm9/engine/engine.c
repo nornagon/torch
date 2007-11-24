@@ -388,6 +388,7 @@ void run(map_t *map) {
 		// draw loop
 		draw(map);
 
+		// cap to 30fps
 		while (vblnks < 2) swiWaitForVBlank();
 		vblnks = 0;
 		swapbufs();

@@ -127,44 +127,50 @@ done:
 	text_console_rerender();
 }
 
-
-node_t *find_close_creature(map_t *map, s32 x, s32 y) {
-	// concentric squares
-	int r;
-	for (r = 1; r <= 2; r++) {
-		int px = x - r,
-		    py = y - r;
-		int l = r*2;
-		int k;
-		for (k = 0; k <= l; k++) {
-			cell_t *c = cell_at(map, px+k, py);
-			node_t *m = c->objects;
-			// creatures should be on top, so avoid traversing the whole list
-			if (m && gobjt(node_data(m))->creature)
-				return m;
-			c = cell_at(map, px+k, py+l);
-			m = c->objects;
-			if (m && gobjt(node_data(m))->creature)
-				return m;
-		}
-		for (k = 1; k <= l-1; k++) {
-			cell_t *c = cell_at(map, px, py+k);
-			node_t *m = c->objects;
-			if (m && gobjt(node_data(m))->creature)
-				return m;
-			c = cell_at(map, px+l, py+k);
-			m = c->objects;
-			if (m && gobjt(node_data(m))->creature)
-				return m;
+void get_item(map_t *map) {
+	cell_t *cell = cell_at(map, map->pX, map->pY);
+	if (cell->objects->next) { // skip over the player object
+		node_t *node = cell->objects->next;
+		while (node) {
+			object_t *obj = node_data(node);
+			node_t *next = node->next;
+			if (gobjt(obj)->obtainable) {
+				// TODO: hrmph. unwieldy, this is.
+				if (obj->quantity == 1) {
+					iprintf("You pick up a %s.\n", gobjt(obj)->singular);
+				} else {
+					if (gobjt(obj)->plural)
+						iprintf("You pick up %d %s.\n", obj->quantity, gobjt(obj)->plural);
+					else
+						iprintf("You pick up %d %ss.\n", obj->quantity, gobjt(obj)->singular);
+				}
+				game(map)->frm += 5;
+				cell->objects = remove_node(cell->objects, node);
+				node_t *k = game(map)->player->bag;
+				if (gobjt(obj)->combinable) {
+					for (; k; k = k->next) {
+						object_t *other = node_data(k);
+						if (gobjt(obj)->combinable(obj, other)) {
+							int q = (u32)obj->quantity + (u32)other->quantity;
+							if (q > 0xff) {
+								obj->quantity -= 0xff - other->quantity;
+								other->quantity = 0xff;
+								push_node(&game(map)->player->bag, node);
+							} else {
+								other->quantity = q;
+								free_object(map, node);
+							}
+							break;
+						}
+					}
+					if (!k) push_node(&game(map)->player->bag, node);
+				} else
+					push_node(&game(map)->player->bag, node);
+			}
+			node = next;
 		}
 	}
-	return NULL;
 }
-
-inline bool adjacent(s32 x0, s32 y0, s32 x1, s32 y1) {
-	return abs(x0-x1) <= 1 && abs(y0-y1) <= 1;
-}
-
 
 bool solid(map_t *map, cell_t *cell) {
 	if (cell->type == T_TREE) return true;
@@ -181,6 +187,101 @@ bool obstructs(map_t *map, cell_t *cell) {
 			return true;
 	}
 	return false;
+}
+
+void move_player(map_t *map, DIRECTION dir) {
+	s32 pX = map->pX, pY = map->pY;
+
+	int dpX = D_DX[dir],
+	    dpY = D_DY[dir];
+
+	if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
+	if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
+
+	cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
+
+	if (obstructs(map, cell)) {
+		// you can feel what you bumped into even if it's dark
+		int32 rec = max(cell->recall, (1<<11));
+		if (rec != cell->recall) {
+			cell->recall = rec;
+			cache_at(map, pX + dpX, pY + dpY)->dirty = 2;
+		}
+
+		if (dpX && dpY) {
+			// if we could just go left or right, do that. This results in 'sliding'
+			// along walls when moving diagonally
+			if (!obstructs(map, cell_at(map, pX + dpX, pY)))
+				dpY = 0;
+			else if (!obstructs(map, cell_at(map, pX, pY + dpY)))
+				dpX = 0;
+			else
+				dpX = dpY = 0;
+		} else
+			dpX = dpY = 0;
+	}
+
+	if (dpX || dpY) {
+		// moving diagonally takes longer. 5*sqrt(2) ~= 7
+		if (dpX && dpY) game(map)->frm = 7;
+		else game(map)->frm = 5;
+
+		cell = cell_at(map, pX + dpX, pY + dpY);
+
+		// dirty the cell we just stepped away from
+		cache_at(map, pX, pY)->dirty = 2;
+
+		// move the player object
+		move_object(map, game(map)->player->obj, pX + dpX, pY + dpY);
+
+		pX += dpX; map->pX = pX;
+		pY += dpY; map->pY = pY;
+
+		// dirty the cell we just entered
+		cache_at(map, pX, pY)->dirty = 2;
+
+		// trigger any objects in the cell.
+		node_t *node = cell->objects;
+		for (; node; node = node->next) {
+			if (node == game(map)->player->obj) continue;
+			object_t *obj = node_data(node);
+			if (gobjt(obj)->obtainable) {
+				if (obj->quantity == 1) {
+					iprintf("You see here a %s.\n", gobjt(obj)->singular);
+				} else {
+					if (gobjt(obj)->plural)
+						iprintf("You see here %d %s.\n", obj->quantity, gobjt(obj)->plural);
+					else
+						iprintf("You see here %d %ss.\n", obj->quantity, gobjt(obj)->singular);
+				}
+			}
+			if (gobjt(obj)->entered)
+				gobjt(obj)->entered(obj, node_data(game(map)->player->obj), map);
+		}
+
+
+		// TODO: split into a separate (generic?) function
+		s32 dsX = 0, dsY = 0;
+		// keep the screen vaguely centred on the player (gap of 8 cells)
+		if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
+			dsX = (pX - 8) - map->scrollX;
+			map->scrollX = pX - 8;
+		} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
+			dsX = (pX - 24) - map->scrollX;
+			map->scrollX = pX - 24;
+		}
+
+		if (pY - map->scrollY < 8 && map->scrollY > 0) {
+			dsY = (pY - 8) - map->scrollY;
+			map->scrollY = pY - 8;
+		} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
+			dsY = (pY - 16) - map->scrollY;
+			map->scrollY = pY - 16;
+		}
+
+		if (dsX || dsY)
+			scroll_screen(map, dsX, dsY);
+	}
 }
 
 node_t *new_obj_player(map_t *map);
@@ -224,175 +325,29 @@ void process_keys(process_t *process, map_t *map) {
 		reset_luminance();
 		return;
 	}
-	if (down & KEY_X) {
+
+	if (down & KEY_X)
 		manage_inventory(map);
-	}
-	if (down & KEY_A) {
-		cell_t *cell = cell_at(map, map->pX, map->pY);
-		if (cell->objects->next) { // skip over the player object
-			node_t *node = cell->objects->next;
-			while (node) {
-				object_t *obj = node_data(node);
-				node_t *next = node->next;
-				if (gobjt(obj)->obtainable) {
-					// TODO: hrmph. unwieldy, this is.
-					if (obj->quantity == 1) {
-						iprintf("You pick up a %s.\n", gobjt(obj)->singular);
-					} else {
-						if (gobjt(obj)->plural)
-							iprintf("You pick up %d %s.\n", obj->quantity, gobjt(obj)->plural);
-						else
-							iprintf("You pick up %d %ss.\n", obj->quantity, gobjt(obj)->singular);
-					}
-					game(map)->frm += 5;
-					cell->objects = remove_node(cell->objects, node);
-					node_t *k = game(map)->player->bag;
-					if (gobjt(obj)->combinable) {
-						for (; k; k = k->next) {
-							object_t *other = node_data(k);
-							if (gobjt(obj)->combinable(obj, other)) {
-								u32 q = (u32)obj->quantity + (u32)other->quantity;
-								if (q > 0xff) {
-									obj->quantity -= 0xff - other->quantity;
-									other->quantity = 0xff;
-									push_node(&game(map)->player->bag, node);
-								} else {
-									other->quantity = q;
-									free_object(map, node);
-								}
-								break;
-							}
-						}
-						if (!k) push_node(&game(map)->player->bag, node);
-					} else
-						push_node(&game(map)->player->bag, node);
-				}
-				node = next;
-			}
-		}
-	}
+	if (down & KEY_A)
+		get_item(map);
 
 	if (game(map)->frm == 0) { // we don't check these things every frame; that's way too fast.
 		u32 keys = keysHeld();
 
-		int dpX = 0, dpY = 0;
+		DIRECTION dir = 0;
 
 		if (keys & KEY_RIGHT)
-			dpX = 1;
+			dir |= D_EAST;
 		if (keys & KEY_LEFT)
-			dpX = -1;
+			dir |= D_WEST;
 		if (keys & KEY_DOWN)
-			dpY = 1;
+			dir |= D_SOUTH;
 		if (keys & KEY_UP)
-			dpY = -1;
+			dir |= D_NORTH;
 
-		if (!dpX && !dpY) {
-			if (keys & KEY_Y) {
-				node_t *mon_node = find_close_creature(map, map->pX, map->pY);
-				if (!mon_node) return;
-				object_t *mon = node_data(mon_node);
-				if (adjacent(mon->x, mon->y, map->pX, map->pY)) {
-					if (genrand_int32() < 0.8*(0xffffffff)) {
-						u32 damage = genrand_int32() & 7;
-						creature_t *c = (creature_t*)mon->data;
-						c->hp -= damage;
-						iprintf("You strike the %s!", gobjt(mon)->singular);
-						if (c->hp < 0) {
-							iprintf(" The %s dies.", gobjt(mon)->singular);
-							free_object(map, mon_node);
-						}
-						iprintf("\n");
-					} else {
-						iprintf("You swing at the %s, but you miss.\n", gobjt(mon)->singular);
-					}
-					game(map)->frm = 7;
-					return;
-				} else {
-					int dx = mon->x - map->pX,
-					    dy = mon->y - map->pY;
-					if (abs(dx) > abs(dy)) {
-						dpX = (dx > 0 ? 1 : -1);
-					} else if (abs(dy) > abs(dx)) {
-						dpY = (dy > 0 ? 1 : -1);
-					} else {
-						dpX = (dx > 0 ? 1 : -1);
-						dpY = (dy > 0 ? 1 : -1);
-					}
-				}
-			} else return;
-		}
+		if (!dir) return;
 
-		s32 pX = map->pX, pY = map->pY;
-		if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
-		if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
-		cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
-		if (obstructs(map, cell)) {
-			// TODO: make a ? for objects in the cell (recalled_ch/col) if blind
-			int32 rec = max(cell->recall, (1<<11)); // Eh? What's that?! I felt something!
-			if (rec != cell->recall) {
-				cell->recall = rec;
-				cache_at(map, pX + dpX, pY + dpY)->dirty = 2;
-			}
-			if (dpX && dpY) {
-				if (!cell_at(map, pX + dpX, pY)->opaque) // if we could just go left or right, do that
-					dpY = 0;
-				else if (!cell_at(map, pX, pY + dpY)->opaque)
-					dpX = 0;
-				else
-					dpX = dpY = 0;
-			} else
-				dpX = dpY = 0;
-		}
-		if (dpX || dpY) {
-			if (dpX && dpY) game(map)->frm = 7; // moving diagonally takes longer
-			else game(map)->frm = 5;
-			cell = cell_at(map, pX + dpX, pY + dpY);
-			cache_at(map, pX, pY)->dirty = 2; // the cell we just stepped away from
-			move_object(map, player->obj, pX + dpX, pY + dpY); // move the player object
-			pX += dpX; map->pX = pX;
-			pY += dpY; map->pY = pY;
-			cache_at(map, pX, pY)->dirty = 2;
-
-			// trigger any objects in the cell.
-			node_t *node = cell->objects;
-			for (; node; node = node->next) {
-				if (node == player->obj) continue;
-				object_t *obj = node_data(node);
-				if (gobjt(obj)->obtainable) {
-					if (obj->quantity == 1) {
-						iprintf("You see here a %s.\n", gobjt(obj)->singular);
-					} else {
-						if (gobjt(obj)->plural)
-							iprintf("You see here %d %s.\n", obj->quantity, gobjt(obj)->plural);
-						else
-							iprintf("You see here %d %ss.\n", obj->quantity, gobjt(obj)->singular);
-					}
-				}
-				if (gobjt(obj)->entered)
-					gobjt(obj)->entered(obj, node_data(player->obj), map);
-			}
-
-			s32 dsX = 0, dsY = 0;
-			// keep the screen vaguely centred on the player (gap of 8 cells)
-			if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
-				dsX = (pX - 8) - map->scrollX;
-				map->scrollX = pX - 8;
-			} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
-				dsX = (pX - 24) - map->scrollX;
-				map->scrollX = pX - 24;
-			}
-
-			if (pY - map->scrollY < 8 && map->scrollY > 0) { 
-				dsY = (pY - 8) - map->scrollY;
-				map->scrollY = pY - 8;
-			} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
-				dsY = (pY - 16) - map->scrollY;
-				map->scrollY = pY - 16;
-			}
-
-			if (dsX || dsY)
-				scroll_screen(map, dsX, dsY);
-		}
+		move_player(map, dir);
 	}
 	if (game(map)->frm > 0) // await the player's command (we check keys every frame if frm == 0)
 		game(map)->frm--;
@@ -434,6 +389,7 @@ void new_map(map_t *map) {
 	random_map(map);
 	reset_cache(map);
 }
+
 
 u32 random_colour(object_t *obj, map_t *map) {
 	return ((obj->type->ch)<<16) | (genrand_int32()&0xffff);

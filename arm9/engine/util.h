@@ -51,4 +51,9 @@ static inline unsigned int manhdist(int x1, int y1, int x2, int y2) {
 	return abs(x1-x2)+abs(y1-y2);
 }
 
+// Adjacency of P0 and P1
+static inline bool adjacent(s32 x0, s32 y0, s32 x1, s32 y1) {
+	return abs(x0-x1) <= 1 && abs(y0-y1) <= 1;
+}
+
 #endif /* UTIL_H */

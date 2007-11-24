@@ -13,6 +13,21 @@ typedef unsigned int DIRECTION;
 #define D_NORTHWEST (D_NORTH|D_WEST)
 #define D_SOUTHWEST (D_SOUTH|D_WEST)
 
+// x/y deltas for each direction as LUTs
+static const int D_DX[] = {
+	 0,  0,  0,  0, // 0, N, S, N|S
+	 1,  1,  1,  1, // E, N|E, S|E, N|S|E
+	-1, -1, -1, -1, // W, N|W, S|W, N|S|W
+	 0,  0,  0,  0  // E|W, E|W|N, E|W|S, E|W|N|S
+};
+
+static const int D_DY[] = {
+	0, -1, 1, 0, // 0, N, S, N|S
+	0, -1, 1, 0, // E, N|E, S|E, N|S|E
+	0, -1, 1, 0, // W, N|W, S|W, N|S|W
+	0, -1, 1, 0  // E|W, E|W|N, E|W|S, E|W|N|S
+};
+
 // These are for lighting purposes only. A cell being lit from the north-west is
 // different from a cell being lit from the north and the west (due to opaque
 // things). D_NORTHWEST in lighting refers to the northwestern *corner* of the
