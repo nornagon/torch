@@ -177,6 +177,8 @@ bool solid(map_t *map, cell_t *cell) {
 	return false;
 }
 
+// TODO: This is ugly and could get very expensive very fast. Should cache the
+// result.
 bool obstructs(map_t *map, cell_t *cell) {
 	if (solid(map, cell)) return true;
 	node_t *k = cell->objects;
@@ -187,6 +189,14 @@ bool obstructs(map_t *map, cell_t *cell) {
 			return true;
 	}
 	return false;
+}
+
+// XXX: hax. This assumes that creatures will always be on the top of the object
+// list.
+node_t *creature(map_t *map, cell_t *cell) {
+	if (gobjt(node_data(cell->objects))->creature)
+		return cell->objects;
+	return NULL;
 }
 
 void move_player(map_t *map, DIRECTION dir) {
@@ -200,14 +210,30 @@ void move_player(map_t *map, DIRECTION dir) {
 
 	cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
 
-	if (obstructs(map, cell)) {
-		// you can feel what you bumped into even if it's dark
-		int32 rec = max(cell->recall, (1<<11));
-		if (rec != cell->recall) {
-			cell->recall = rec;
-			cache_at(map, pX + dpX, pY + dpY)->dirty = 2;
-		}
+	node_t *cr_node = creature(map, cell);
+	object_t *cr_obj = node_data(cr_node);
 
+	if (cr_node) {
+		// attack the creature in the target cell
+		creature_t *cr = cr_obj->data;
+		int power = 13;
+		if (rand0(power) >= cr->ac) {
+			int dam = rand0(10)+4;
+			// triggers
+			cr->hp -= dam;
+			iprintf("You hit the %s. ", gobjt(cr_obj)->singular);
+			if (cr->hp < 0) {
+				iprintf("The %s dies. ", gobjt(cr_obj)->singular);
+				free_object(map, cr_node);
+			}
+			iprintf("\n");
+		} else {
+			iprintf("You miss.\n");
+		}
+		game(map)->frm += 7;
+		return;
+	}
+	else if (obstructs(map, cell)) {
 		if (dpX && dpY) {
 			// if we could just go left or right, do that. This results in 'sliding'
 			// along walls when moving diagonally

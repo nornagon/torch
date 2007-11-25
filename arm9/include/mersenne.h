@@ -86,4 +86,14 @@ static inline unsigned long genrand_gaussian32() {
 			(genrand_int32()>>2) + (genrand_int32()>>2));
 }
 
+/* generates a random 28-bit integer in the range [0,m), 0 < m < 0x10000000 */
+static inline unsigned long rand0(unsigned long n) {
+	return (genrand_int32() >> 4) / (0x10000000/n);
+}
+
+/* returns true m times out of n, m <= n, n /= 0 */
+static inline bool randMinN(unsigned long m, unsigned long n) {
+	return (genrand_int32() < m*(0xffffffff/n));
+}
+
 #endif /* MT19937AR_H */

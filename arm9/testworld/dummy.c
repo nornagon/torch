@@ -30,6 +30,7 @@ typedef struct {
 void new_dummy(map_t *map, s32 x, s32 y) {
 	dummy_t *dummy = malloc(sizeof(dummy_t));
 	dummy->creature.hp = 40;
+	dummy->creature.ac = 5;
 
 	node_t *obj = new_object(map, OT_DUMMY, dummy);
 	insert_object(map, obj, x, y);
