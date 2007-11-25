@@ -421,11 +421,17 @@ u32 random_colour(object_t *obj, map_t *map) {
 	return ((obj->type->ch)<<16) | (genrand_int32()&0xffff);
 }
 
+gameobjtype_t go_unknown = {
+	.obtainable = false,
+	.creature = false,
+	.singular = "???",
+};
 objecttype_t ot_unknown = {
 	.ch = '?',
 	.col = RGB15(31,31,31),
 	.importance = 3,
 	.display = random_colour,
+	.data = &go_unknown,
 	.end = NULL
 };
 objecttype_t *OT_UNKNOWN = &ot_unknown;
