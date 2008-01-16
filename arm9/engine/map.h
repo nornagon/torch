@@ -20,17 +20,17 @@ typedef struct {
 	u8 recalled_ch;
 	u16 recalled_col;
 
+	// can light pass through the cell?
+	bool opaque : 1;
+
+	bool forgettable : 1;
+
 	// blocked_from is cache for working out which sides of an opaque cell we
 	// should light
 	unsigned int blocked_from : 4;
 
 	// visible is true if the cell is on-screen *and* in the player's LOS
 	bool visible : 1;
-
-	// can light pass through the cell?
-	bool opaque : 1;
-
-	bool forgettable : 1;
 
 	// which direction is the player seeing this cell from?
 	DIRECTION seen_from : 5;

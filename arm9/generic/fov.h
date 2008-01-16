@@ -34,7 +34,8 @@
 
 /* Note also that this file (and fov.c) are *not* unchanged. It has been
  * converted by me (Jeremy Apthorp) to use fixed-point numbers, which are much
- * more suitable for the DS than are floating-point ones.
+ * more suitable for the DS than are floating-point ones, amongst other minor
+ * changes.
  */
 
 /**

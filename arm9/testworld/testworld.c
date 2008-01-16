@@ -211,9 +211,9 @@ void move_player(map_t *map, DIRECTION dir) {
 	cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
 
 	node_t *cr_node = creature(map, cell);
-	object_t *cr_obj = node_data(cr_node);
 
 	if (cr_node) {
+		object_t *cr_obj = node_data(cr_node);
 		// attack the creature in the target cell
 		creature_t *cr = cr_obj->data;
 		int power = 13;

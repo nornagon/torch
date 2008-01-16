@@ -1,6 +1,18 @@
 #include "generic.h"
 #include "util.h"
 
+fov_settings_type *build_fov_settings(
+    bool (*opaque)(void *map, int x, int y),
+    void (*apply)(void *map, int x, int y, int dx, int dy, void *src),
+    fov_shape_type shape) {
+  fov_settings_type *settings = malloc(sizeof(fov_settings_type));
+  fov_settings_init(settings);
+  fov_settings_set_shape(settings, shape);
+  fov_settings_set_opacity_test_function(settings, opaque);
+  fov_settings_set_apply_lighting_function(settings, apply);
+  return settings;
+}
+
 void draw_light(map_t *map, fov_settings_type *settings, light_t *l) {
 	// don't bother calculating if the light's completely outside the screen.
 	if (((l->x + l->radius) >> 12) < map->scrollX ||
