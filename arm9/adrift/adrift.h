@@ -16,7 +16,7 @@ static const cell_t DEFAULT_TREE = {
 };
 static const cell_t DEFAULT_GROUND = {
 	T_GROUND, RGB15(17,9,6), '.',
-	.opaque = false, .forgettable = false
+	.opaque = false, .forgettable = true
 };
 
 typedef struct player_s {
