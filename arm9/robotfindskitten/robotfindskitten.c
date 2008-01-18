@@ -207,7 +207,7 @@ void process_robot(process_t *proc, map_t *map) {
 		frm--;
 }
 
-map_t *init_world() {
+void init_world() {
 	map_t *map = create_map(256/8, 192/8);
 
 	fov_light = malloc(sizeof(fov_settings_type));
@@ -228,5 +228,5 @@ map_t *init_world() {
 
 	push_high_process(map, process_robot, NULL, NULL);
 
-	return map;
+	run(map);
 }

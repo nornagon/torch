@@ -461,5 +461,5 @@ map_t *init_world() {
 	map->scrollX = map->w/2 - 16;
 	map->scrollY = map->h/2 - 12;
 
-	return map;
+	run(map);
 }

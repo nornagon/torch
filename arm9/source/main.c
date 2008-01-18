@@ -10,7 +10,7 @@ int main(void) {
 
 	dirty_screen(); // the whole screen is dirty first frame.
 
-	run(init_world());
+	init_world();
 
 	return 0;
 }
