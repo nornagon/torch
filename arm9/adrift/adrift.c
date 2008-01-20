@@ -14,11 +14,10 @@
 
 #include "assert.h"
 
-void process_sight(process_t *process, map_t *map) {
-	fov_settings_type *sight = (fov_settings_type*)process->data;
+void process_sight(map_t *map) {
 	game(map)->player->light->x = map->pX << 12;
 	game(map)->player->light->y = map->pY << 12;
-	fov_circle(sight, map, game(map)->player->light, map->pX, map->pY, 32);
+	fov_circle(game(map)->fov_sight, map, game(map)->player->light, map->pX, map->pY, 32);
 	cell_t *cell = cell_at(map, map->pX, map->pY);
 	cell->light = (1<<12);
 	cell->visible = true;
@@ -27,15 +26,6 @@ void process_sight(process_t *process, map_t *map) {
 	cache->lg = game(map)->player->light->g;
 	cache->lb = game(map)->player->light->b;
 	cell->recall = 1<<12;
-}
-
-void end_sight(process_t *process, map_t *map) {
-	free(process->data); // the fov_settings_type that was malloc'd
-}
-
-void new_sight(map_t *map) {
-	fov_settings_type *sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
-	push_high_process(map, process_sight, end_sight, sight);
 }
 
 bool solid(map_t *map, cell_t *cell) {
@@ -111,7 +101,7 @@ void move_player(map_t *map, DIRECTION dir) {
 	}
 }
 
-void process_keys(process_t *process, map_t *map) {
+void process_keys(map_t *map) {
 	if (game(map)->frm == 0) {
 		scanKeys();
 		u32 keys = keysHeld();
@@ -152,7 +142,6 @@ node_t *new_obj_player(map_t *map) {
 void new_player(map_t *map) {
 	player_t *player = malloc(sizeof(player_t));
 	memset(player, 0, sizeof(player_t));
-	push_high_process(map, process_keys, NULL, player);
 
 	player->obj = new_obj_player(map);
 	player->bag = NULL;
@@ -161,14 +150,19 @@ void new_player(map_t *map) {
 	game(map)->player = player;
 }
 
+void handler(map_t *map) {
+	process_keys(map);
+	process_sight(map);
+}
+
 void new_game() {
 	map_t *map = create_map(128,128);
 	map->game = malloc(sizeof(game_t));
 	memset(map->game, 0, sizeof(game_t));
-	//assert(false);
 
 	// the fov_settings_type that will be used for non-player-held lights.
 	game(map)->fov_light = build_fov_settings(opacity_test, apply_light, FOV_SHAPE_OCTAGON);
+	game(map)->fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
 
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds +
 				IPC->time.rtc.minutes*60 + IPC->time.rtc.hours*60*60 +
@@ -177,16 +171,18 @@ void new_game() {
 	generate_terrarium(map);
 	reset_cache(map);
 
-	new_sight(map);
 	new_player(map);
 
-	map->scrollX = map->w/2 - 16;
-	map->scrollY = map->h/2 - 12;
+	map->scrollX = map->pX - 16;
+	map->scrollY = map->pY - 12;
+	bounded(map, &map->scrollX, &map->scrollY);
+
+	map->handler = handler;
 
 	run(map);
 }
 
-map_t *init_world() {
+void init_world() {
 	lcdMainOnBottom();
 
 	new_game();

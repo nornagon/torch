@@ -60,7 +60,6 @@ void reset_map(map_t* map) {
 
 	// clear and free the process lists
 	free_process_list(map, &map->processes);
-	//free_process_list(map, &map->high_processes);
 	flush_free(map->process_pool);
 }
 
@@ -110,14 +109,14 @@ void refresh_blockmap(map_t *map) {
 		}
 }
 
-node_t *_push_process(map_t *map, node_t **stack, process_func process, process_func end, void* data) {
+node_t *push_process(map_t *map, process_func process, process_func end, void* data) {
 	node_t *node = request_node(map->process_pool);
 	process_t *proc = node_data(node);
 	proc->process = process;
 	proc->end = end;
 	proc->data = data;
 	proc->counter = 0;
-	push_node(stack, node);
+	push_node(&map->processes, node);
 	return node;
 }
 

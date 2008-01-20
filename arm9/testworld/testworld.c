@@ -21,8 +21,8 @@ bool does_obstruct(object_t *obj, map_t *map) {
 	return true;
 }
 
-void process_sight(process_t *process, map_t *map) {
-	fov_settings_type *sight = (fov_settings_type*)process->data;
+void process_sight(map_t *map) {
+	fov_settings_type *sight = game(map)->fov_sight;
 	game(map)->player->light->x = map->pX << 12;
 	game(map)->player->light->y = map->pY << 12;
 	fov_circle(sight, map, game(map)->player->light, map->pX, map->pY, 32);
@@ -36,18 +36,13 @@ void process_sight(process_t *process, map_t *map) {
 	cell->recall = 1<<12;
 }
 
-void end_sight(process_t *process, map_t *map) {
-	free(process->data); // the fov_settings_type that was malloc'd
-}
-
 void new_sight(map_t *map) {
 	fov_settings_type *sight = malloc(sizeof(fov_settings_type));
 	fov_settings_init(sight);
 	fov_settings_set_shape(sight, FOV_SHAPE_SQUARE);
 	fov_settings_set_opacity_test_function(sight, sight_opaque);
 	fov_settings_set_apply_lighting_function(sight, apply_sight);
-
-	push_high_process(map, process_sight, end_sight, sight);
+	game(map)->fov_sight = sight;
 }
 
 void manage_inventory(map_t *map) {
@@ -313,8 +308,8 @@ void move_player(map_t *map, DIRECTION dir) {
 node_t *new_obj_player(map_t *map);
 void new_map(map_t *map);
 
-void process_keys(process_t *process, map_t *map) {
-	player_t *player = process->data;
+void process_keys(map_t *map) {
+	player_t *player = game(map)->player;
 	scanKeys();
 	u32 down = keysDown();
 	if (down & KEY_START) {
@@ -399,7 +394,6 @@ node_t *new_obj_player(map_t *map) {
 }
 void new_player(map_t *map) {
 	player_t *player = malloc(sizeof(player_t));
-	push_high_process(map, process_keys, NULL, player);
 
 	player->obj = new_obj_player(map);
 	player->bag = NULL;
@@ -438,6 +432,10 @@ objecttype_t *OT_UNKNOWN = &ot_unknown;
 
 
 
+void handler(map_t *map) {
+	process_keys(map);
+	process_sight(map);
+}
 
 map_t *init_world() {
 	lcdMainOnBottom();
@@ -456,6 +454,8 @@ map_t *init_world() {
 	new_map(map);
 	new_sight(map);
 	new_player(map);
+
+	map->handler = handler;
 
 	// centre the player on the screen
 	map->scrollX = map->w/2 - 16;

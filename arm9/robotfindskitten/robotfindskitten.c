@@ -151,7 +151,7 @@ void found_kitten(map_t *map, nki_t *nki) {
 	gen_map(map);
 }
 
-void process_robot(process_t *proc, map_t *map) {
+void process_robot(map_t *map) {
 	static int frm = 0;
 	scanKeys();
 
@@ -226,7 +226,7 @@ void init_world() {
 			IPC->time.rtc.weekday*7*24*60*60);
 	gen_map(map);
 
-	push_high_process(map, process_robot, NULL, NULL);
+	map->handler = process_robot;
 
 	run(map);
 }

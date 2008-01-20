@@ -3,6 +3,6 @@
 
 #include "map.h"
 
-map_t *init_world();
+void init_world();
 
 #endif /* WORLD_H */

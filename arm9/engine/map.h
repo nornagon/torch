@@ -47,8 +47,9 @@ typedef struct map_s {
 	u32 w,h;
 
 	llpool_t *process_pool;
-	node_t *high_processes; // important things that need to be run first
 	node_t *processes;
+
+	void (*handler)(struct map_s *map);
 
 	llpool_t *object_pool;
 
@@ -82,18 +83,7 @@ map_t *create_map(u32 w, u32 h);
 void resize_map(map_t *map, u32 w, u32 h);
 
 // push a new process on the process stack, returning the new process node.
-node_t *_push_process(map_t *map, node_t **proc_stack,
-		process_func process, process_func end, void* data);
-
-// push a normal-priority process on the map's process stack
-static inline node_t *push_process(map_t *map, process_func process, process_func end, void* data) {
-	return _push_process(map, &map->processes, process, end, data);
-}
-
-// push a high-priority process on the map's high process stack
-static inline node_t *push_high_process(map_t *map, process_func process, process_func end, void* data) {
-	return _push_process(map, &map->high_processes, process, end, data);
-}
+node_t *push_process(map_t *map, process_func process, process_func end, void* data);
 
 // remove the normal-priority process proc from the process list and add it to
 // the free pool.
@@ -102,10 +92,10 @@ static inline void free_process(map_t *map, node_t *proc) {
 	free_node(map->process_pool, proc);
 }
 
-// free all the normal-priority processes
+// free all processes
 void free_processes(map_t *map, node_t *procs[], unsigned int num);
 
-// free normal-priority processes that aren't the one specified.
+// free all processes that aren't the one specified.
 // procs should be a pointer to an *array* of nodes, not the head of a list. num
 // should be the number of nodes in the array.
 void free_other_processes(map_t *map, process_t *this_proc, node_t *procs[], unsigned int num);

@@ -26,7 +26,7 @@ typedef struct player_s {
 } player_t;
 
 typedef struct game_s {
-	fov_settings_type *fov_light;
+	fov_settings_type *fov_light, *fov_sight;
 
 	player_t *player;
 

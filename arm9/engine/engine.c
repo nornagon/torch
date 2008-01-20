@@ -377,7 +377,7 @@ void run(map_t *map) {
 		}
 
 		// run important processes first
-		run_processes(map, &map->high_processes);
+		map->handler(map);
 		// then everything else
 		run_processes(map, &map->processes);
 
