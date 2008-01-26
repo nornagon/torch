@@ -6,8 +6,10 @@
 #include "map.h"
 
 enum CELL_TYPE {
-	T_TREE = 0,
+	T_NONE,
+	T_TREE,
 	T_GROUND,
+	T_GLASS,
 };
 
 typedef struct player_s {

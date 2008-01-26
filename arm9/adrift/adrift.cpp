@@ -29,8 +29,8 @@ void process_sight(Map *map) {
 }
 
 bool solid(Map *map, cell_t *cell) {
-	if (cell->type == T_TREE) return true;
-	return false;
+	if (cell->type == T_GROUND) return false; // TODO: hack, make this a flag
+	return true;
 }
 
 void move_player(Map *map, DIRECTION dir) {
