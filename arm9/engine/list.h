@@ -27,60 +27,90 @@
 // flush_free will walk the free list and free() each node (and its data with
 // it.)
 
-struct node_s;
-typedef struct node_s node_t;
+template <class T> struct Node;
+template <class T> struct List;
 
-struct node_s {
-	node_t *next;
+template <class T>
+struct Pool {
+	Pool<T>(): free_nodes() {}
+
+	List<T> free_nodes;
+
+	void alloc_space(unsigned int n);
+	void flush_free();
+	Node<T> *request_node();
 };
 
-typedef struct {
-	unsigned int size; // size of the kind of structure we manage
-	node_t *free; // head of the free list
-} llpool_t;
+template <class T>
+struct Node {
+	Node<T> *next;
+	T data;
+	static Pool<T> pool;
+	void free() {
+		pool.free_nodes.push(this);
+	}
+	operator T* () { return &data; }
+};
+template <class T> Pool<T> Node<T>::pool = Pool<T>();
 
-// create a new llpool of objects of the given size (in bytes)
-llpool_t *new_llpool(unsigned int size);
+template <class T>
+struct List {
+	List(): head(NULL) {}
 
-// given a node, returns a pointer to the data at that node.
-static inline void* node_data(node_t *node) {
-	return (void*)(node + 1);
+	Node<T> *head;
+
+	void remove(Node<T> *node) {
+		if (head == NULL) return;
+		if (node == head) { head = head->next; return; }
+		Node<T>* prev = head;
+		Node<T>* k = prev->next;
+		while (k && k != node) {
+			prev = k;
+			k = k->next;
+		}
+		if (k) // didn't hit the end
+			prev->next = k->next;
+	}
+	void push(Node<T> *node) {
+		node->next = head;
+		head = node;
+	}
+	Node<T> *pop() {
+		if (head == NULL) return NULL;
+		Node<T> *ret = head;
+		head = head->next;
+		return ret;
+	}
+
+	unsigned int length() {
+		unsigned int len = 0;
+		for (Node<T>* k = head; k; k = k->next)
+			len++;
+		return len;
+	}
+};
+
+template <class T> void Pool<T>::alloc_space(unsigned int n) {
+	for (; n > 0; n--) {
+		Node<T> *node = new Node<T>;
+		free_nodes.push(node);
+	}
 }
 
-// add the node to the free list (doesn't actually free())
-static inline void free_node(llpool_t *pool, node_t *node) {
-	node->next = pool->free;
-	pool->free = node;
+template <class T> void Pool<T>::flush_free() {
+	while (free_nodes.head) {
+		Node<T> *next = free_nodes.head->next;
+		delete free_nodes.head;
+		free_nodes.head = next;
+	}
 }
-
-// allocate space for n objects and add them to the free list
-void alloc_space(llpool_t *pool, unsigned int n); 
-
-// frees all the nodes in the free list
-void flush_free(llpool_t *pool);
 
 // request a node from the pool. will alloc more space if there is none.
-static inline node_t *request_node(llpool_t *pool) {
-	if (!pool->free)
-		alloc_space(pool, 32);
-	node_t *ret = pool->free;
-	pool->free = pool->free->next;
-	return ret;
+template <class T>
+Node<T>* Pool<T>::request_node() {
+	if (!free_nodes.head)
+		alloc_space(32); // TODO: allow customisation
+	return free_nodes.pop();
 }
-
-// walks the list and updates pointers in order to remove the node from the
-// list. This does *not* add the node to the free pool, you must do that
-// yourself if you want it.
-// returns the new head of the list (in the case that the object removed was the
-// first one, the head will be different.)
-node_t *remove_node(node_t *list, node_t *node);
-
-// push a node onto the front of a list.
-static inline void push_node(node_t **head, node_t *node) {
-	node->next = *head;
-	*head = node;
-}
-
-unsigned int listlen(node_t *head);
 
 #endif /* LLPOOL_H */

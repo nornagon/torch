@@ -1,11 +1,11 @@
 #ifndef PROCESS_H
 #define PROCESS_H 1
 
-struct map_s;
+struct Map;
 struct process_s;
 typedef struct process_s process_t;
 
-typedef void (*process_func)(process_t *process, struct map_s *map);
+typedef void (*process_func)(process_t *process, struct Map *map);
 
 struct process_s {
 	process_func process, end;

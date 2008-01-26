@@ -10,18 +10,9 @@ enum CELL_TYPE {
 	T_GROUND,
 };
 
-static const cell_t DEFAULT_TREE = {
-	T_TREE, RGB15(4,31,1), '*',
-	.opaque = true, .forgettable = false
-};
-static const cell_t DEFAULT_GROUND = {
-	T_GROUND, RGB15(17,9,6), '.',
-	.opaque = false, .forgettable = true
-};
-
 typedef struct player_s {
-	node_t *bag;
-	node_t *obj;
+	List<Object> bag;
+	Node<Object> *obj;
 	light_t *light;
 } player_t;
 
@@ -33,7 +24,7 @@ typedef struct game_s {
 	unsigned int frm;
 } game_t;
 
-static inline game_t *game(map_t *map) {
+static inline game_t *game(Map *map) {
 	return (game_t*)map->game;
 }
 

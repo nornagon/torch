@@ -4,7 +4,7 @@
 #include "generic.h"
 
 bool sight_opaque(void *map_, int x, int y) {
-	map_t *map = (map_t*)map_;
+	Map *map = (Map*)map_;
 	// stop at the edge of the screen
 	if (y < map->scrollY || y >= map->scrollY + 24
 	    || x < map->scrollX || x >= map->scrollX + 32)
@@ -13,7 +13,7 @@ bool sight_opaque(void *map_, int x, int y) {
 }
 
 void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
-	map_t *map = (map_t*)map_;
+	Map *map = (Map*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
 	light_t *l = (light_t*)src_;
 

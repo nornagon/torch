@@ -1,21 +1,21 @@
 #ifndef OBJECT_H
 #define OBJECT_H 1
 
-struct map_s;
-struct objecttype_s;
+struct Map;
+struct ObjType;
 
 // object_t is for things that need to be drawn on the map, e.g. NPCs, dynamic
 // bits of landscape, items
-typedef struct {
+struct Object {
 	s32 x,y;
-	struct objecttype_s* type; // index into array of objecttype_ts
+	struct ObjType* type;
 	void* data;
 	u8 quantity;
-} object_t;
+};
 
 // objecttype_ts are kept in an array, and define various properties of
 // particular objects.
-typedef struct objecttype_s {
+struct ObjType {
 	u8 ch;
 	u16 col;
 
@@ -27,12 +27,12 @@ typedef struct objecttype_s {
 	// if non-NULL, this will be called prior to drawing the object. It should
 	// return both a colour and a character, with the character in the high bytes.
 	// i.e: return (ch << 16) | col;
-	u32 (*display)(object_t *obj, struct map_s *map);
+	u32 (*display)(Object *obj, struct Map *map);
 
 	// called when an object of this type is about to be destroyed.
-	void (*end)(object_t *obj, struct map_s *map);
+	void (*end)(Object *obj, struct Map *map);
 
 	void *data;
-} objecttype_t;
+};
 
 #endif /* OBJECT_H */

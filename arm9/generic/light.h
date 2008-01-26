@@ -1,6 +1,10 @@
 #ifndef LIGHT_H
 #define LIGHT_H 1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <nds.h>
 
 // light_t holds information about a specific light source, as well as
@@ -18,5 +22,9 @@ void set_light(light_t *light, int32 radius, int32 r, int32 g, int32 b);
 // allocate some space for a new light structure. You will be responsible for
 // freeing the light.
 light_t *new_light(int32 radius, int32 r, int32 g, int32 b);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LIGHT_H */

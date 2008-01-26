@@ -6,7 +6,7 @@
 
 DIRECTION just_scrolled = 0;
 int dirty;
-u32 low_luminance = 0; // for luminance window stuff
+s32 low_luminance = 0; // for luminance window stuff
 
 vu32 vblnks = 0;
 void vblank_counter() {
@@ -52,11 +52,11 @@ void torch_init() {
 	dirty = 2;
 }
 
-void run_processes(map_t *map, node_t **processes) {
-	node_t *node = *processes;
-	node_t *prev = NULL;
+void run_processes(Map *map, List<process_t> processes) {
+	Node<process_t> *node = processes.head;
+	Node<process_t> *prev = NULL;
 	while (node) {
-		process_t *proc = node_data(node);
+		process_t *proc = *node;
 		if (proc->process) {
 			if (proc->counter == 0)
 				proc->process(proc, map);
@@ -70,17 +70,17 @@ void run_processes(map_t *map, node_t **processes) {
 			if (prev) // heal the list
 				prev->next = node->next;
 			else // there's a new head
-				*processes = node->next;
+				processes.head = node->next;
 			// add the dead process to the free pool
-			node_t *k = node->next;
-			free_node(map->process_pool, node);
+			Node<process_t> *k = node->next;
+			node->free();
 			node = k;
 		}
 	}
 }
 
 // we copy data *away* from dir
-void move_port(map_t *map, DIRECTION dir) {
+void move_port(Map *map, DIRECTION dir) {
 	u32 i;
 	// TODO: generalise?
 	if (dir & D_NORTH) {
@@ -144,7 +144,7 @@ void move_port(map_t *map, DIRECTION dir) {
 	}
 }
 
-void scroll_screen(map_t *map, int dsX, int dsY) {
+void scroll_screen(Map *map, int dsX, int dsY) {
 	map->cacheX += dsX;
 	map->cacheY += dsY;
 	// wrap the cache origin
@@ -170,7 +170,7 @@ void reset_luminance() {
 	low_luminance = 0;
 }
 
-void draw(map_t *map) {
+void draw(Map *map) {
 	int x, y;
 
 	u32 twiddling = 0;
@@ -179,7 +179,7 @@ void draw(map_t *map) {
 	// adjust is a war between values above the top of the luminance window and
 	// values below the bottom
 	s32 adjust = 0;
-	u32 max_luminance = 0;
+	s32 max_luminance = 0;
 	//iprintf("vbs:%02d\n", vblnks);
 
 	cell_t *cell = cell_at(map, map->scrollX, map->scrollY);
@@ -205,12 +205,12 @@ void draw(map_t *map) {
 
 				// if there are objects in the cell, we want to draw them instead of
 				// the terrain.
-				if (cell->objects) {
+				if (cell->objects.head) {
 					// we'll only draw the head of the list. since the object list is
 					// maintained as sorted, this will be the most recently added most
 					// important object in the cell.
-					object_t *obj = node_data(cell->objects);
-					objecttype_t *objtype = obj->type;
+					Object *obj = *(cell->objects.head);
+					ObjType *objtype = obj->type;
 
 					// if the object has a custom display function, we'll ask that.
 					if (objtype->display) {
@@ -364,7 +364,7 @@ void draw(map_t *map) {
 	}
 }
 
-void run(map_t *map) {
+void run(Map *map) {
 	while (1) {
 		// TODO: is DMA actually asynchronous?
 		bool copying = false;
@@ -379,7 +379,7 @@ void run(map_t *map) {
 		// run important processes first
 		map->handler(map);
 		// then everything else
-		run_processes(map, &map->processes);
+		run_processes(map, map->processes);
 
 		// wait for DMA to finish
 		if (copying)

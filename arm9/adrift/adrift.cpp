@@ -14,7 +14,7 @@
 
 #include "assert.h"
 
-void process_sight(map_t *map) {
+void process_sight(Map *map) {
 	game(map)->player->light->x = map->pX << 12;
 	game(map)->player->light->y = map->pY << 12;
 	fov_circle(game(map)->fov_sight, map, game(map)->player->light, map->pX, map->pY, 32);
@@ -28,12 +28,12 @@ void process_sight(map_t *map) {
 	cell->recall = 1<<12;
 }
 
-bool solid(map_t *map, cell_t *cell) {
+bool solid(Map *map, cell_t *cell) {
 	if (cell->type == T_TREE) return true;
 	return false;
 }
 
-void move_player(map_t *map, DIRECTION dir) {
+void move_player(Map *map, DIRECTION dir) {
 	s32 pX = map->pX, pY = map->pY;
 
 	int dpX = D_DX[dir],
@@ -101,7 +101,7 @@ void move_player(map_t *map, DIRECTION dir) {
 	}
 }
 
-void process_keys(map_t *map) {
+void process_keys(Map *map) {
 	if (game(map)->frm == 0) {
 		scanKeys();
 		u32 keys = keysHeld();
@@ -124,39 +124,38 @@ void process_keys(map_t *map) {
 		game(map)->frm--;
 }
 
-objecttype_t ot_player = {
-	.ch = '@',
-	.col = RGB15(31,31,31),
-	.importance = 255,
-	.display = NULL,
-	.data = NULL,
-	.end = NULL
+ObjType ot_player = {
+	'@',
+	RGB15(31,31,31),
+	255,
+	NULL,
+	NULL,
+	NULL
 };
-objecttype_t *OT_PLAYER = &ot_player;
+ObjType *OT_PLAYER = &ot_player;
 
-node_t *new_obj_player(map_t *map) {
-	node_t *node = new_object(map, OT_PLAYER, NULL);
+Node<Object> *new_obj_player(Map *map) {
+	Node<Object> *node = new_object(map, OT_PLAYER, NULL);
 	insert_object(map, node, map->pX, map->pY);
 	return node;
 }
-void new_player(map_t *map) {
-	player_t *player = malloc(sizeof(player_t));
+void new_player(Map *map) {
+	player_t *player = new player_t;
 	memset(player, 0, sizeof(player_t));
 
 	player->obj = new_obj_player(map);
-	player->bag = NULL;
-	player->light = new_light(7<<12, 1.00*(1<<12), 0.90*(1<<12), 0.85*(1<<12));
+	player->light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 
 	game(map)->player = player;
 }
 
-void handler(map_t *map) {
+void handler(Map *map) {
 	process_keys(map);
 	process_sight(map);
 }
 
 void new_game() {
-	map_t *map = create_map(128,128);
+	Map *map = new Map(128,128);
 	map->game = malloc(sizeof(game_t));
 	memset(map->game, 0, sizeof(game_t));
 
@@ -169,7 +168,7 @@ void new_game() {
 				IPC->time.rtc.weekday*7*24*60*60));
 
 	generate_terrarium(map);
-	reset_cache(map);
+	map->reset_cache();
 
 	new_player(map);
 

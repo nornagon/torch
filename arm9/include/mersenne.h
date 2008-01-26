@@ -1,5 +1,8 @@
 #ifndef MT19937AR_H
 #define MT19937AR_H 1
+#ifdef __cplusplus
+extern "C" {
+#endif
 /* 
    A C-program for MT19937, with initialization improved 2002/1/26.
    Coded by Takuji Nishimura and Makoto Matsumoto.
@@ -95,5 +98,9 @@ static inline unsigned long rand0(unsigned long n) {
 static inline bool randMinN(unsigned long m, unsigned long n) {
 	return (genrand_int32() < m*(0xffffffff/n));
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* MT19937AR_H */

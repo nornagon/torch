@@ -4,96 +4,89 @@
 #include "process.h"
 #include "mersenne.h"
 
-void reset_cache(map_t *map) {
+Map::Map(s32 w_, s32 h_) {
+	w = w_; h = h_;
+
+	handler = NULL;
+	game = NULL;
+
+	cells = new cell_t[w*h];
+	memset(cells, 0, w*h*sizeof(cell_t));
+	cache = new cache_t[32*24]; // screen sized
+	memset(cache, 0, 32*24*sizeof(cache_t));
+
+	pX = pY = 0;
+	scrollX = scrollY = 0;
+
+	reset();
+	reset_cache();
+}
+
+void Map::reset_cache() {
 	u32 x, y;
 	for (y = 0; y < 24; y++)
 		for (x = 0; x < 32; x++) {
-			cache_t* cache = &map->cache[y*32+x];
-			cache->lr = cache->lg = cache->lb = 0;
-			cache->last_lr = cache->last_lg = cache->last_lb = 0;
-			cache->last_light = 0;
-			cache->last_col = 0;
-			cache->last_col_final = 0;
-			cache->dirty = 0;
-			cache->was_visible = 0;
+			cache_t* c = &cache[y*32+x];
+			c->lr = c->lg = c->lb = 0;
+			c->last_lr = c->last_lg = c->last_lb = 0;
+			c->last_light = 0;
+			c->last_col = 0;
+			c->last_col_final = 0;
+			c->dirty = 0;
+			c->was_visible = 0;
 		}
 	// note that the cache is origin-agnostic, so the top-left corner of cache
 	// when scrollX = 0 does not have to correspond with cacheX = 0. The caching
 	// mechanisms will deal just fine whereever the origin is. Really, we don't
 	// need to set cacheX or cacheY here, but we do (just in case something weird
 	// happened to them)
-	map->cacheX = map->cacheY = 0;
+	cacheX = cacheY = 0;
 }
 
-void free_process_list(map_t *map, node_t **list) {
-	while (*list) {
-		node_t *next = (*list)->next;
-		process_t *p = (process_t*)node_data(*list);
+void free_process_list(Map *map, List<process_t> &list) {
+	while (list.head) {
+		Node<process_t> *node = list.pop();
+		process_t *p = *node;
 		if (p->end)
 			p->end(p, map);
-		free_node(map->process_pool, *list);
-		*list = next;
+		node->free();
 	}
 }
 
-void reset_map(map_t* map) {
-	u32 x, y, w = map->w, h = map->h;
+void Map::reset() {
+	s32 x, y;
 	for (y = 0; y < h; y++)
 		for (x = 0; x < w; x++) {
-			cell_t* cell = cell_at(map, x, y);
-			node_t* objects = cell->objects;
-			memset(cell, 0, sizeof(cell_t));
+			cell_t* cell = at(x, y);
 
 			// clear the object list
-			while (objects) {
-				node_t *next = objects->next;
-				object_t *obj = (object_t*)node_data(objects);
-				objecttype_t *type = obj->type;
+			while (cell->objects.head) {
+				Node<Object> *node = cell->objects.pop();
+				Object *obj = *node;
+				ObjType *type = obj->type;
 				if (type->end)
-					type->end(obj, map);
-				free_node(map->object_pool, objects);
-				objects = next;
+					type->end(obj, this);
+				node->free();
 			}
+			memset(cell, 0, sizeof(cell_t));
 		}
 	// free all the objects
-	flush_free(map->object_pool);
+	Node<Object>::pool.flush_free();
 
 	// clear and free the process lists
-	free_process_list(map, &map->processes);
-	flush_free(map->process_pool);
+	free_process_list(this, processes);
+	Node<process_t>::pool.flush_free();
 }
 
-map_t *create_map(u32 w, u32 h) {
-	map_t *ret = malloc(sizeof(map_t));
-	memset(ret, 0, sizeof(map_t));
-	ret->w = w; ret->h = h;
-	ret->cells = malloc(w*h*sizeof(cell_t));
-	memset(ret->cells, 0, w*h*sizeof(cell_t));
-	ret->cache = malloc(32*24*sizeof(cache_t)); // screen sized
-	memset(ret->cache, 0, 32*24*sizeof(cache_t));
-
-	ret->processes = NULL;
-	ret->process_pool = new_llpool(sizeof(process_t));
-
-	ret->object_pool = new_llpool(sizeof(object_t));
-
-	ret->pX = ret->pY = 0;
-
-	reset_map(ret);
-	reset_cache(ret);
-
-	return ret;
-}
-
-void resize_map(map_t *map, u32 w, u32 h) {
-	reset_map(map);
-	reset_cache(map);
+void resize_map(Map *map, u32 w, u32 h) {
+	map->reset();
+	map->reset_cache();
 	free(map->cells);
-	map->cells = malloc(w*h*sizeof(cell_t));
+	map->cells = new cell_t[w*h];
 	// NOTE: we don't reset cells to 0 here.
 }
 
-void refresh_blockmap(map_t *map) {
+void refresh_blockmap(Map *map) {
 	// each cell needs to know which cells around them are opaque for purposes of
 	// direction-aware lighting.
 
@@ -109,37 +102,37 @@ void refresh_blockmap(map_t *map) {
 		}
 }
 
-node_t *push_process(map_t *map, process_func process, process_func end, void* data) {
-	node_t *node = request_node(map->process_pool);
-	process_t *proc = node_data(node);
+Node<process_t> *push_process(Map *map, process_func process, process_func end, void* data) {
+	Node<process_t> *node = Node<process_t>::pool.request_node();
+	process_t *proc = *node;
 	proc->process = process;
 	proc->end = end;
 	proc->data = data;
 	proc->counter = 0;
-	push_node(&map->processes, node);
+	map->processes.push(node);
 	return node;
 }
 
-node_t *new_object(map_t *map, objecttype_t *type, void* data) {
-  node_t *node = request_node(map->object_pool);
-  object_t *obj = node_data(node);
+Node<Object> *new_object(Map *map, ObjType *type, void* data) {
+  Node<Object> *node = Node<Object>::pool.request_node();
+  Object *obj = *node;
   obj->type = type;
   obj->data = data;
   obj->quantity = 1;
   return node;
 }
 
-void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
+void insert_object(Map *map, Node<Object> *obj_node, s32 x, s32 y) {
 	cell_t *target = cell_at(map, x, y);
-	object_t *obj = node_data(obj_node);
-	objecttype_t *objtype = obj->type;
+	Object *obj = *obj_node;
+	ObjType *objtype = obj->type;
 	obj->x = x;
 	obj->y = y;
-	node_t *prev = NULL;
-	node_t *head = target->objects;
+	Node<Object> *prev = NULL;
+	Node<Object> *head = target->objects.head;
 	// walk through the list
 	while (head) {
-		object_t *k = node_data(head);
+		Object *k = *head;
 		// if this object k is of less importance than the object we're inserting,
 		// we want to insert obj before k.
 		// We use <= rather than < to reduce insert time in the case where there are
@@ -155,48 +148,48 @@ void insert_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
 	if (prev)
 		prev->next = obj_node;
 	else
-		target->objects = obj_node;
+		target->objects.head = obj_node;
 }
 
-void move_object(map_t *map, node_t *obj_node, s32 x, s32 y) {
-	object_t *obj = node_data(obj_node);
+void move_object(Map *map, Node<Object> *obj_node, s32 x, s32 y) {
+	Object *obj = *obj_node;
 	cell_t *loc = cell_at(map, obj->x, obj->y);
-	loc->objects = remove_node(loc->objects, obj_node);
+	loc->objects.remove(obj_node);
 	insert_object(map, obj_node, x, y);
 }
 
-void free_other_processes(map_t *map, process_t *this_proc, node_t *procs[], unsigned int num) {
+void free_other_processes(Map *map, process_t *this_proc, Node<process_t> *procs[], unsigned int num) {
 	for (; num > 0; procs++, num--) {
-		if (node_data(*procs) != this_proc)
+		if (**procs != this_proc)
 			free_process(map, *procs);
 	}
 }
 
-void free_processes(map_t *map, node_t *procs[], unsigned int num) {
+void free_processes(Map *map, Node<process_t> *procs[], unsigned int num) {
 	for (; num > 0; procs++, num--)
 		free_process(map, *procs);
 }
 
-void free_object(map_t *map, node_t *obj_node) {
-	object_t *obj = node_data(obj_node);
+void free_object(Map *map, Node<Object> *obj_node) {
+	Object *obj = *obj_node;
 	cell_t *cell = cell_at(map, obj->x, obj->y);
-	cell->objects = remove_node(cell->objects, obj_node);
-	free_node(map->object_pool, obj_node);
+	cell->objects.remove(obj_node);
+	obj_node->free();
 }
 
 // free num objects, beginning at objs. that's an *array* of node pointers, not
 // the head of a list.
-void free_objects(map_t *map, node_t *objs[], unsigned int num) {
+void free_objects(Map *map, Node<Object> *objs[], unsigned int num) {
 	for (; num > 0; objs++, num--)
-		free_object(map, *objs);
+		(*objs)->free();
 }
 
 // move an object by (dX,dY). Will pay attention to opaque cells, map edges,
 // etc.
-void displace_object(node_t *obj_node, map_t *map, int dX, int dY) {
+void displace_object(Node<Object> *obj_node, Map *map, int dX, int dY) {
 	if (!dX && !dY) return; // nothing to see here
 
-	object_t *obj = node_data(obj_node);
+	Object *obj = *obj_node;
 
 	// keep it in the map!
 	if (obj->x + dX < 0 || obj->x + dX >= map->w ||
@@ -212,9 +205,9 @@ void displace_object(node_t *obj_node, map_t *map, int dX, int dY) {
 
 // does the cell have any objects of the given object type in it?
 // XXX: could be optimised by looking at importance and finishing early
-node_t *has_objtype(cell_t *cell, objecttype_t *objtype) {
-	node_t *k = cell->objects;
+Node<Object> *has_objtype(cell_t *cell, ObjType *objtype) {
+	Node<Object> *k = cell->objects.head;
 	for (; k; k = k->next)
-		if (((object_t*)node_data(k))->type == objtype) return k;
+		if (((Object*)*k)->type == objtype) return k;
 	return NULL;
 }

@@ -3,6 +3,10 @@
 
 #include <nds.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // pointer to vram that is not being drawn currently
 extern u16* backbuf;
 
@@ -19,6 +23,10 @@ void clss();
 void drawch(u16 *mem, u32 x, u32 y, u32 c, u32 color);
 
 void drawcq(u32 x, u32 y, u32 c, u32 color);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* DRAW_H */
 

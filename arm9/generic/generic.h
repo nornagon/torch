@@ -6,6 +6,10 @@
 #include "map.h"
 #include "light.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 fov_settings_type *build_fov_settings(
     bool (*opaque)(void *map, int x, int y),
     void (*apply)(void *map, int x, int y, int dx, int dy, void *src),
@@ -14,7 +18,7 @@ fov_settings_type *build_fov_settings(
 // TODO: make draw_light take the parameters of the light (colour, radius,
 // position) and build up the lighting struct to pass to fov_circle on its
 // ownsome?
-void draw_light(map_t *map, fov_settings_type *settings, light_t *l);
+void draw_light(Map *map, fov_settings_type *settings, light_t *l);
 
 // standard light-casting opacity test for libfov. Checks map edges, cell
 // opacity and player occupation (via map->pX/pY).
@@ -31,7 +35,7 @@ void apply_light(void *map, int x, int y, int dxblah, int dyblah, void *src);
 // #      <--+--- we only want to light the right face of these cells, not the
 // #     <---+    right *and* the top
 // #    <----+
-static inline DIRECTION seen_from(map_t *map, DIRECTION d, cell_t *cell) {
+static inline DIRECTION seen_from(Map *map, DIRECTION d, cell_t *cell) {
 	bool opa, opb;
 	switch (d) {
 		case D_NORTHWEST:
@@ -73,5 +77,9 @@ static inline DIRECTION seen_from(map_t *map, DIRECTION d, cell_t *cell) {
 	}
 	return d;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GENERIC_H */

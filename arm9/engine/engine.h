@@ -8,12 +8,12 @@
 void torch_init();
 
 // run some processes, freeing NULL ones if necessary
-void run_processes(map_t *map, node_t **processes);
+void run_processes(Map *map, List<process_t> processes);
 
 // scroll the screen one tile in the direction dir. This function moves the
 // "viewport" in the direction specified, via DMA. This function acts on
 // whatever is the current backbuffer.
-void scroll_screen(map_t *map, int dsX, int dsY);
+void scroll_screen(Map *map, int dsX, int dsY);
 
 // mark the entire screen for redrawing. Slow!
 void dirty_screen();
@@ -22,9 +22,9 @@ void dirty_screen();
 void reset_luminance();
 
 // draw the map
-void draw(map_t *map);
+void draw(Map *map);
 
 // run the game
-void run(map_t *map);
+void run(Map *map);
 
 #endif /* ENGINE_H */

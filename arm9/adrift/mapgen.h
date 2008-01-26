@@ -3,6 +3,6 @@
 
 #include "map.h"
 
-void generate_terrarium(map_t *map);
+void generate_terrarium(Map *map);
 
 #endif /* MAPGEN_H */

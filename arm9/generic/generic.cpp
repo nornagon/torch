@@ -1,11 +1,15 @@
 #include "generic.h"
 #include "util.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 fov_settings_type *build_fov_settings(
     bool (*opaque)(void *map, int x, int y),
     void (*apply)(void *map, int x, int y, int dx, int dy, void *src),
     fov_shape_type shape) {
-  fov_settings_type *settings = malloc(sizeof(fov_settings_type));
+  fov_settings_type *settings = new fov_settings_type;
   fov_settings_init(settings);
   fov_settings_set_shape(settings, shape);
   fov_settings_set_opacity_test_function(settings, opaque);
@@ -13,7 +17,7 @@ fov_settings_type *build_fov_settings(
   return settings;
 }
 
-void draw_light(map_t *map, fov_settings_type *settings, light_t *l) {
+void draw_light(Map *map, fov_settings_type *settings, light_t *l) {
 	// don't bother calculating if the light's completely outside the screen.
 	if (((l->x + l->radius) >> 12) < map->scrollX ||
 	    ((l->x - l->radius) >> 12) > map->scrollX + 32 ||
@@ -38,13 +42,13 @@ void draw_light(map_t *map, fov_settings_type *settings, light_t *l) {
 }
 
 bool opacity_test(void *map_, int x, int y) {
-	map_t *map = (map_t*)map_;
+	Map *map = (Map*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
 	return cell_at(map, x, y)->opaque || (map->pX == x && map->pY == y);
 }
 
 void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
-	map_t *map = (map_t*)map_;
+	Map *map = (Map*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
 
 	cell_t *cell = cell_at(map, x, y);
@@ -86,3 +90,6 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		cache->lb += (l->b * intensity) >> 12;
 	}
 }
+#ifdef __cplusplus
+}
+#endif
