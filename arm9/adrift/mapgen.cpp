@@ -12,7 +12,7 @@ void hline(Map *map, s32 x0, s32 x1, s32 y, void (*func)(cell_t*)) {
 		func(cell_at(map, x0, y));
 }
 
-void circleColor(Map *map, s32 x, s32 y, s32 r, void (*func)(cell_t*)) {
+void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(cell_t*)) {
 	s32 left, right, top, bottom;
 	s32 x1, y1, x2, y2;
 	s32 cx = 0;
@@ -265,7 +265,7 @@ void generate_terrarium(Map *map) {
 			null(map->at(x,y));
 
 	filledCircle(map, cx, cy, 60, ground);
-	circleColor(map, cx, cy, 60, glass);
+	hollowCircle(map, cx, cy, 60, glass);
 
 	map->pX = map->w/2 - 50;
 	map->pY = map->h/2;
