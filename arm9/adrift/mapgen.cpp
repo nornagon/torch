@@ -5,6 +5,10 @@
 #include "generic.h"
 #include <malloc.h>
 
+#include <stdio.h>
+
+#define abs(x) ((x) < 0 ? -(x) : (x))
+
 void hline(Map *map, s32 x0, s32 x1, s32 y, void (*func)(cell_t*)) {
 	bounded(map, &x1, &y);
 	if (x0 > x1) hline(map, x1, x0, y, func);
@@ -210,6 +214,32 @@ void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(cell_t*))
 	} while (cx <= cy);
 }
 
+void bresenham(Map *map, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(cell_t*)) {
+	bool steep = abs(y1 - y0) > abs(x1 - x0);
+	if (steep) {
+		s32 tmp = x0; x0 = y0; y0 = tmp;
+		tmp = x1; x1 = y1; y1 = tmp;
+	}
+	if (x0 > x1) {
+		s32 tmp = x0; x0 = x1; x1 = tmp;
+		tmp = y0; y0 = y1; y1 = tmp;
+	}
+	s32 deltax = x1 - x0;
+	s32 deltay = abs(y1-y0);
+	s32 error = -(deltax + 1) / 2;
+	s32 ystep = y0 < y1 ? 1 : -1;
+	s32 y = y0;
+	for (int x = x0; x < x1; x++) {
+		if (steep) func(map->at(y, x));
+		else func(map->at(x, y));
+		error += deltay;
+		if (error >= 0) {
+			y += ystep;
+			error -= deltax;
+		}
+	}
+}
+
 void tree(cell_t *cell) {
 	cell->type = T_TREE;
 	cell->ch = '*';
@@ -252,22 +282,39 @@ void randwalk(s32 &x, s32 &y) {
 	}
 }
 
+void haunted_grove(Map *map, s32 cx, s32 cy) {
+	for (unsigned int t = 0; t < 0x1ff; t += 4) {
+		u32 a = genrand_int32();
+		int r = 5 + (a & 3);
+		int x = COS[t], y = SIN[t];
+		if (t % 16 != 0)
+			bresenham(map, cx + ((x*r) >> 12), cy + ((y*r) >> 12), cx + ((x*(r+2)) >> 12), cy + ((y*(r+2)) >> 12), tree);
+	}
+	for (unsigned int t = 0; t < 0x1ff; t += 2) {
+		u32 a = genrand_int32();
+		int r = 15 + (a & 3); a >>= 2;
+		int x = COS[t], y = SIN[t];
+		if (t % 16 > (a & 3))
+			bresenham(map, cx + ((x*r) >> 12), cy + ((y*r) >> 12), cx + ((x*(r+4)) >> 12), cy + ((y*(r+4)) >> 12), tree);
+	}
+}
+
 void generate_terrarium(Map *map) {
 	s32 cx = map->w/2, cy = map->h/2;
 
 	map->reset();
 	map->reset_cache();
 
-	s32 x, y;
-
-	for (y = 0; y < map->h; y++)
-		for (x = 0; x < map->w; x++)
+	for (int y = 0; y < map->h; y++)
+		for (int x = 0; x < map->w; x++)
 			null(map->at(x,y));
 
 	filledCircle(map, cx, cy, 60, ground);
 	hollowCircle(map, cx, cy, 60, glass);
 
-	map->pX = map->w/2 - 50;
+	haunted_grove(map, cx, cy);
+
+	map->pX = map->w/2;
 	map->pY = map->h/2;
 
 	refresh_blockmap(map);
