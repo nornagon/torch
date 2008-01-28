@@ -162,6 +162,39 @@ unsigned long ITCM_CODE genrand_int32()
     return y;
 }
 
+static long bits = 0;
+static char nbits = 0;
+
+unsigned long ITCM_CODE genrand_int16() {
+	if (nbits < 16)
+		bits = genrand_int32();
+
+	long ret = (bits & 0xffff);
+	bits >>= 16;
+	nbits -= 16;
+	return ret;
+}
+
+unsigned long ITCM_CODE genrand_int8() {
+	if (nbits < 8)
+		bits = genrand_int32();
+
+	long ret = (bits & 0xff);
+	bits >>= 8;
+	nbits -= 8;
+	return ret;
+}
+
+unsigned long ITCM_CODE genrand_int4() {
+	if (nbits < 4)
+		bits = genrand_int32();
+
+	long ret = (bits & 0xf);
+	bits >>= 4;
+	nbits -= 4;
+	return ret;
+}
+
 #if 0
 /* generates a random number on [0,0x7fffffff]-interval */
 long genrand_int31(void)

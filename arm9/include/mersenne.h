@@ -66,6 +66,15 @@ void ITCM_CODE init_genrand(unsigned long s);
 /* generates a random number on [0,0xffffffff]-interval */
 void ITCM_CODE genrand_regen();
 unsigned long ITCM_CODE genrand_int32(void);
+unsigned long ITCM_CODE genrand_int16(void);
+unsigned long ITCM_CODE genrand_int8(void);
+unsigned long ITCM_CODE genrand_int4(void);
+unsigned long ITCM_CODE genrand_int2(void);
+
+#define rand32() genrand_int32()
+#define rand16() genrand_int16()
+#define rand8() genrand_int8()
+#define rand4() genrand_int4()
 
 /* generates a random number on [0,0x7fffffff]-interval */
 //long genrand_int31(void);
