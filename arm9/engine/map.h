@@ -16,9 +16,6 @@ struct Cell {
 	u16 col;
 	u8 ch;
 
-	u8 recalled_ch;
-	u16 recalled_col;
-
 	// blocked_from is cache for working out which sides of an opaque cell we
 	// should light
 	unsigned int blocked_from : 4;
@@ -31,7 +28,7 @@ struct Cell {
 	// visible is true if the cell is on-screen *and* in the player's LOS
 	bool visible : 1;
 
-	int16 recall; // how much the player remembers this cell
+	int16 recall; // how much the player remembers this cell. TODO: could be 5 bits, i think.
 
 	// what things are here? A ball of string and some sealing wax.
 	List<Object> objects;

@@ -224,10 +224,7 @@ void draw(Map *map) {
 						ch = objtype->ch;
 						col = objtype->col;
 					}
-					cell->recalled_ch = ch;
-					cell->recalled_col = col;
-				} else
-					cell->recalled_ch = cell->recalled_col = 0;
+				}
 				int32 rval = cache->lr,
 							gval = cache->lg,
 							bval = cache->lb;
@@ -299,16 +296,11 @@ void draw(Map *map) {
 				cache->was_visible = true;
 			} else if (cache->dirty > 0 || dirty > 0 || cache->was_visible) {
 				// dirty or it was visible last frame and now isn't.
-				if (cell->recall > 0 && (!cell->forgettable || cell->recalled_ch)) {
+				if (cell->recall > 0 && !cell->forgettable) {
 					u16 col;
 					u8 ch;
-					if (cell->recalled_ch) {
-						col = cell->recalled_col;
-						ch = cell->recalled_ch;
-					} else {
-						col = cell->col;
-						ch = cell->ch;
-					}
+					col = cell->col;
+					ch = cell->ch;
 					u32 r = col & 0x001f,
 							g = (col & 0x03e0) >> 5,
 							b = (col & 0x7c00) >> 10;
