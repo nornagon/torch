@@ -1,6 +1,7 @@
 #ifndef CACHE_H
 #define CACHE_H 1
 
+#include "direction.h"
 #include <nds.h>
 
 // a cache_t corresponds to a tile currently being shown on the screen. It's
@@ -14,6 +15,9 @@ typedef struct {
 	u16 last_col; // the last colour we received in as the colour of the cell
 	u8 dirty : 2; // if a cell is marked dirty, it gets drawn. (and dirty gets decremented.)
 	bool was_visible : 1;
+
+	// which direction is the player seeing this cell from?
+	DIRECTION seen_from : 5;
 } cache_t;
 
 #endif /* CACHE_H */

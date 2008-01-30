@@ -9,7 +9,7 @@ bool sight_opaque(void *map_, int x, int y) {
 	if (y < map->scrollY || y >= map->scrollY + 24
 	    || x < map->scrollX || x >= map->scrollX + 32)
 		return true;
-	return cell_at(map, x, y)->opaque;
+	return map->at(x, y)->opaque;
 }
 
 void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
@@ -21,12 +21,13 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	s32 scrollX = map->scrollX, scrollY = map->scrollY;
 	if (x < scrollX || y < scrollY || x > scrollX + 31 || y > scrollY + 23) return;
 
-	cell_t *cell = cell_at(map, x, y);
+	Cell *cell = map->at(x, y);
+	cache_t *cache = cache_at(map, x, y);
 
 	DIRECTION d = D_NONE;
 	if (cell->opaque)
 		d = seen_from(map, direction(map->pX, map->pY, x, y), cell);
-	cell->seen_from = d;
+	cache->seen_from = d;
 
 	// the funny bit-twiddling here is to preserve a few more bits in dx/dy
 	// during multiplication. mulf32 is a software multiply, and thus slow.

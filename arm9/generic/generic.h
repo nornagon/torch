@@ -35,7 +35,7 @@ void apply_light(void *map, int x, int y, int dxblah, int dyblah, void *src);
 // #      <--+--- we only want to light the right face of these cells, not the
 // #     <---+    right *and* the top
 // #    <----+
-static inline DIRECTION seen_from(Map *map, DIRECTION d, cell_t *cell) {
+static inline DIRECTION seen_from(Map *map, DIRECTION d, Cell *cell) {
 	bool opa, opb;
 	switch (d) {
 		case D_NORTHWEST:

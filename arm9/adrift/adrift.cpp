@@ -18,7 +18,7 @@ void process_sight(Map *map) {
 	game(map)->player->light->x = map->pX << 12;
 	game(map)->player->light->y = map->pY << 12;
 	fov_circle(game(map)->fov_sight, map, game(map)->player->light, map->pX, map->pY, 32);
-	cell_t *cell = cell_at(map, map->pX, map->pY);
+	Cell *cell = map->at(map->pX, map->pY);
 	cell->light = (1<<12);
 	cell->visible = true;
 	cache_t *cache = cache_at(map, map->pX, map->pY);
@@ -28,7 +28,7 @@ void process_sight(Map *map) {
 	cell->recall = 1<<12;
 }
 
-bool solid(Map *map, cell_t *cell) {
+bool solid(Map *map, Cell *cell) {
 	if (cell->type == T_GROUND) return false; // TODO: hack, make this a flag
 	return true;
 }
@@ -42,15 +42,15 @@ void move_player(Map *map, DIRECTION dir) {
 	if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
 	if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
 
-	cell_t *cell = cell_at(map, pX + dpX, pY + dpY);
+	Cell *cell = map->at(pX + dpX, pY + dpY);
 
 	if (solid(map, cell)) {
 		if (dpX && dpY) {
 			// if we could just go left or right, do that. This results in 'sliding'
 			// along walls when moving diagonally
-			if (!solid(map, cell_at(map, pX + dpX, pY)))
+			if (!solid(map, map->at(pX + dpX, pY)))
 				dpY = 0;
-			else if (!solid(map, cell_at(map, pX, pY + dpY)))
+			else if (!solid(map, map->at(pX, pY + dpY)))
 				dpX = 0;
 			else
 				dpX = dpY = 0;
@@ -63,7 +63,7 @@ void move_player(Map *map, DIRECTION dir) {
 		if (dpX && dpY) game(map)->frm = 7;
 		else game(map)->frm = 5;
 
-		cell = cell_at(map, pX + dpX, pY + dpY);
+		cell = map->at(pX + dpX, pY + dpY);
 
 		// dirty the cell we just stepped away from
 		cache_at(map, pX, pY)->dirty = 2;
@@ -174,7 +174,7 @@ void new_game() {
 
 	map->scrollX = map->pX - 16;
 	map->scrollY = map->pY - 12;
-	bounded(map, &map->scrollX, &map->scrollY);
+	map->bounded(map->scrollX, map->scrollY);
 
 	map->handler = handler;
 

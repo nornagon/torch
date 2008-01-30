@@ -11,8 +11,7 @@
 
 #include "direction.h"
 
-// cell_t
-typedef struct {
+struct Cell {
 	u16 type;
 	u16 col;
 	u8 ch;
@@ -20,27 +19,24 @@ typedef struct {
 	u8 recalled_ch;
 	u16 recalled_col;
 
+	// blocked_from is cache for working out which sides of an opaque cell we
+	// should light
+	unsigned int blocked_from : 4;
+
 	// can light pass through the cell?
 	bool opaque : 1;
 
 	bool forgettable : 1;
 
-	// blocked_from is cache for working out which sides of an opaque cell we
-	// should light
-	unsigned int blocked_from : 4;
-
 	// visible is true if the cell is on-screen *and* in the player's LOS
 	bool visible : 1;
-
-	// which direction is the player seeing this cell from?
-	DIRECTION seen_from : 5;
 
 	int16 light; // total intensity of the light falling on this cell
 	int16 recall; // how much the player remembers this cell
 
 	// what things are here? A ball of string and some sealing wax.
 	List<Object> objects;
-} cell_t;
+};
 
 // map_t holds map information as well as game state.
 struct Map {
@@ -54,7 +50,7 @@ struct Map {
 
 	void (*handler)(struct Map *map);
 
-	cell_t* cells;
+	Cell* cells;
 
 	cache_t* cache;
 	int cacheX, cacheY; // top-left corner of cache. Should be kept positive.
@@ -63,7 +59,7 @@ struct Map {
 	s32 pX, pY;
 	void* game; // game-specific data structure
 
-	inline cell_t *at(s32 x, s32 y) {
+	inline Cell *at(s32 x, s32 y) {
 		return &cells[y*w+x];
 	}
 
@@ -74,22 +70,6 @@ struct Map {
 		else if (y >= h) y = h-1;
 	}
 };
-
-// cell at (x,y)
-static inline cell_t *cell_at(Map *map, int x, int y) {
-	return &map->cells[y*map->w+x];
-}
-
-// binds x and y inside the map edges
-static inline void bounded(Map *map, s32 *x, s32 *y) {
-	if (*x < 0) *x = 0;
-	else if (*x >= map->w) *x = map->w-1;
-	if (*y < 0) *y = 0;
-	else if (*y >= map->h) *y = map->h-1;
-}
-
-// alloc space for a new map and return a pointer to it.
-Map *create_map(u32 w, u32 h);
 
 // resize the map by resetting, then freeing and reallocating all the cells.
 void resize_map(Map *map, u32 w, u32 h);
@@ -133,7 +113,7 @@ void displace_object(Node<Object> *obj_node, Map *map, int dX, int dY);
 
 // will return the first instance of an object of type objtype it comes across
 // in the given cell, or NULL if there are none.
-Node<Object> *has_objtype(cell_t *cell, ObjType *objtype);
+Node<Object> *has_objtype(Cell *cell, ObjType *objtype);
 
 // cache for *screen* coordinates (x,y).
 static inline cache_t *cache_at_s(Map *map, int x, int y) {

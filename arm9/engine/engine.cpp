@@ -182,7 +182,7 @@ void draw(Map *map) {
 	s32 max_luminance = 0;
 	//iprintf("vbs:%02d\n", vblnks);
 
-	cell_t *cell = cell_at(map, map->scrollX, map->scrollY);
+	Cell *cell = map->at(map->scrollX, map->scrollY);
 	for (y = 0; y < 24; y++) {
 		for (x = 0; x < 32; x++) {
 			cache_t *cache = cache_at_s(map, x, y);

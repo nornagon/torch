@@ -9,14 +9,14 @@
 
 #define abs(x) ((x) < 0 ? -(x) : (x))
 
-void hline(Map *map, s32 x0, s32 x1, s32 y, void (*func)(cell_t*)) {
-	bounded(map, &x1, &y);
+void hline(Map *map, s32 x0, s32 x1, s32 y, void (*func)(Cell*)) {
+	map->bounded(x1, y);
 	if (x0 > x1) hline(map, x1, x0, y, func);
 	for (; x0 <= x1; x0++)
-		func(cell_at(map, x0, y));
+		func(map->at(x0, y));
 }
 
-void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(cell_t*)) {
+void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 	s32 left, right, top, bottom;
 	s32 x1, y1, x2, y2;
 	s32 cx = 0;
@@ -115,7 +115,7 @@ void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(cell_t*)) {
 }
 
 // stolen from SDL_gfxPrimitives
-void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(cell_t*))
+void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*))
 {
 	s32 left, right, top, bottom;
 	int result;
@@ -140,7 +140,7 @@ void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(cell_t*))
 	 * Special case for r=0 - draw a point
 	 */
 	if (r == 0) {
-		func(cell_at(map, x, y));
+		func(map->at(x, y));
 		return;
 	}
 
@@ -214,7 +214,7 @@ void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(cell_t*))
 	} while (cx <= cy);
 }
 
-void bresenham(Map *map, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(cell_t*)) {
+void bresenham(Map *map, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(Cell*)) {
 	bool steep = abs(y1 - y0) > abs(x1 - x0);
 	if (steep) {
 		s32 tmp = x0; x0 = y0; y0 = tmp;
@@ -240,7 +240,7 @@ void bresenham(Map *map, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(cell_t*)) 
 	}
 }
 
-void tree(cell_t *cell) {
+void tree(Cell *cell) {
 	cell->type = T_TREE;
 	cell->ch = '*';
 	cell->col = RGB15(4,31,1);
@@ -248,7 +248,7 @@ void tree(cell_t *cell) {
 	cell->forgettable = false;
 }
 
-void ground(cell_t *cell) {
+void ground(Cell *cell) {
 	cell->type = T_GROUND;
 	cell->ch = '.';
 	cell->col = RGB15(17,9,6);
@@ -256,7 +256,7 @@ void ground(cell_t *cell) {
 	cell->forgettable = true;
 }
 
-void glass(cell_t *cell) {
+void glass(Cell *cell) {
 	cell->type = T_GLASS;
 	cell->ch = '/';
 	cell->col = RGB15(4,12,30);
@@ -264,7 +264,7 @@ void glass(cell_t *cell) {
 	cell->forgettable = false;
 }
 
-void null(cell_t *cell) {
+void null(Cell *cell) {
 	cell->type = T_NONE;
 	cell->ch = ' ';
 	cell->col = 0;

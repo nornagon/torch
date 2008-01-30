@@ -30,7 +30,7 @@ void draw_light(Map *map, fov_settings_type *settings, light_t *l) {
 
 	// since fov_circle doesn't touch the origin tile, we'll do its lighting
 	// manually here.
-	cell_t *cell = cell_at(map, l->x>>12, l->y>>12);
+	Cell *cell = map->at(l->x>>12, l->y>>12);
 	if (cell->visible) {
 		cell->light += (1<<12);
 		cache_t *cache = cache_at(map, l->x>>12, l->y>>12);
@@ -44,14 +44,14 @@ void draw_light(Map *map, fov_settings_type *settings, light_t *l) {
 bool opacity_test(void *map_, int x, int y) {
 	Map *map = (Map*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
-	return cell_at(map, x, y)->opaque || (map->pX == x && map->pY == y);
+	return map->at(x, y)->opaque || (map->pX == x && map->pY == y);
 }
 
 void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	Map *map = (Map*)map_;
 	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
 
-	cell_t *cell = cell_at(map, x, y);
+	Cell *cell = map->at(x, y);
 
 	// don't light the cell if we can't see it
 	if (!cell->visible) return;
@@ -74,15 +74,15 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = (1<<12) - DIV_RESULT32;
 
-		if (d & D_BOTH || cell->seen_from & D_BOTH) {
+		if (d & D_BOTH || cache->seen_from & D_BOTH) {
 			intensity >>= 1;
-			d &= cell->seen_from;
+			d &= cache->seen_from;
 			// only two of these should be set at maximum.
 			if (d & D_NORTH) cell->light += intensity;
 			else if (d & D_SOUTH) cell->light += intensity;
 			if (d & D_EAST) cell->light += intensity;
 			else if (d & D_WEST) cell->light += intensity;
-		} else if (cell->seen_from == d)
+		} else if (cache->seen_from == d)
 			cell->light += intensity;
 
 		cache->lr += (l->r * intensity) >> 12;

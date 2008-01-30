@@ -10,8 +10,8 @@ Map::Map(s32 w_, s32 h_) {
 	handler = NULL;
 	game = NULL;
 
-	cells = new cell_t[w*h];
-	memset(cells, 0, w*h*sizeof(cell_t));
+	cells = new Cell[w*h];
+	memset(cells, 0, w*h*sizeof(Cell));
 	cache = new cache_t[32*24]; // screen sized
 	memset(cache, 0, 32*24*sizeof(cache_t));
 
@@ -57,7 +57,7 @@ void Map::reset() {
 	s32 x, y;
 	for (y = 0; y < h; y++)
 		for (x = 0; x < w; x++) {
-			cell_t* cell = at(x, y);
+			Cell* cell = at(x, y);
 
 			// clear the object list
 			while (cell->objects.head) {
@@ -68,7 +68,7 @@ void Map::reset() {
 					type->end(obj, this);
 				node->free();
 			}
-			memset(cell, 0, sizeof(cell_t));
+			memset(cell, 0, sizeof(Cell));
 		}
 	// free all the objects
 	Node<Object>::pool.flush_free();
@@ -82,7 +82,7 @@ void resize_map(Map *map, u32 w, u32 h) {
 	map->reset();
 	map->reset_cache();
 	free(map->cells);
-	map->cells = new cell_t[w*h];
+	map->cells = new Cell[w*h];
 	// NOTE: we don't reset cells to 0 here.
 }
 
@@ -94,11 +94,11 @@ void refresh_blockmap(Map *map) {
 	for (y = 0; y < map->h; y++)
 		for (x = 0; x < map->w; x++) {
 			unsigned int blocked_from = 0;
-			if (y != 0 && cell_at(map, x, y-1)->opaque) blocked_from |= D_NORTH;
-			if (y != map->h - 1 && cell_at(map, x, y+1)->opaque) blocked_from |= D_SOUTH;
-			if (x != map->w - 1 && cell_at(map, x+1, y)->opaque) blocked_from |= D_EAST;
-			if (x != 0 && cell_at(map, x-1, y)->opaque) blocked_from |= D_WEST;
-			cell_at(map, x, y)->blocked_from = blocked_from;
+			if (y != 0 && map->at(x, y-1)->opaque) blocked_from |= D_NORTH;
+			if (y != map->h - 1 && map->at(x, y+1)->opaque) blocked_from |= D_SOUTH;
+			if (x != map->w - 1 && map->at(x+1, y)->opaque) blocked_from |= D_EAST;
+			if (x != 0 && map->at(x-1, y)->opaque) blocked_from |= D_WEST;
+			map->at(x, y)->blocked_from = blocked_from;
 		}
 }
 
@@ -123,7 +123,7 @@ Node<Object> *new_object(Map *map, ObjType *type, void* data) {
 }
 
 void insert_object(Map *map, Node<Object> *obj_node, s32 x, s32 y) {
-	cell_t *target = cell_at(map, x, y);
+	Cell *target = map->at(x, y);
 	Object *obj = *obj_node;
 	ObjType *objtype = obj->type;
 	obj->x = x;
@@ -153,7 +153,7 @@ void insert_object(Map *map, Node<Object> *obj_node, s32 x, s32 y) {
 
 void move_object(Map *map, Node<Object> *obj_node, s32 x, s32 y) {
 	Object *obj = *obj_node;
-	cell_t *loc = cell_at(map, obj->x, obj->y);
+	Cell *loc = map->at(obj->x, obj->y);
 	loc->objects.remove(obj_node);
 	insert_object(map, obj_node, x, y);
 }
@@ -172,7 +172,7 @@ void free_processes(Map *map, Node<process_t> *procs[], unsigned int num) {
 
 void free_object(Map *map, Node<Object> *obj_node) {
 	Object *obj = *obj_node;
-	cell_t *cell = cell_at(map, obj->x, obj->y);
+	Cell *cell = map->at(obj->x, obj->y);
 	cell->objects.remove(obj_node);
 	obj_node->free();
 }
@@ -194,7 +194,7 @@ void displace_object(Node<Object> *obj_node, Map *map, int dX, int dY) {
 	// keep it in the map!
 	if (obj->x + dX < 0 || obj->x + dX >= map->w ||
 			obj->y + dY < 0 || obj->y + dY >= map->h ||
-			cell_at(map, obj->x + dX, obj->y + dY)->opaque)
+			map->at(obj->x + dX, obj->y + dY)->opaque)
 		dX = dY = 0;
 
 	if (dX || dY) {
@@ -205,7 +205,7 @@ void displace_object(Node<Object> *obj_node, Map *map, int dX, int dY) {
 
 // does the cell have any objects of the given object type in it?
 // XXX: could be optimised by looking at importance and finishing early
-Node<Object> *has_objtype(cell_t *cell, ObjType *objtype) {
+Node<Object> *has_objtype(Cell *cell, ObjType *objtype) {
 	Node<Object> *k = cell->objects.head;
 	for (; k; k = k->next)
 		if (((Object*)*k)->type == objtype) return k;
