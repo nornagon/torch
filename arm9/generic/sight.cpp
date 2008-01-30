@@ -43,7 +43,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = (1<<12) - DIV_RESULT32;
 
-		cell->light = intensity;
+		cache->light = intensity;
 
 		cache->lr = l->r;
 		cache->lg = l->g;

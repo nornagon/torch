@@ -187,18 +187,18 @@ void draw(Map *map) {
 		for (x = 0; x < 32; x++) {
 			cache_t *cache = cache_at_s(map, x, y);
 
-			if (cell->visible && cell->light > 0) {
+			if (cell->visible && cache->light > 0) {
 				start_stopwatch();
-				cell->recall = min(1<<12, max(cell->light, cell->recall));
-				if (cell->light > max_luminance) max_luminance = cell->light;
-				if (cell->light < low_luminance) {
-					cell->light = 0;
+				cell->recall = min(1<<12, max(cache->light, cell->recall));
+				if (cache->light > max_luminance) max_luminance = cache->light;
+				if (cache->light < low_luminance) {
+					cache->light = 0;
 					adjust--;
-				} else if (cell->light > low_luminance + (1<<12)) {
-					cell->light = 1<<12;
+				} else if (cache->light > low_luminance + (1<<12)) {
+					cache->light = 1<<12;
 					adjust++;
 				} else
-					cell->light -= low_luminance;
+					cache->light -= low_luminance;
 
 				u16 ch = cell->ch;
 				u16 col = cell->col;
@@ -235,7 +235,7 @@ void draw(Map *map) {
 				bool foo = rval >> 8 != cache->last_lr ||
 						gval >> 8 != cache->last_lg ||
 						bval >> 8 != cache->last_lb ||
-						cache->last_light != cell->light >> 8 ||
+						cache->last_light != cache->light >> 8 ||
 						col != cache->last_col;
 
 				twiddling += read_stopwatch();
@@ -248,7 +248,7 @@ void draw(Map *map) {
 					// fade out to the recalled colour (or 0 for ground)
 					int32 minval = 0;
 					if (!cell->forgettable) minval = (cell->recall>>2);
-					int32 val = max(minval, cell->light);
+					int32 val = max(minval, cache->light);
 					int32 maxcol = max(rval,max(bval,gval));
 					// scale [rgb]val by the luminance, and keep the ratio between the
 					// colours the same
@@ -275,7 +275,7 @@ void draw(Map *map) {
 						cache->last_lr = cache->lr >> 8;
 						cache->last_lg = cache->lg >> 8;
 						cache->last_lb = cache->lb >> 8;
-						cache->last_light = cell->light >> 8;
+						cache->last_light = cache->light >> 8;
 						cache->dirty = 2;
 					} else if (cache->dirty > 0 || dirty > 0) {
 						drawcq(x*8, y*8, ch, col_to_draw);
@@ -292,7 +292,7 @@ void draw(Map *map) {
 					}
 					drawing += read_stopwatch();
 				}
-				cell->light = 0;
+				cache->light = 0;
 				cache->lr = 0;
 				cache->lg = 0;
 				cache->lb = 0;

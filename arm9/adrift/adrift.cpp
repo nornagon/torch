@@ -19,9 +19,9 @@ void process_sight(Map *map) {
 	game(map)->player->light->y = map->pY << 12;
 	fov_circle(game(map)->fov_sight, map, game(map)->player->light, map->pX, map->pY, 32);
 	Cell *cell = map->at(map->pX, map->pY);
-	cell->light = (1<<12);
 	cell->visible = true;
 	cache_t *cache = cache_at(map, map->pX, map->pY);
+	cache->light = (1<<12);
 	cache->lr = game(map)->player->light->r;
 	cache->lg = game(map)->player->light->g;
 	cache->lb = game(map)->player->light->b;
@@ -155,6 +155,7 @@ void handler(Map *map) {
 }
 
 void new_game() {
+	iprintf("%d\n", sizeof(Cell));
 	Map *map = new Map(128,128);
 	map->game = malloc(sizeof(game_t));
 	memset(map->game, 0, sizeof(game_t));

@@ -31,7 +31,6 @@ struct Cell {
 	// visible is true if the cell is on-screen *and* in the player's LOS
 	bool visible : 1;
 
-	int16 light; // total intensity of the light falling on this cell
 	int16 recall; // how much the player remembers this cell
 
 	// what things are here? A ball of string and some sealing wax.

@@ -18,6 +18,8 @@ typedef struct {
 
 	// which direction is the player seeing this cell from?
 	DIRECTION seen_from : 5;
+
+	int16 light; // total intensity of the light falling on this cell
 } cache_t;
 
 #endif /* CACHE_H */

@@ -32,8 +32,8 @@ void draw_light(Map *map, fov_settings_type *settings, light_t *l) {
 	// manually here.
 	Cell *cell = map->at(l->x>>12, l->y>>12);
 	if (cell->visible) {
-		cell->light += (1<<12);
 		cache_t *cache = cache_at(map, l->x>>12, l->y>>12);
+		cache->light += (1<<12);
 		cache->lr = l->r;
 		cache->lg = l->g;
 		cache->lb = l->b;
@@ -78,12 +78,12 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 			intensity >>= 1;
 			d &= cache->seen_from;
 			// only two of these should be set at maximum.
-			if (d & D_NORTH) cell->light += intensity;
-			else if (d & D_SOUTH) cell->light += intensity;
-			if (d & D_EAST) cell->light += intensity;
-			else if (d & D_WEST) cell->light += intensity;
+			if (d & D_NORTH) cache->light += intensity;
+			else if (d & D_SOUTH) cache->light += intensity;
+			if (d & D_EAST) cache->light += intensity;
+			else if (d & D_WEST) cache->light += intensity;
 		} else if (cache->seen_from == d)
-			cell->light += intensity;
+			cache->light += intensity;
 
 		cache->lr += (l->r * intensity) >> 12;
 		cache->lg += (l->g * intensity) >> 12;
