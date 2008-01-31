@@ -240,37 +240,13 @@ void bresenham(Map *map, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(Cell*)) {
 	}
 }
 
-void tree(Cell *cell) {
-	cell->type = T_TREE;
-	cell->ch = '*';
-	cell->col = RGB15(4,31,1);
-	cell->opaque = true;
-	cell->forgettable = false;
-}
-
-void ground(Cell *cell) {
-	cell->type = T_GROUND;
-	cell->ch = '.';
-	cell->col = RGB15(17,9,6);
-	cell->opaque = false;
-	cell->forgettable = true;
-}
-
-void glass(Cell *cell) {
-	cell->type = T_GLASS;
-	cell->ch = '/';
-	cell->col = RGB15(4,12,30);
-	cell->opaque = false;
-	cell->forgettable = false;
-}
-
-void null(Cell *cell) {
-	cell->type = T_NONE;
-	cell->ch = ' ';
-	cell->col = 0;
-	cell->opaque = false;
-	cell->forgettable = true;
-}
+#define DEF(type, ch, col, opaque, forget) \
+	static inline void SET_##type(Cell *c) { *c = (Cell){ T_##type, (col), (ch), (opaque), (forget) }; }
+DEF(TREE, '*', RGB15(4,31,1), true, false);
+DEF(GROUND, '.', RGB15(17,9,6), false, true);
+DEF(NONE, ' ', RGB15(31,31,31), false, true);
+DEF(GLASS, '/', RGB15(4,12,30), false, false);
+#undef DEF
 
 void randwalk(s32 &x, s32 &y) {
 	unsigned int a = genrand_int32();
@@ -283,20 +259,31 @@ void randwalk(s32 &x, s32 &y) {
 }
 
 void haunted_grove(Map *map, s32 cx, s32 cy) {
+	int r0 = 5, r1 = 15;
+	int w0 = 2, w1 = 4;
 	for (unsigned int t = 0; t < 0x1ff; t += 4) {
-		u32 a = genrand_int32();
-		int r = 5 + (a & 3);
+		int r = (rand8() & 3) + r0;
 		int x = COS[t], y = SIN[t];
 		if (t % 16 != 0)
-			bresenham(map, cx + ((x*r) >> 12), cy + ((y*r) >> 12), cx + ((x*(r+2)) >> 12), cy + ((y*(r+2)) >> 12), tree);
+			bresenham(map, cx + ((x*r) >> 12), cy + ((y*r) >> 12),
+			               cx + ((x*(r+w0)) >> 12), cy + ((y*(r+w0)) >> 12), SET_TREE);
 	}
 	for (unsigned int t = 0; t < 0x1ff; t += 2) {
-		u32 a = genrand_int32();
-		int r = 15 + (a & 3); a >>= 2;
+		int a = rand8();
+		int r = (a & 3) + r1; a >>= 2;
 		int x = COS[t], y = SIN[t];
 		if (t % 16 > (a & 3))
-			bresenham(map, cx + ((x*r) >> 12), cy + ((y*r) >> 12), cx + ((x*(r+4)) >> 12), cy + ((y*(r+4)) >> 12), tree);
+			bresenham(map, cx + ((x*r) >> 12), cy + ((y*r) >> 12),
+			               cx + ((x*(r+w1)) >> 12), cy + ((y*(r+w1)) >> 12), SET_TREE);
 	}
+	u16 k = rand16() & 0x1ff;
+	int x = COS[k], y = SIN[k];
+	bresenham(map, cx + ((x*r0) >> 12), cy + ((y*r0) >> 12),
+	               cx + ((x*(r0+w0)) >> 12), cy + ((y*(r0+w0)) >> 12), SET_GROUND);
+	k = rand16() & 0x1ff;
+	x = COS[k]; y = SIN[k];
+	bresenham(map, cx + ((x*r1) >> 12), cy + ((y*r1) >> 12),
+	               cx + ((x*(r1+w1)) >> 12), cy + ((y*(r1+w1)) >> 12), SET_GROUND);
 }
 
 void generate_terrarium(Map *map) {
@@ -307,10 +294,10 @@ void generate_terrarium(Map *map) {
 
 	for (int y = 0; y < map->h; y++)
 		for (int x = 0; x < map->w; x++)
-			null(map->at(x,y));
+			SET_NONE(map->at(x,y));
 
-	filledCircle(map, cx, cy, 60, ground);
-	hollowCircle(map, cx, cy, 60, glass);
+	filledCircle(map, cx, cy, 60, SET_GROUND);
+	hollowCircle(map, cx, cy, 60, SET_GLASS);
 
 	haunted_grove(map, cx, cy);
 

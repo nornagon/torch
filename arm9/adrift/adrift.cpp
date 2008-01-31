@@ -155,7 +155,6 @@ void handler(Map *map) {
 }
 
 void new_game() {
-	iprintf("%d\n", sizeof(Cell));
 	Map *map = new Map(128,128);
 	map->game = malloc(sizeof(game_t));
 	memset(map->game, 0, sizeof(game_t));
