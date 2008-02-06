@@ -8,7 +8,7 @@
 void torch_init();
 
 // run some processes, freeing NULL ones if necessary
-void run_processes(Map *map, List<process_t> processes);
+void run_processes(Map *map, List<Process> processes);
 
 // scroll the screen one tile in the direction dir. This function moves the
 // "viewport" in the direction specified, via DMA. This function acts on

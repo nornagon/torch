@@ -304,5 +304,5 @@ void generate_terrarium(Map *map) {
 	map->pX = map->w/2;
 	map->pY = map->h/2;
 
-	refresh_blockmap(map);
+	map->refresh_blockmap();
 }

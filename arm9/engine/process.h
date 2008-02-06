@@ -2,12 +2,11 @@
 #define PROCESS_H 1
 
 struct Map;
-struct process_s;
-typedef struct process_s process_t;
+struct Process;
 
-typedef void (*process_func)(process_t *process, struct Map *map);
+typedef void (*process_func)(Process *process, Map *map);
 
-struct process_s {
+struct Process {
 	process_func process, end;
 	void *data;
 	u16 counter;

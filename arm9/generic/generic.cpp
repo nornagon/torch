@@ -32,7 +32,7 @@ void draw_light(Map *map, fov_settings_type *settings, light_t *l) {
 	// manually here.
 	Cell *cell = map->at(l->x>>12, l->y>>12);
 	if (cell->visible) {
-		cache_t *cache = cache_at(map, l->x>>12, l->y>>12);
+		Cache *cache = map->cache_at(l->x>>12, l->y>>12);
 		cache->light += (1<<12);
 		cache->lr = l->r;
 		cache->lg = l->g;
@@ -69,7 +69,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 		DIRECTION d = D_NONE;
 		if (cell->opaque)
 			d = seen_from(map, direction(l->x>>12, l->y>>12, x, y), cell);
-		cache_t *cache = cache_at(map, x, y);
+		Cache *cache = map->cache_at(x, y);
 
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = (1<<12) - DIV_RESULT32;

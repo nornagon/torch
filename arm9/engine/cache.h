@@ -7,7 +7,7 @@
 // a cache_t corresponds to a tile currently being shown on the screen. It's
 // used for holding information about what pixels are already there on the
 // screen, for purposes of not having to draw it again.
-typedef struct {
+struct Cache {
 	int32 lr,lg,lb, // light colour
 	      last_lr, last_lg, last_lb;
 	int32 last_light;
@@ -20,6 +20,6 @@ typedef struct {
 	DIRECTION seen_from : 5;
 
 	int16 light; // total intensity of the light falling on this cell
-} cache_t;
+};
 
 #endif /* CACHE_H */

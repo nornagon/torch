@@ -22,7 +22,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	if (x < scrollX || y < scrollY || x > scrollX + 31 || y > scrollY + 23) return;
 
 	Cell *cell = map->at(x, y);
-	cache_t *cache = cache_at(map, x, y);
+	Cache *cache = map->cache_at(x, y);
 
 	DIRECTION d = D_NONE;
 	if (cell->opaque)
@@ -39,7 +39,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	if (dist2 < rad2) {
 		div_32_32_raw(dist2<<8, rad2>>4);
-		cache_t *cache = cache_at(map, x, y); // load the cache while waiting for the division
+		Cache *cache = map->cache_at(x, y); // load the cache while waiting for the division
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = (1<<12) - DIV_RESULT32;
 

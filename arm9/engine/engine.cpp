@@ -52,11 +52,11 @@ void torch_init() {
 	dirty = 2;
 }
 
-void run_processes(Map *map, List<process_t> processes) {
-	Node<process_t> *node = processes.head;
-	Node<process_t> *prev = NULL;
+void run_processes(Map *map, List<Process> processes) {
+	Node<Process> *node = processes.head;
+	Node<Process> *prev = NULL;
 	while (node) {
-		process_t *proc = *node;
+		Process *proc = *node;
 		if (proc->process) {
 			if (proc->counter == 0)
 				proc->process(proc, map);
@@ -72,7 +72,7 @@ void run_processes(Map *map, List<process_t> processes) {
 			else // there's a new head
 				processes.head = node->next;
 			// add the dead process to the free pool
-			Node<process_t> *k = node->next;
+			Node<Process> *k = node->next;
 			node->free();
 			node = k;
 		}
@@ -87,17 +87,17 @@ void move_port(Map *map, DIRECTION dir) {
 		// mark the top squares dirty
 		// TODO: slower than not going through cache_at?
 		for (i = 0; i < 32; i++)
-			cache_at_s(map, i, 0)->dirty = 2;
+			map->cache_at_s(i, 0)->dirty = 2;
 
 		if (dir & D_EAST) {
 			for (i = 1; i < 24; i++)
-				cache_at_s(map, 31, i)->dirty = 2;
+				map->cache_at_s(31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 1; i < 24; i++)
-				cache_at_s(map, 0, i)->dirty = 2;
+				map->cache_at_s(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
@@ -109,16 +109,16 @@ void move_port(Map *map, DIRECTION dir) {
 	} else if (dir & D_SOUTH) {
 		// mark the southern squares dirty
 		for (i = 0; i < 32; i++)
-			cache_at_s(map, i, 23)->dirty = 2;
+			map->cache_at_s(i, 23)->dirty = 2;
 		if (dir & D_EAST) {
 			for (i = 0; i < 23; i++)
-				cache_at_s(map, 31, i)->dirty = 2;
+				map->cache_at_s(31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8+8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 23; i++)
-				cache_at_s(map, 0, i)->dirty = 2;
+				map->cache_at_s(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8];
 			DMA_DEST(3) = (uint32)&backbuf[8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
@@ -130,13 +130,13 @@ void move_port(Map *map, DIRECTION dir) {
 	} else {
 		if (dir & D_EAST) {
 			for (i = 0; i < 24; i++)
-				cache_at_s(map, 31, i)->dirty = 2;
+				map->cache_at_s(31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 24; i++)
-				cache_at_s(map, 0, i)->dirty = 2;
+				map->cache_at_s(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);
@@ -180,12 +180,11 @@ void draw(Map *map) {
 	// values below the bottom
 	s32 adjust = 0;
 	s32 max_luminance = 0;
-	//iprintf("vbs:%02d\n", vblnks);
 
 	Cell *cell = map->at(map->scrollX, map->scrollY);
 	for (y = 0; y < 24; y++) {
 		for (x = 0; x < 32; x++) {
-			cache_t *cache = cache_at_s(map, x, y);
+			Cache *cache = map->cache_at_s(x, y);
 
 			if (cell->visible && cache->light > 0) {
 				start_stopwatch();

@@ -20,7 +20,7 @@ void process_sight(Map *map) {
 	fov_circle(game(map)->fov_sight, map, game(map)->player->light, map->pX, map->pY, 32);
 	Cell *cell = map->at(map->pX, map->pY);
 	cell->visible = true;
-	cache_t *cache = cache_at(map, map->pX, map->pY);
+	Cache *cache = map->cache_at(map->pX, map->pY);
 	cache->light = (1<<12);
 	cache->lr = game(map)->player->light->r;
 	cache->lg = game(map)->player->light->g;
@@ -66,16 +66,16 @@ void move_player(Map *map, DIRECTION dir) {
 		cell = map->at(pX + dpX, pY + dpY);
 
 		// dirty the cell we just stepped away from
-		cache_at(map, pX, pY)->dirty = 2;
+		map->cache_at(pX, pY)->dirty = 2;
 
 		// move the player object
-		move_object(map, game(map)->player->obj, pX + dpX, pY + dpY);
+		map->move_object(game(map)->player->obj, pX + dpX, pY + dpY);
 
 		pX += dpX; map->pX = pX;
 		pY += dpY; map->pY = pY;
 
 		// dirty the cell we just entered
-		cache_at(map, pX, pY)->dirty = 2;
+		map->cache_at(pX, pY)->dirty = 2;
 
 		// TODO: split into a separate (generic?) function
 		s32 dsX = 0, dsY = 0;
@@ -135,8 +135,8 @@ ObjType ot_player = {
 ObjType *OT_PLAYER = &ot_player;
 
 Node<Object> *new_obj_player(Map *map) {
-	Node<Object> *node = new_object(map, OT_PLAYER, NULL);
-	insert_object(map, node, map->pX, map->pY);
+	Node<Object> *node = map->new_object(OT_PLAYER, NULL);
+	map->insert_object(node, map->pX, map->pY);
 	return node;
 }
 void new_player(Map *map) {

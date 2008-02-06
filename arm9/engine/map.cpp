@@ -12,8 +12,8 @@ Map::Map(s32 w_, s32 h_) {
 
 	cells = new Cell[w*h];
 	memset(cells, 0, w*h*sizeof(Cell));
-	cache = new cache_t[32*24]; // screen sized
-	memset(cache, 0, 32*24*sizeof(cache_t));
+	cache = new Cache[32*24]; // screen sized
+	memset(cache, 0, 32*24*sizeof(Cache));
 
 	pX = pY = 0;
 	scrollX = scrollY = 0;
@@ -26,7 +26,7 @@ void Map::reset_cache() {
 	u32 x, y;
 	for (y = 0; y < 24; y++)
 		for (x = 0; x < 32; x++) {
-			cache_t* c = &cache[y*32+x];
+			Cache* c = &cache[y*32+x];
 			c->lr = c->lg = c->lb = 0;
 			c->last_lr = c->last_lg = c->last_lb = 0;
 			c->last_light = 0;
@@ -43,10 +43,10 @@ void Map::reset_cache() {
 	cacheX = cacheY = 0;
 }
 
-void free_process_list(Map *map, List<process_t> &list) {
+void free_process_list(Map *map, List<Process> &list) {
 	while (list.head) {
-		Node<process_t> *node = list.pop();
-		process_t *p = *node;
+		Node<Process> *node = list.pop();
+		Process *p = *node;
 		if (p->end)
 			p->end(p, map);
 		node->free();
@@ -75,7 +75,7 @@ void Map::reset() {
 
 	// clear and free the process lists
 	free_process_list(this, processes);
-	Node<process_t>::pool.flush_free();
+	Node<Process>::pool.flush_free();
 }
 
 void resize_map(Map *map, u32 w, u32 h) {
@@ -86,34 +86,34 @@ void resize_map(Map *map, u32 w, u32 h) {
 	// NOTE: we don't reset cells to 0 here.
 }
 
-void refresh_blockmap(Map *map) {
+void Map::refresh_blockmap() {
 	// each cell needs to know which cells around them are opaque for purposes of
 	// direction-aware lighting.
 
 	s32 x,y;
-	for (y = 0; y < map->h; y++)
-		for (x = 0; x < map->w; x++) {
+	for (y = 0; y < h; y++)
+		for (x = 0; x < w; x++) {
 			unsigned int blocked_from = 0;
-			if (y != 0 && map->at(x, y-1)->opaque) blocked_from |= D_NORTH;
-			if (y != map->h - 1 && map->at(x, y+1)->opaque) blocked_from |= D_SOUTH;
-			if (x != map->w - 1 && map->at(x+1, y)->opaque) blocked_from |= D_EAST;
-			if (x != 0 && map->at(x-1, y)->opaque) blocked_from |= D_WEST;
-			map->at(x, y)->blocked_from = blocked_from;
+			if (y != 0 && at(x, y-1)->opaque) blocked_from |= D_NORTH;
+			if (y != h - 1 && at(x, y+1)->opaque) blocked_from |= D_SOUTH;
+			if (x != w - 1 && at(x+1, y)->opaque) blocked_from |= D_EAST;
+			if (x != 0 && at(x-1, y)->opaque) blocked_from |= D_WEST;
+			at(x, y)->blocked_from = blocked_from;
 		}
 }
 
-Node<process_t> *push_process(Map *map, process_func process, process_func end, void* data) {
-	Node<process_t> *node = Node<process_t>::pool.request_node();
-	process_t *proc = *node;
+Node<Process> *Map::push_process(process_func process, process_func end, void* data) {
+	Node<Process> *node = Node<Process>::pool.request_node();
+	Process *proc = *node;
 	proc->process = process;
 	proc->end = end;
 	proc->data = data;
 	proc->counter = 0;
-	map->processes.push(node);
+	processes.push(node);
 	return node;
 }
 
-Node<Object> *new_object(Map *map, ObjType *type, void* data) {
+Node<Object> *Map::new_object(ObjType *type, void* data) {
   Node<Object> *node = Node<Object>::pool.request_node();
   Object *obj = *node;
   obj->type = type;
@@ -122,8 +122,8 @@ Node<Object> *new_object(Map *map, ObjType *type, void* data) {
   return node;
 }
 
-void insert_object(Map *map, Node<Object> *obj_node, s32 x, s32 y) {
-	Cell *target = map->at(x, y);
+void Map::insert_object(Node<Object> *obj_node, s32 x, s32 y) {
+	Cell *target = at(x, y);
 	Object *obj = *obj_node;
 	ObjType *objtype = obj->type;
 	obj->x = x;
@@ -151,28 +151,21 @@ void insert_object(Map *map, Node<Object> *obj_node, s32 x, s32 y) {
 		target->objects.head = obj_node;
 }
 
-void move_object(Map *map, Node<Object> *obj_node, s32 x, s32 y) {
+void Map::move_object(Node<Object> *obj_node, s32 x, s32 y) {
 	Object *obj = *obj_node;
-	Cell *loc = map->at(obj->x, obj->y);
+	Cell *loc = at(obj->x, obj->y);
 	loc->objects.remove(obj_node);
-	insert_object(map, obj_node, x, y);
+	insert_object(obj_node, x, y);
 }
 
-void free_other_processes(Map *map, process_t *this_proc, Node<process_t> *procs[], unsigned int num) {
-	for (; num > 0; procs++, num--) {
-		if (**procs != this_proc)
-			free_process(map, *procs);
-	}
-}
-
-void free_processes(Map *map, Node<process_t> *procs[], unsigned int num) {
+void Map::free_processes(Node<Process> *procs[], unsigned int num) {
 	for (; num > 0; procs++, num--)
-		free_process(map, *procs);
+		free_process(*procs);
 }
 
-void free_object(Map *map, Node<Object> *obj_node) {
+void Map::free_object(Node<Object> *obj_node) {
 	Object *obj = *obj_node;
-	Cell *cell = map->at(obj->x, obj->y);
+	Cell *cell = at(obj->x, obj->y);
 	cell->objects.remove(obj_node);
 	obj_node->free();
 }
@@ -186,20 +179,20 @@ void free_objects(Map *map, Node<Object> *objs[], unsigned int num) {
 
 // move an object by (dX,dY). Will pay attention to opaque cells, map edges,
 // etc.
-void displace_object(Node<Object> *obj_node, Map *map, int dX, int dY) {
+void Map::displace_object(Node<Object> *obj_node, int dX, int dY) {
 	if (!dX && !dY) return; // nothing to see here
 
 	Object *obj = *obj_node;
 
 	// keep it in the map!
-	if (obj->x + dX < 0 || obj->x + dX >= map->w ||
-			obj->y + dY < 0 || obj->y + dY >= map->h ||
-			map->at(obj->x + dX, obj->y + dY)->opaque)
+	if (obj->x + dX < 0 || obj->x + dX >= w ||
+			obj->y + dY < 0 || obj->y + dY >= h ||
+			at(obj->x + dX, obj->y + dY)->opaque)
 		dX = dY = 0;
 
 	if (dX || dY) {
 		// move the object
-		move_object(map, obj_node, obj->x + dX, obj->y + dY);
+		move_object(obj_node, obj->x + dX, obj->y + dY);
 	}
 }
 
