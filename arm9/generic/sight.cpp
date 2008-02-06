@@ -14,7 +14,7 @@ bool sight_opaque(void *map_, int x, int y) {
 
 void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	Map *map = (Map*)map_;
-	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
+	if (map->is_outside(x,y)) return;
 	light_t *l = (light_t*)src_;
 
 	// don't bother calculating if we're outside the edge of the screen
@@ -26,7 +26,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	DIRECTION d = D_NONE;
 	if (cell->opaque)
-		d = seen_from(map, direction(map->pX, map->pY, x, y), cell);
+		d = seen_from(direction(map->pX, map->pY, x, y), cell);
 	cache->seen_from = d;
 
 	// the funny bit-twiddling here is to preserve a few more bits in dx/dy

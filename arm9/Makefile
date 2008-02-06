@@ -16,7 +16,7 @@ include $(DEVKITARM)/ds_rules
 #---------------------------------------------------------------------------------
 
 ifeq ($(strip $(WORLD)),)
-	WORLD := testworld
+	WORLD := adrift
 endif
 
 BUILD    := build/$(WORLD)

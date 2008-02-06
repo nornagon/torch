@@ -4,37 +4,22 @@
 #include "process.h"
 #include "mersenne.h"
 
-Map::Map(s32 w_, s32 h_) {
-	w = w_; h = h_;
+Map map;
 
+Map::Map() {
+	w = 0; h = 0;
 	handler = NULL;
-	game = NULL;
+	cells = NULL;
 
-	cells = new Cell[w*h];
-	memset(cells, 0, w*h*sizeof(Cell));
-	cache = new Cache[32*24]; // screen sized
-	memset(cache, 0, 32*24*sizeof(Cache));
+	cache = new Cache[32*24];
+	reset_cache();
 
 	pX = pY = 0;
 	scrollX = scrollY = 0;
-
-	reset();
-	reset_cache();
 }
 
 void Map::reset_cache() {
-	u32 x, y;
-	for (y = 0; y < 24; y++)
-		for (x = 0; x < 32; x++) {
-			Cache* c = &cache[y*32+x];
-			c->lr = c->lg = c->lb = 0;
-			c->last_lr = c->last_lg = c->last_lb = 0;
-			c->last_light = 0;
-			c->last_col = 0;
-			c->last_col_final = 0;
-			c->dirty = 0;
-			c->was_visible = 0;
-		}
+	memset(cache, 0, 32*24*sizeof(Cache));
 	// note that the cache is origin-agnostic, so the top-left corner of cache
 	// when scrollX = 0 does not have to correspond with cacheX = 0. The caching
 	// mechanisms will deal just fine whereever the origin is. Really, we don't
@@ -43,20 +28,19 @@ void Map::reset_cache() {
 	cacheX = cacheY = 0;
 }
 
-void free_process_list(Map *map, List<Process> &list) {
+void free_process_list(List<Process> list) {
 	while (list.head) {
 		Node<Process> *node = list.pop();
 		Process *p = *node;
 		if (p->end)
-			p->end(p, map);
+			p->end(p);
 		node->free();
 	}
 }
 
 void Map::reset() {
-	s32 x, y;
-	for (y = 0; y < h; y++)
-		for (x = 0; x < w; x++) {
+	for (s32 y = 0; y < h; y++)
+		for (s32 x = 0; x < w; x++) {
 			Cell* cell = at(x, y);
 
 			// clear the object list
@@ -65,7 +49,7 @@ void Map::reset() {
 				Object *obj = *node;
 				ObjType *type = obj->type;
 				if (type->end)
-					type->end(obj, this);
+					type->end(obj);
 				node->free();
 			}
 			memset(cell, 0, sizeof(Cell));
@@ -74,16 +58,16 @@ void Map::reset() {
 	Node<Object>::pool.flush_free();
 
 	// clear and free the process lists
-	free_process_list(this, processes);
+	free_process_list(processes);
 	Node<Process>::pool.flush_free();
 }
 
-void resize_map(Map *map, u32 w, u32 h) {
-	map->reset();
-	map->reset_cache();
-	free(map->cells);
-	map->cells = new Cell[w*h];
-	// NOTE: we don't reset cells to 0 here.
+void Map::resize(u32 _w, u32 _h) {
+	reset();
+	reset_cache();
+	w = _w; h = _h;
+	if (cells) delete[] cells;
+	cells = new Cell[w*h];
 }
 
 void Map::refresh_blockmap() {
@@ -172,7 +156,7 @@ void Map::free_object(Node<Object> *obj_node) {
 
 // free num objects, beginning at objs. that's an *array* of node pointers, not
 // the head of a list.
-void free_objects(Map *map, Node<Object> *objs[], unsigned int num) {
+void free_objects(Node<Object> *objs[], unsigned int num) {
 	for (; num > 0; objs++, num--)
 		(*objs)->free();
 }

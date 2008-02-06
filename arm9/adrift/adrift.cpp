@@ -14,43 +14,51 @@
 
 #include "assert.h"
 
-void process_sight(Map *map) {
-	game(map)->player->light->x = map->pX << 12;
-	game(map)->player->light->y = map->pY << 12;
-	fov_circle(game(map)->fov_sight, map, game(map)->player->light, map->pX, map->pY, 32);
-	Cell *cell = map->at(map->pX, map->pY);
+Game game;
+
+Game::Game() {
+	// the fov_settings_type that will be used for non-player-held lights.
+	fov_light = build_fov_settings(opacity_test, apply_light, FOV_SHAPE_OCTAGON);
+	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
+}
+
+void process_sight() {
+	game.player.light->x = map.pX << 12;
+	game.player.light->y = map.pY << 12;
+	fov_circle(game.fov_sight, &map, game.player.light, map.pX, map.pY, 32);
+	Cell *cell = map.at(map.pX, map.pY);
 	cell->visible = true;
-	Cache *cache = map->cache_at(map->pX, map->pY);
+	Cache *cache = map.cache_at(map.pX, map.pY);
 	cache->light = (1<<12);
-	cache->lr = game(map)->player->light->r;
-	cache->lg = game(map)->player->light->g;
-	cache->lb = game(map)->player->light->b;
+	cache->lr = game.player.light->r;
+	cache->lg = game.player.light->g;
+	cache->lb = game.player.light->b;
 	cell->recall = 1<<12;
 }
 
-bool solid(Map *map, Cell *cell) {
+bool solid(Cell *cell) {
 	if (cell->type == T_GROUND) return false; // TODO: hack, make this a flag
 	return true;
 }
 
-void move_player(Map *map, DIRECTION dir) {
-	s32 pX = map->pX, pY = map->pY;
+void move_player(DIRECTION dir) {
+	s32 pX = map.pX, pY = map.pY;
 
 	int dpX = D_DX[dir],
 	    dpY = D_DY[dir];
 
-	if (pX + dpX < 0 || pX + dpX >= map->w) { dpX = 0; }
-	if (pY + dpY < 0 || pY + dpY >= map->h) { dpY = 0; }
+	if (pX + dpX < 0 || pX + dpX >= map.getWidth()) { dpX = 0; }
+	if (pY + dpY < 0 || pY + dpY >= map.getHeight()) { dpY = 0; }
 
-	Cell *cell = map->at(pX + dpX, pY + dpY);
+	Cell *cell = map.at(pX + dpX, pY + dpY);
 
-	if (solid(map, cell)) {
+	if (solid(cell)) {
 		if (dpX && dpY) {
 			// if we could just go left or right, do that. This results in 'sliding'
 			// along walls when moving diagonally
-			if (!solid(map, map->at(pX + dpX, pY)))
+			if (!solid(map.at(pX + dpX, pY)))
 				dpY = 0;
-			else if (!solid(map, map->at(pX, pY + dpY)))
+			else if (!solid(map.at(pX, pY + dpY)))
 				dpX = 0;
 			else
 				dpX = dpY = 0;
@@ -60,49 +68,49 @@ void move_player(Map *map, DIRECTION dir) {
 
 	if (dpX || dpY) {
 		// moving diagonally takes longer. 5*sqrt(2) ~= 7
-		if (dpX && dpY) game(map)->frm = 7;
-		else game(map)->frm = 5;
+		if (dpX && dpY) game.frm = 7;
+		else game.frm = 5;
 
-		cell = map->at(pX + dpX, pY + dpY);
+		cell = map.at(pX + dpX, pY + dpY);
 
 		// dirty the cell we just stepped away from
-		map->cache_at(pX, pY)->dirty = 2;
+		map.cache_at(pX, pY)->dirty = 2;
 
 		// move the player object
-		map->move_object(game(map)->player->obj, pX + dpX, pY + dpY);
+		map.move_object(game.player.obj, pX + dpX, pY + dpY);
 
-		pX += dpX; map->pX = pX;
-		pY += dpY; map->pY = pY;
+		pX += dpX; map.pX = pX;
+		pY += dpY; map.pY = pY;
 
 		// dirty the cell we just entered
-		map->cache_at(pX, pY)->dirty = 2;
+		map.cache_at(pX, pY)->dirty = 2;
 
 		// TODO: split into a separate (generic?) function
 		s32 dsX = 0, dsY = 0;
 		// keep the screen vaguely centred on the player (gap of 8 cells)
-		if (pX - map->scrollX < 8 && map->scrollX > 0) { // it's just a scroll to the left
-			dsX = (pX - 8) - map->scrollX;
-			map->scrollX = pX - 8;
-		} else if (pX - map->scrollX > 24 && map->scrollX < map->w-32) {
-			dsX = (pX - 24) - map->scrollX;
-			map->scrollX = pX - 24;
+		if (pX - map.scrollX < 8 && map.scrollX > 0) { // it's just a scroll to the left
+			dsX = (pX - 8) - map.scrollX;
+			map.scrollX = pX - 8;
+		} else if (pX - map.scrollX > 24 && map.scrollX < map.getWidth()-32) {
+			dsX = (pX - 24) - map.scrollX;
+			map.scrollX = pX - 24;
 		}
 
-		if (pY - map->scrollY < 8 && map->scrollY > 0) {
-			dsY = (pY - 8) - map->scrollY;
-			map->scrollY = pY - 8;
-		} else if (pY - map->scrollY > 16 && map->scrollY < map->h-24) {
-			dsY = (pY - 16) - map->scrollY;
-			map->scrollY = pY - 16;
+		if (pY - map.scrollY < 8 && map.scrollY > 0) {
+			dsY = (pY - 8) - map.scrollY;
+			map.scrollY = pY - 8;
+		} else if (pY - map.scrollY > 16 && map.scrollY < map.getHeight()-24) {
+			dsY = (pY - 16) - map.scrollY;
+			map.scrollY = pY - 16;
 		}
 
 		if (dsX || dsY)
-			scroll_screen(map, dsX, dsY);
+			scroll_screen(dsX, dsY);
 	}
 }
 
-void process_keys(Map *map) {
-	if (game(map)->frm == 0) {
+void process_keys() {
+	if (game.frm == 0) {
 		scanKeys();
 		u32 keys = keysHeld();
 
@@ -118,10 +126,10 @@ void process_keys(Map *map) {
 
 		if (!dir) return;
 
-		move_player(map, dir);
+		move_player(dir);
 	}
-	if (game(map)->frm > 0)
-		game(map)->frm--;
+	if (game.frm > 0)
+		game.frm--;
 }
 
 ObjType ot_player = {
@@ -134,55 +142,43 @@ ObjType ot_player = {
 };
 ObjType *OT_PLAYER = &ot_player;
 
-Node<Object> *new_obj_player(Map *map) {
-	Node<Object> *node = map->new_object(OT_PLAYER, NULL);
-	map->insert_object(node, map->pX, map->pY);
+Node<Object> *new_obj_player() {
+	Node<Object> *node = map.new_object(OT_PLAYER, NULL);
+	map.insert_object(node, map.pX, map.pY);
 	return node;
 }
-void new_player(Map *map) {
-	player_t *player = new player_t;
-	memset(player, 0, sizeof(player_t));
-
-	player->obj = new_obj_player(map);
-	player->light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
-
-	game(map)->player = player;
+void new_player() {
+	game.player.obj = new_obj_player();
+	game.player.light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 }
 
-void handler(Map *map) {
-	process_keys(map);
-	process_sight(map);
+void handler() {
+	process_keys();
+	process_sight();
 }
 
 void new_game() {
-	Map *map = new Map(128,128);
-	map->game = malloc(sizeof(game_t));
-	memset(map->game, 0, sizeof(game_t));
-
-	// the fov_settings_type that will be used for non-player-held lights.
-	game(map)->fov_light = build_fov_settings(opacity_test, apply_light, FOV_SHAPE_OCTAGON);
-	game(map)->fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
+	map.resize(128,128);
 
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds +
 				IPC->time.rtc.minutes*60 + IPC->time.rtc.hours*60*60 +
 				IPC->time.rtc.weekday*7*24*60*60));
 
-	generate_terrarium(map);
-	map->reset_cache();
+	generate_terrarium();
+	map.reset_cache();
 
-	new_player(map);
+	new_player();
 
-	map->scrollX = map->pX - 16;
-	map->scrollY = map->pY - 12;
-	map->bounded(map->scrollX, map->scrollY);
+	map.scrollX = map.pX - 16;
+	map.scrollY = map.pY - 12;
+	map.bounded(map.scrollX, map.scrollY);
 
-	map->handler = handler;
+	map.handler = handler;
 
-	run(map);
+	run();
 }
 
 void init_world() {
 	lcdMainOnBottom();
-
 	new_game();
 }

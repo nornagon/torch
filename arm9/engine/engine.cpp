@@ -52,21 +52,21 @@ void torch_init() {
 	dirty = 2;
 }
 
-void run_processes(Map *map, List<Process> processes) {
+void run_processes(List<Process> processes) {
 	Node<Process> *node = processes.head;
 	Node<Process> *prev = NULL;
 	while (node) {
 		Process *proc = *node;
 		if (proc->process) {
 			if (proc->counter == 0)
-				proc->process(proc, map);
+				proc->process(proc);
 			else
 				proc->counter--;
 			prev = node;
 			node = node->next;
 		} else { // a NULL process callback means free the process
 			if (proc->end)
-				proc->end(proc, map);
+				proc->end(proc);
 			if (prev) // heal the list
 				prev->next = node->next;
 			else // there's a new head
@@ -80,24 +80,24 @@ void run_processes(Map *map, List<Process> processes) {
 }
 
 // we copy data *away* from dir
-void move_port(Map *map, DIRECTION dir) {
+void move_port(DIRECTION dir) {
 	u32 i;
 	// TODO: generalise?
 	if (dir & D_NORTH) {
 		// mark the top squares dirty
 		// TODO: slower than not going through cache_at?
 		for (i = 0; i < 32; i++)
-			map->cache_at_s(i, 0)->dirty = 2;
+			map.cache_at_s(i, 0)->dirty = 2;
 
 		if (dir & D_EAST) {
 			for (i = 1; i < 24; i++)
-				map->cache_at_s(31, i)->dirty = 2;
+				map.cache_at_s(31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 1; i < 24; i++)
-				map->cache_at_s(0, i)->dirty = 2;
+				map.cache_at_s(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
@@ -109,16 +109,16 @@ void move_port(Map *map, DIRECTION dir) {
 	} else if (dir & D_SOUTH) {
 		// mark the southern squares dirty
 		for (i = 0; i < 32; i++)
-			map->cache_at_s(i, 23)->dirty = 2;
+			map.cache_at_s(i, 23)->dirty = 2;
 		if (dir & D_EAST) {
 			for (i = 0; i < 23; i++)
-				map->cache_at_s(31, i)->dirty = 2;
+				map.cache_at_s(31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8+8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 23; i++)
-				map->cache_at_s(0, i)->dirty = 2;
+				map.cache_at_s(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8];
 			DMA_DEST(3) = (uint32)&backbuf[8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
@@ -130,13 +130,13 @@ void move_port(Map *map, DIRECTION dir) {
 	} else {
 		if (dir & D_EAST) {
 			for (i = 0; i < 24; i++)
-				map->cache_at_s(31, i)->dirty = 2;
+				map.cache_at_s(31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 24; i++)
-				map->cache_at_s(0, i)->dirty = 2;
+				map.cache_at_s(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);
@@ -144,20 +144,20 @@ void move_port(Map *map, DIRECTION dir) {
 	}
 }
 
-void scroll_screen(Map *map, int dsX, int dsY) {
-	map->cacheX += dsX;
-	map->cacheY += dsY;
+void scroll_screen(int dsX, int dsY) {
+	map.cacheX += dsX;
+	map.cacheY += dsY;
 	// wrap the cache origin
-	if (map->cacheX < 0) map->cacheX += 32;
-	if (map->cacheY < 0) map->cacheY += 24;
-	if (map->cacheX >= 32) map->cacheX -= 32;
-	if (map->cacheY >= 24) map->cacheY -= 24;
+	if (map.cacheX < 0) map.cacheX += 32;
+	if (map.cacheY < 0) map.cacheY += 24;
+	if (map.cacheX >= 32) map.cacheX -= 32;
+	if (map.cacheY >= 24) map.cacheY -= 24;
 
 	if (abs(dsX) > 1 || abs(dsY) > 1)
 		dirty_screen();
 	else {
 		DIRECTION dir = direction(dsX, dsY, 0, 0);
-		move_port(map, dir);
+		move_port(dir);
 		just_scrolled = dir;
 	}
 }
@@ -170,7 +170,7 @@ void reset_luminance() {
 	low_luminance = 0;
 }
 
-void draw(Map *map) {
+void draw() {
 	int x, y;
 
 	u32 twiddling = 0;
@@ -181,10 +181,10 @@ void draw(Map *map) {
 	s32 adjust = 0;
 	s32 max_luminance = 0;
 
-	Cell *cell = map->at(map->scrollX, map->scrollY);
+	Cell *cell = map.at(map.scrollX, map.scrollY);
 	for (y = 0; y < 24; y++) {
 		for (x = 0; x < 32; x++) {
-			Cache *cache = map->cache_at_s(x, y);
+			Cache *cache = map.cache_at_s(x, y);
 
 			if (cell->visible && cache->light > 0) {
 				start_stopwatch();
@@ -213,7 +213,7 @@ void draw(Map *map) {
 
 					// if the object has a custom display function, we'll ask that.
 					if (objtype->display) {
-						u32 disp = objtype->display(obj, map);
+						u32 disp = objtype->display(obj);
 						// the character should be in the high bytes
 						ch = disp >> 16;
 						// and the colour in the low bytes
@@ -336,7 +336,7 @@ void draw(Map *map) {
 
 			cell++; // takes into account the size of the structure, apparently
 		}
-		cell += map->w - 32; // the next row down
+		cell += map.getWidth() - 32; // the next row down
 	}
 
 	low_luminance += max(adjust*2, -low_luminance); // adjust to fit at twice the difference
@@ -355,29 +355,29 @@ void draw(Map *map) {
 	}
 }
 
-void run(Map *map) {
+void run() {
 	while (1) {
 		// TODO: is DMA actually asynchronous?
 		bool copying = false;
 
 		if (just_scrolled) {
 			// update the new backbuffer
-			move_port(map, just_scrolled);
+			move_port(just_scrolled);
 			copying = true;
 			just_scrolled = 0;
 		}
 
 		// run important processes first
-		map->handler(map);
+		map.handler();
 		// then everything else
-		run_processes(map, map->processes);
+		run_processes(map.processes);
 
 		// wait for DMA to finish
 		if (copying)
 			while (dmaBusy(3));
 
 		// draw loop
-		draw(map);
+		draw();
 
 		// cap to 30fps
 		while (vblnks < 2) swiWaitForVBlank();

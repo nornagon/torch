@@ -35,29 +35,42 @@ struct Cell {
 };
 
 // map_t holds map information as well as game state.
-struct Map {
+class Map {
+	private:
 	s32 w,h;
 
-	Map(s32 w, s32 h);
-	void reset();
-	void reset_cache();
+	public:
+	s32 getWidth() { return w; }
+	s32 getHeight() { return h; }
 
 	List<Process> processes;
-
-	void (*handler)(struct Map *map);
 
 	Cell* cells;
 
 	Cache* cache;
 	int cacheX, cacheY; // top-left corner of cache. Should be kept positive.
+
+	public:
+	Map();
+	// resize the map by resetting, then freeing and reallocating all the cells.
+	void resize(u32 w, u32 h);
+
+	void reset();
+	void reset_cache();
+
+	void (*handler)();
+
 	s32 scrollX, scrollY; // top-left corner of screen. Should be kept positive.
 
 	s32 pX, pY;
-	void* game; // game-specific data structure
 
 	inline Cell *at(s32 x, s32 y) {
 		return &cells[y*w+x];
 	}
+
+	/*inline Cell *operator()(s32 x, s32 y) const {
+		return at(x,y);
+	}*/
 
 	// cache for *screen* coordinates (x,y).
 	inline Cache *cache_at_s(s32 x, s32 y) {
@@ -87,6 +100,10 @@ struct Map {
 		else if (x >= w) x = w-1;
 		if (y < 0) y = 0;
 		else if (y >= h) y = h-1;
+	}
+
+	inline bool is_outside(s32 x, s32 y) {
+		return y < 0 || y >= h || x < 0 || x >= h;
 	}
 
 	// push a new process on the process stack, returning the new process node.
@@ -130,8 +147,8 @@ struct Map {
 	void refresh_blockmap();
 };
 
-// resize the map by resetting, then freeing and reallocating all the cells.
-void resize_map(Map *map, u32 w, u32 h);
+extern Map map;
+
 
 // will return the first instance of an object of type objtype it comes across
 // in the given cell, or NULL if there are none.

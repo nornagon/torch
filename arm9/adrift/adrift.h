@@ -12,22 +12,21 @@ enum CELL_TYPE {
 	T_GLASS,
 };
 
-typedef struct player_s {
+struct Player {
 	List<Object> bag;
 	Node<Object> *obj;
 	light_t *light;
-} player_t;
+};
 
-typedef struct game_s {
+struct Game {
+	Game();
+	Player player;
+
 	fov_settings_type *fov_light, *fov_sight;
 
-	player_t *player;
-
 	unsigned int frm;
-} game_t;
+};
 
-static inline game_t *game(Map *map) {
-	return (game_t*)map->game;
-}
+extern Game game;
 
 #endif /* ADRIFT_H */

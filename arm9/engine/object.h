@@ -1,7 +1,6 @@
 #ifndef OBJECT_H
 #define OBJECT_H 1
 
-struct Map;
 struct ObjType;
 
 // object_t is for things that need to be drawn on the map, e.g. NPCs, dynamic
@@ -27,10 +26,10 @@ struct ObjType {
 	// if non-NULL, this will be called prior to drawing the object. It should
 	// return both a colour and a character, with the character in the high bytes.
 	// i.e: return (ch << 16) | col;
-	u32 (*display)(Object *obj, struct Map *map);
+	u32 (*display)(Object *obj);
 
 	// called when an object of this type is about to be destroyed.
-	void (*end)(Object *obj, struct Map *map);
+	void (*end)(Object *obj);
 
 	void *data;
 };

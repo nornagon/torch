@@ -9,14 +9,14 @@
 
 #define abs(x) ((x) < 0 ? -(x) : (x))
 
-void hline(Map *map, s32 x0, s32 x1, s32 y, void (*func)(Cell*)) {
-	map->bounded(x1, y);
-	if (x0 > x1) hline(map, x1, x0, y, func);
+void hline(Map *m, s32 x0, s32 x1, s32 y, void (*func)(Cell*)) {
+	m->bounded(x1, y);
+	if (x0 > x1) hline(m, x1, x0, y, func);
 	for (; x0 <= x1; x0++)
-		func(map->at(x0, y));
+		func(m->at(x0, y));
 }
 
-void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
+void hollowCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 	s32 left, right, top, bottom;
 	s32 x1, y1, x2, y2;
 	s32 cx = 0;
@@ -39,7 +39,7 @@ void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 	 * Special case for r=0 - draw a point
 	 */
 	if (r == 0) {
-		func(map->at(x,y));
+		func(m->at(x,y));
 		return;
 	}
 
@@ -47,9 +47,9 @@ void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 	 * Get clipping boundary
 	 */
 	left = 0;
-	right = map->w - 1;
+	right = m->getWidth() - 1;
 	top = 0;
-	bottom = map->h - 1;
+	bottom = m->getHeight() - 1;
 
 	/*
 	 * Test if bounding box of circle is visible
@@ -73,13 +73,13 @@ void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 			if (cy > 0) {
 				ypcy = y + cy;
 				ymcy = y - cy;
-				func(map->at(xmcx,ypcy));
-				func(map->at(xpcx,ypcy));
-				func(map->at(xmcx,ymcy));
-				func(map->at(xpcx,ymcy));
+				func(m->at(xmcx,ypcy));
+				func(m->at(xpcx,ypcy));
+				func(m->at(xmcx,ymcy));
+				func(m->at(xpcx,ymcy));
 			} else {
-				func(map->at(xmcx,y));
-				func(map->at(xpcx,y));
+				func(m->at(xmcx,y));
+				func(m->at(xpcx,y));
 			}
 			ocy = cy;
 			xpcy = x + cy;
@@ -87,13 +87,13 @@ void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 			if (cx > 0) {
 				ypcx = y + cx;
 				ymcx = y - cx;
-				func(map->at(xmcy,ypcx));
-				func(map->at(xpcy,ypcx));
-				func(map->at(xmcy,ymcx));
-				func(map->at(xpcy,ymcx));
+				func(m->at(xmcy,ypcx));
+				func(m->at(xpcy,ypcx));
+				func(m->at(xmcy,ymcx));
+				func(m->at(xpcy,ymcx));
 			} else {
-				func(map->at(xmcy,y));
-				func(map->at(xpcy,y));
+				func(m->at(xmcy,y));
+				func(m->at(xpcy,y));
 			}
 			ocx = cx;
 		}
@@ -115,7 +115,7 @@ void hollowCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 }
 
 // stolen from SDL_gfxPrimitives
-void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*))
+void filledCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*))
 {
 	s32 left, right, top, bottom;
 	int result;
@@ -140,7 +140,7 @@ void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*))
 	 * Special case for r=0 - draw a point
 	 */
 	if (r == 0) {
-		func(map->at(x, y));
+		func(m->at(x, y));
 		return;
 	}
 
@@ -148,9 +148,9 @@ void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*))
 	 * Get clipping boundary
 	 */
 	left = 0;
-	right = map->w - 1;
+	right = m->getWidth() - 1;
 	top = 0;
-	bottom = map->h - 1;
+	bottom = m->getHeight() - 1;
 
 	/*
 	 * Test if bounding box of circle is visible
@@ -177,10 +177,10 @@ void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*))
 			if (cy > 0) {
 				ypcy = y + cy;
 				ymcy = y - cy;
-				hline(map, xmcx, xpcx, ypcy, func);
-				hline(map, xmcx, xpcx, ymcy, func);
+				hline(m, xmcx, xpcx, ypcy, func);
+				hline(m, xmcx, xpcx, ymcy, func);
 			} else {
-				hline(map, xmcx, xpcx, y, func);
+				hline(m, xmcx, xpcx, y, func);
 			}
 			ocy = cy;
 		}
@@ -189,10 +189,10 @@ void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*))
 				if (cx > 0) {
 					ypcx = y + cx;
 					ymcx = y - cx;
-					hline(map, xmcy, xpcy, ymcx, func);
-					hline(map, xmcy, xpcy, ypcx, func);
+					hline(m, xmcy, xpcy, ymcx, func);
+					hline(m, xmcy, xpcy, ypcx, func);
 				} else {
-					hline(map, xmcy, xpcy, y, func);
+					hline(m, xmcy, xpcy, y, func);
 				}
 			}
 			ocx = cx;
@@ -214,7 +214,7 @@ void filledCircle(Map *map, s32 x, s32 y, s32 r, void (*func)(Cell*))
 	} while (cx <= cy);
 }
 
-void bresenham(Map *map, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(Cell*)) {
+void bresenham(Map *m, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(Cell*)) {
 	bool steep = abs(y1 - y0) > abs(x1 - x0);
 	if (steep) {
 		s32 tmp = x0; x0 = y0; y0 = tmp;
@@ -230,8 +230,8 @@ void bresenham(Map *map, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(Cell*)) {
 	s32 ystep = y0 < y1 ? 1 : -1;
 	s32 y = y0;
 	for (int x = x0; x < x1; x++) {
-		if (steep) func(map->at(y, x));
-		else func(map->at(x, y));
+		if (steep) func(m->at(y, x));
+		else func(m->at(x, y));
 		error += deltay;
 		if (error >= 0) {
 			y += ystep;
@@ -258,14 +258,14 @@ void randwalk(s32 &x, s32 &y) {
 	}
 }
 
-void haunted_grove(Map *map, s32 cx, s32 cy) {
+void haunted_grove(s32 cx, s32 cy) {
 	int r0 = 5, r1 = 15;
 	int w0 = 2, w1 = 4;
 	for (unsigned int t = 0; t < 0x1ff; t += 4) {
 		int r = (rand8() & 3) + r0;
 		int x = COS[t], y = SIN[t];
 		if (t % 16 != 0)
-			bresenham(map, cx + ((x*r) >> 12), cy + ((y*r) >> 12),
+			bresenham(&map, cx + ((x*r) >> 12), cy + ((y*r) >> 12),
 			               cx + ((x*(r+w0)) >> 12), cy + ((y*(r+w0)) >> 12), SET_TREE);
 	}
 	for (unsigned int t = 0; t < 0x1ff; t += 2) {
@@ -273,36 +273,36 @@ void haunted_grove(Map *map, s32 cx, s32 cy) {
 		int r = (a & 3) + r1; a >>= 2;
 		int x = COS[t], y = SIN[t];
 		if (t % 16 > (a & 3))
-			bresenham(map, cx + ((x*r) >> 12), cy + ((y*r) >> 12),
+			bresenham(&map, cx + ((x*r) >> 12), cy + ((y*r) >> 12),
 			               cx + ((x*(r+w1)) >> 12), cy + ((y*(r+w1)) >> 12), SET_TREE);
 	}
 	u16 k = rand16() & 0x1ff;
 	int x = COS[k], y = SIN[k];
-	bresenham(map, cx + ((x*r0) >> 12), cy + ((y*r0) >> 12),
+	bresenham(&map, cx + ((x*r0) >> 12), cy + ((y*r0) >> 12),
 	               cx + ((x*(r0+w0)) >> 12), cy + ((y*(r0+w0)) >> 12), SET_GROUND);
 	k = rand16() & 0x1ff;
 	x = COS[k]; y = SIN[k];
-	bresenham(map, cx + ((x*r1) >> 12), cy + ((y*r1) >> 12),
+	bresenham(&map, cx + ((x*r1) >> 12), cy + ((y*r1) >> 12),
 	               cx + ((x*(r1+w1)) >> 12), cy + ((y*(r1+w1)) >> 12), SET_GROUND);
 }
 
-void generate_terrarium(Map *map) {
-	s32 cx = map->w/2, cy = map->h/2;
+void generate_terrarium() {
+	s32 cx = map.getWidth()/2, cy = map.getHeight()/2;
 
-	map->reset();
-	map->reset_cache();
+	map.pX = cx;
+	map.pY = cy;
 
-	for (int y = 0; y < map->h; y++)
-		for (int x = 0; x < map->w; x++)
-			SET_NONE(map->at(x,y));
+	map.reset();
+	map.reset_cache();
 
-	filledCircle(map, cx, cy, 60, SET_GROUND);
-	hollowCircle(map, cx, cy, 60, SET_GLASS);
+	for (int y = 0; y < map.getHeight(); y++)
+		for (int x = 0; x < map.getWidth(); x++)
+			SET_NONE(map.at(x,y));
 
-	haunted_grove(map, cx, cy);
+	filledCircle(&map, cx, cy, 60, SET_GROUND);
+	hollowCircle(&map, cx, cy, 60, SET_GLASS);
 
-	map->pX = map->w/2;
-	map->pY = map->h/2;
+	haunted_grove(cx, cy);
 
-	map->refresh_blockmap();
+	map.refresh_blockmap();
 }

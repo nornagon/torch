@@ -17,22 +17,22 @@ fov_settings_type *build_fov_settings(
   return settings;
 }
 
-void draw_light(Map *map, fov_settings_type *settings, light_t *l) {
+void draw_light(fov_settings_type *settings, light_t *l) {
 	// don't bother calculating if the light's completely outside the screen.
-	if (((l->x + l->radius) >> 12) < map->scrollX ||
-	    ((l->x - l->radius) >> 12) > map->scrollX + 32 ||
-	    ((l->y + l->radius) >> 12) < map->scrollY ||
-	    ((l->y - l->radius) >> 12) > map->scrollY + 24) return;
+	if (((l->x + l->radius) >> 12) < map.scrollX ||
+	    ((l->x - l->radius) >> 12) > map.scrollX + 32 ||
+	    ((l->y + l->radius) >> 12) < map.scrollY ||
+	    ((l->y - l->radius) >> 12) > map.scrollY + 24) return;
 
 	// calculate lighting values
-	fov_circle(settings, (void*)map, (void*)l,
+	fov_circle(settings, &map, l,
 			l->x>>12, l->y>>12, (l->radius>>12) + 1);
 
 	// since fov_circle doesn't touch the origin tile, we'll do its lighting
 	// manually here.
-	Cell *cell = map->at(l->x>>12, l->y>>12);
+	Cell *cell = map.at(l->x>>12, l->y>>12);
 	if (cell->visible) {
-		Cache *cache = map->cache_at(l->x>>12, l->y>>12);
+		Cache *cache = map.cache_at(l->x>>12, l->y>>12);
 		cache->light += (1<<12);
 		cache->lr = l->r;
 		cache->lg = l->g;
@@ -43,13 +43,13 @@ void draw_light(Map *map, fov_settings_type *settings, light_t *l) {
 
 bool opacity_test(void *map_, int x, int y) {
 	Map *map = (Map*)map_;
-	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return true;
+	if (map->is_outside(x,y)) return true;
 	return map->at(x, y)->opaque || (map->pX == x && map->pY == y);
 }
 
 void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 	Map *map = (Map*)map_;
-	if (y < 0 || y >= map->h || x < 0 || x >= map->w) return;
+	if (map->is_outside(x,y)) return;
 
 	Cell *cell = map->at(x, y);
 
@@ -68,7 +68,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 		DIRECTION d = D_NONE;
 		if (cell->opaque)
-			d = seen_from(map, direction(l->x>>12, l->y>>12, x, y), cell);
+			d = seen_from(direction(l->x>>12, l->y>>12, x, y), cell);
 		Cache *cache = map->cache_at(x, y);
 
 		while (DIV_CR & DIV_BUSY);

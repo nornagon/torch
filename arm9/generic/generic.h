@@ -18,7 +18,7 @@ fov_settings_type *build_fov_settings(
 // TODO: make draw_light take the parameters of the light (colour, radius,
 // position) and build up the lighting struct to pass to fov_circle on its
 // ownsome?
-void draw_light(Map *map, fov_settings_type *settings, light_t *l);
+void draw_light(fov_settings_type *settings, light_t *l);
 
 // standard light-casting opacity test for libfov. Checks map edges, cell
 // opacity and player occupation (via map->pX/pY).
@@ -35,7 +35,7 @@ void apply_light(void *map, int x, int y, int dxblah, int dyblah, void *src);
 // #      <--+--- we only want to light the right face of these cells, not the
 // #     <---+    right *and* the top
 // #    <----+
-static inline DIRECTION seen_from(Map *map, DIRECTION d, Cell *cell) {
+static inline DIRECTION seen_from(DIRECTION d, Cell *cell) {
 	bool opa, opb;
 	switch (d) {
 		case D_NORTHWEST:
