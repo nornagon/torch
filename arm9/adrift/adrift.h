@@ -8,7 +8,7 @@
 #include "blockmap.h"
 
 enum CELL_TYPE {
-	T_NONE,
+	T_NONE = 0,
 	T_TREE,
 	T_GROUND,
 	T_GLASS,

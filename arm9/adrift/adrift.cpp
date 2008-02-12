@@ -34,9 +34,16 @@ Adrift::Adrift() {
 
 void recalc(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
+	u16 ch, col;
+	if (l->objs.head) {
+		ch = '@'; col = RGB15(31,31,31);
+	} else {
+		ch = typedesc[l->type].ch;
+		col = typedesc[l->type].col;
+	}
 	mapel *m = torch.buf.at(x,y);
-	m->ch = typedesc[l->type].ch;
-	m->col = typedesc[l->type].col;
+	m->ch = ch;
+	m->col = col;
 }
 
 bool solid(s16 x, s16 y) {
@@ -82,10 +89,10 @@ void move_player(DIRECTION dir) {
 
 		// move the player object
 		//map.move_object(game.player.obj, pX + dpX, pY + dpY);
-		/*game.map.at(pX, pY)->objs.remove(game.player.obj);
+		game.map.at(pX, pY)->objs.remove(game.player.obj);
 		game.map.at(pX + dpX, pY + dpY)->objs.push(game.player.obj);
 		recalc(pX, pY);
-		recalc(pX + dpX, pY + dpY);*/
+		recalc(pX + dpX, pY + dpY);
 
 		pX += dpX; game.player.x = pX;
 		pY += dpY; game.player.y = pY;
@@ -134,7 +141,9 @@ ObjType *OT_PLAYER = &ot_player;*/
 }*/
 
 void new_player() {
-	//((Object*)*game.player.obj)->type = 0; // XXX XXX XXX
+	game.player.obj = Node<Object>::pool.request_node();
+	game.map.at(game.player.x, game.player.y)->objs.push(game.player.obj);
+	((Object*)*game.player.obj)->type = 0; // XXX XXX XXX
 	game.player.light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 }
 

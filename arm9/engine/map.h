@@ -13,7 +13,7 @@
 
 struct mapel {
 	mapel() { reset(); }
-	mapel(u16 col_, u16 ch_) { reset(); col = col_; ch = ch_; }
+	mapel(u16 ch_, u16 col_) { reset(); col = col_; ch = ch_; }
 	u16 col, ch;
 
 	int32 recall;

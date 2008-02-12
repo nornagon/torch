@@ -91,8 +91,6 @@ struct List {
 	}
 };
 
-#include <stdio.h>
-
 template <class T> void Pool<T>::alloc_space(unsigned int n) {
 	for (; n > 0; n--) {
 		Node<T> *node = new Node<T>;
