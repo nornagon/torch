@@ -2,29 +2,40 @@
 #define ENGINE_H 1
 
 #include "map.h"
-#include "list.h"
+#include "direction.h"
+//#include "list.h"
 
-// initialise the DS
-void torch_init();
+class engine {
+	private:
+		s32 low_luminance;
+		DIRECTION just_scrolled;
+		int dirty;
 
-// run some processes, freeing NULL ones if necessary
-void run_processes(List<Process> processes);
+		void move_port(DIRECTION);
 
-// scroll the screen one tile in the direction dir. This function moves the
-// "viewport" in the direction specified, via DMA. This function acts on
-// whatever is the current backbuffer.
-void scroll_screen(int dsX, int dsY);
+	public:
+		engine();
 
-// mark the entire screen for redrawing. Slow!
-void dirty_screen();
+		torchbuf buf;
+		void init();
 
-// reset the luminance window (readjust your eyes)
-void reset_luminance();
+		// scroll the screen one tile in the direction dir. This function moves the
+		// "viewport" in the direction specified, via DMA. This function acts on
+		// whatever is the current backbuffer.
+		void scroll(int dsX, int dsY);
 
-// draw the map
-void draw();
+		// mark the entire screen for redrawing. Slow!
+		void dirty_screen();
 
-// run the game
-void run();
+		// reset the luminance window (readjust your eyes)
+		void reset_luminance();
+
+		// draw the buffer
+		void draw();
+
+		void run(void (*handler)());
+};
+
+extern engine torch;
 
 #endif /* ENGINE_H */

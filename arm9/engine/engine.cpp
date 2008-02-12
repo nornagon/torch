@@ -4,16 +4,22 @@
 #include "util.h"
 #include "text.h"
 
-DIRECTION just_scrolled = 0;
-int dirty;
-s32 low_luminance = 0; // for luminance window stuff
+#include "nocash.h"
+
+engine torch;
+
+engine::engine() {
+	just_scrolled = 0;
+	dirty = 0;
+	low_luminance = 0;
+}
 
 vu32 vblnks = 0;
 void vblank_counter() {
 	vblnks += 1;
 }
 
-void torch_init() {
+void engine::init() {
 	// Set up IRQs to call our stuff when we need it
 	irqInit();
 	irqSet(IRQ_VBLANK, vblank_counter);
@@ -49,10 +55,10 @@ void torch_init() {
 	seed += IPC->time.rtc.weekday*7*24*60*60;
 	init_genrand(seed);
 
-	dirty = 2;
+	dirty = 0;
 }
 
-void run_processes(List<Process> processes) {
+/*void run_processes(List<Process> processes) {
 	Node<Process> *node = processes.head;
 	Node<Process> *prev = NULL;
 	while (node) {
@@ -77,27 +83,27 @@ void run_processes(List<Process> processes) {
 			node = k;
 		}
 	}
-}
+}*/
 
 // we copy data *away* from dir
-void move_port(DIRECTION dir) {
+void engine::move_port(DIRECTION dir) {
 	u32 i;
 	// TODO: generalise?
 	if (dir & D_NORTH) {
 		// mark the top squares dirty
 		// TODO: slower than not going through cache_at?
 		for (i = 0; i < 32; i++)
-			map.cache_at_s(i, 0)->dirty = 2;
+			buf.cache.at(i, 0)->dirty = 2;
 
 		if (dir & D_EAST) {
 			for (i = 1; i < 24; i++)
-				map.cache_at_s(31, i)->dirty = 2;
+				buf.cache.at(31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 1; i < 24; i++)
-				map.cache_at_s(0, i)->dirty = 2;
+				buf.cache.at(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
@@ -109,16 +115,16 @@ void move_port(DIRECTION dir) {
 	} else if (dir & D_SOUTH) {
 		// mark the southern squares dirty
 		for (i = 0; i < 32; i++)
-			map.cache_at_s(i, 23)->dirty = 2;
+			buf.cache.at(i, 23)->dirty = 2;
 		if (dir & D_EAST) {
 			for (i = 0; i < 23; i++)
-				map.cache_at_s(31, i)->dirty = 2;
+				buf.cache.at(31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8+8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 23; i++)
-				map.cache_at_s(0, i)->dirty = 2;
+				buf.cache.at(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8];
 			DMA_DEST(3) = (uint32)&backbuf[8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
@@ -130,13 +136,13 @@ void move_port(DIRECTION dir) {
 	} else {
 		if (dir & D_EAST) {
 			for (i = 0; i < 24; i++)
-				map.cache_at_s(31, i)->dirty = 2;
+				buf.cache.at(31, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-8)>>1);
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 24; i++)
-				map.cache_at_s(0, i)->dirty = 2;
+				buf.cache.at(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);
@@ -144,14 +150,14 @@ void move_port(DIRECTION dir) {
 	}
 }
 
-void scroll_screen(int dsX, int dsY) {
-	map.cacheX += dsX;
-	map.cacheY += dsY;
+void engine::scroll(int dsX, int dsY) {
+	buf.cache.origin.x += dsX;
+	buf.cache.origin.y += dsY;
 	// wrap the cache origin
-	if (map.cacheX < 0) map.cacheX += 32;
-	if (map.cacheY < 0) map.cacheY += 24;
-	if (map.cacheX >= 32) map.cacheX -= 32;
-	if (map.cacheY >= 24) map.cacheY -= 24;
+	if (buf.cache.origin.x < 0) buf.cache.origin.x += 32;
+	if (buf.cache.origin.y < 0) buf.cache.origin.y += 24;
+	if (buf.cache.origin.x >= 32) buf.cache.origin.x -= 32;
+	if (buf.cache.origin.y >= 24) buf.cache.origin.y -= 24;
 
 	if (abs(dsX) > 1 || abs(dsY) > 1)
 		dirty_screen();
@@ -162,49 +168,47 @@ void scroll_screen(int dsX, int dsY) {
 	}
 }
 
-void dirty_screen() {
+void engine::dirty_screen() {
 	dirty = 2;
 }
 
-void reset_luminance() {
+void engine::reset_luminance() {
 	low_luminance = 0;
 }
 
-void draw() {
-	int x, y;
+#include <stdio.h>
 
-	u32 twiddling = 0;
-	u32 drawing = 0;
-
+void engine::draw() {
 	// adjust is a war between values above the top of the luminance window and
 	// values below the bottom
 	s32 adjust = 0;
 	s32 max_luminance = 0;
 
-	Cell *cell = map.at(map.scrollX, map.scrollY);
-	for (y = 0; y < 24; y++) {
-		for (x = 0; x < 32; x++) {
-			Cache *cache = map.cache_at_s(x, y);
+	mapel *m = buf.at(buf.scroll.x, buf.scroll.y); // we'll ++ it later
+	for (int y = 0; y < 24; y++) {
+		for (int x = 0; x < 32; x++) {
+			cachel *c = buf.cache.at(x, y);
+			luxel *l = buf.luxat(x+buf.scroll.x, y+buf.scroll.y);
 
-			if (cell->visible && cache->light > 0) {
-				start_stopwatch();
-				cell->recall = min(1<<12, max(cache->light, cell->recall));
-				if (cache->light > max_luminance) max_luminance = cache->light;
-				if (cache->light < low_luminance) {
-					cache->light = 0;
+			if (l->lval > 0) {
+				m->recall = min(1<<12, max(l->lval, m->recall));
+
+				if (l->lval > max_luminance) max_luminance = l->lval;
+				if (l->lval < low_luminance) {
+					l->lval = 0;
 					adjust--;
-				} else if (cache->light > low_luminance + (1<<12)) {
-					cache->light = 1<<12;
+				} else if (l->lval > low_luminance + (1<<12)) {
+					l->lval = 1<<12;
 					adjust++;
 				} else
-					cache->light -= low_luminance;
+					l->lval -= low_luminance;
 
-				u16 ch = cell->ch;
-				u16 col = cell->col;
+				u16 ch = m->ch;
+				u16 col = m->col;
 
 				// if there are objects in the cell, we want to draw them instead of
 				// the terrain.
-				if (cell->objects.head) {
+				/*if (cell->objects.head) {
 					// we'll only draw the head of the list. since the object list is
 					// maintained as sorted, this will be the most recently added most
 					// important object in the cell.
@@ -223,28 +227,31 @@ void draw() {
 						ch = objtype->ch;
 						col = objtype->col;
 					}
-				}
-				int32 rval = cache->lr,
-							gval = cache->lg,
-							bval = cache->lb;
+				}*/
 
-				bool foo = rval >> 8 != cache->last_lr ||
-						gval >> 8 != cache->last_lg ||
-						bval >> 8 != cache->last_lb ||
-						cache->last_light != cache->light >> 8 ||
-						col != cache->last_col;
+				int32 rval = l->lr,
+							gval = l->lg,
+							bval = l->lb;
 
-				twiddling += read_stopwatch();
+				bool changed = rval >> 8 != l->last_lr ||
+						gval >> 8 != l->last_lg ||
+						bval >> 8 != l->last_lb ||
+						l->last_lval != l->lval >> 8 ||
+						col != c->last_col;
 
 				// if the values have changed significantly from last time (by 7 bits
 				// or more, i guess) we'll recalculate the colour. Otherwise, we won't
 				// bother.
-				if (foo) {
-					cache->last_col = col;
+				if (changed) {
+						l->last_lr = l->lr >> 8;
+						l->last_lg = l->lg >> 8;
+						l->last_lb = l->lb >> 8;
+						l->last_lval = l->lval >> 8;
+					c->last_col = col;
 					// fade out to the recalled colour (or 0 for ground)
 					int32 minval = 0;
-					if (!cell->forgettable) minval = (cell->recall>>2);
-					int32 val = max(minval, cache->light);
+					/*if (!cell->forgettable)*/ minval = (m->recall>>2);
+					int32 val = max(minval, l->lval);
 					int32 maxcol = max(rval,max(bval,gval));
 					// scale [rgb]val by the luminance, and keep the ratio between the
 					// colours the same
@@ -262,81 +269,72 @@ void draw() {
 					r = ((r<<12) * rval) >> 24;
 					g = ((g<<12) * gval) >> 24;
 					b = ((b<<12) * bval) >> 24;
-					start_stopwatch();
 					u16 col_to_draw = RGB15(r,g,b);
-					u16 last_col_final = cache->last_col_final;
+					u16 last_col_final = c->last_col_final;
 					if (col_to_draw != last_col_final) {
+						//iprintf("\1%c%c%c", *((u8*)(&col_to_draw)), *((u8*)(&col_to_draw)+1), ch);
 						drawcq(x*8, y*8, ch, col_to_draw);
-						cache->last_col_final = col_to_draw;
-						cache->last_lr = cache->lr >> 8;
-						cache->last_lg = cache->lg >> 8;
-						cache->last_lb = cache->lb >> 8;
-						cache->last_light = cache->light >> 8;
-						cache->dirty = 2;
-					} else if (cache->dirty > 0 || dirty > 0) {
+						c->last_col_final = col_to_draw;
+						c->dirty = 2;
+					} else if (c->dirty > 0 || dirty > 0) {
 						drawcq(x*8, y*8, ch, col_to_draw);
-						if (cache->dirty > 0)
-							cache->dirty--;
+						if (c->dirty > 0)
+							c->dirty--;
 					}
-					drawing += read_stopwatch();
 				} else {
-					start_stopwatch();
-					if (cache->dirty > 0 || dirty > 0) {
-						drawcq(x*8, y*8, ch, cache->last_col_final);
-						if (cache->dirty > 0)
-							cache->dirty--;
+					if (c->dirty > 0 || dirty > 0) {
+						drawcq(x*8, y*8, ch, c->last_col_final);
+						if (c->dirty > 0)
+							c->dirty--;
 					}
-					drawing += read_stopwatch();
 				}
-				cache->light = 0;
-				cache->lr = 0;
-				cache->lg = 0;
-				cache->lb = 0;
-				cache->was_visible = true;
-			} else if (cache->dirty > 0 || dirty > 0 || cache->was_visible) {
+				l->lval = 0;
+				l->lr = 0;
+				l->lg = 0;
+				l->lb = 0;
+				c->was_visible = true;
+			} else if (c->dirty > 0 || dirty > 0 || c->was_visible) {
 				// dirty or it was visible last frame and now isn't.
-				if (cell->recall > 0 && !cell->forgettable) {
+				if (m->recall > 0 /*&& !cell->forgettable*/) {
 					u16 col;
 					u8 ch;
-					col = cell->col;
-					ch = cell->ch;
+					col = m->col;
+					ch = m->ch;
 					u32 r = col & 0x001f,
 							g = (col & 0x03e0) >> 5,
 							b = (col & 0x7c00) >> 10;
-					int32 val = (cell->recall>>2);
+					int32 val = (m->recall>>2);
 					r = ((r<<12) * val) >> 24;
 					g = ((g<<12) * val) >> 24;
 					b = ((b<<12) * val) >> 24;
-					cache->last_col_final = RGB15(r,g,b);
-					cache->last_col = cache->last_col_final; // not affected by light, so they're the same
-					cache->last_lr = 0;
-					cache->last_lg = 0;
-					cache->last_lb = 0;
-					cache->last_light = 0;
-					start_stopwatch();
-					drawcq(x*8, y*8, ch, cache->last_col_final);
-					drawing += read_stopwatch();
+					c->last_col_final = RGB15(r,g,b);
+					c->last_col = c->last_col_final; // not affected by light, so they're the same
+					l->last_lr = 0;
+					l->last_lg = 0;
+					l->last_lb = 0;
+					l->last_lval = 0;
+					drawcq(x*8, y*8, ch, c->last_col_final);
 				} else {
 					drawcq(x*8, y*8, ' ', 0); // clear
-					cache->last_col_final = 0;
-					cache->last_col = 0;
-					cache->last_lr = 0;
-					cache->last_lg = 0;
-					cache->last_lb = 0;
-					cache->last_light = 0;
+					c->last_col_final = 0;
+					c->last_col = 0;
+					l->last_lr = 0;
+					l->last_lg = 0;
+					l->last_lb = 0;
+					l->last_lval = 0;
 				}
-				if (cache->was_visible) {
-					cache->was_visible = false;
-					cache->dirty = 2;
+				if (c->was_visible) {
+					c->was_visible = false;
+					c->dirty = 2;
 				}
-				if (cache->dirty > 0)
-					cache->dirty--;
+				if (c->dirty > 0)
+					c->dirty--;
 			}
-			cell->visible = 0;
+			//cell->visible = 0;
 
-			cell++; // takes into account the size of the structure, apparently
+			m++; // takes into account the size of the structure, apparently
 		}
-		cell += map.getWidth() - 32; // the next row down
+		m += buf.getw() - 32; // the next row down
 	}
 
 	low_luminance += max(adjust*2, -low_luminance); // adjust to fit at twice the difference
@@ -344,18 +342,14 @@ void draw() {
 	if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
 		low_luminance -= min(40,low_luminance);
 
-	/*iprintf("\x1b[10;8H      \x1b[10;0Hadjust: %d\nlow luminance: %04x", adjust, low_luminance);
-	iprintf("\x1b[13;0Hdrawing: %05x\ntwiddling: %05x", drawing, twiddling);*/
-	//iprintf("vbe:%02d\n", vblnks);
-
 	if (dirty > 0) {
 		dirty--;
-		if (dirty > 0)
-			cls();
+		/*if (dirty > 0)
+			cls();*/ // XXX XXX XXX
 	}
 }
 
-void run() {
+void engine::run(void (*handler)()) {
 	while (1) {
 		// TODO: is DMA actually asynchronous?
 		bool copying = false;
@@ -367,10 +361,7 @@ void run() {
 			just_scrolled = 0;
 		}
 
-		// run important processes first
-		map.handler();
-		// then everything else
-		run_processes(map.processes);
+		handler();
 
 		// wait for DMA to finish
 		if (copying)

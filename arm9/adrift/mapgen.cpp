@@ -2,6 +2,8 @@
 #include "adrift.h"
 #include "mersenne.h"
 
+#include "engine.h"
+
 #include "generic.h"
 #include <malloc.h>
 
@@ -9,25 +11,25 @@
 
 #define abs(x) ((x) < 0 ? -(x) : (x))
 
-void hline(Map *m, s32 x0, s32 x1, s32 y, void (*func)(Cell*)) {
-	m->bounded(x1, y);
-	if (x0 > x1) hline(m, x1, x0, y, func);
+void hline(s16 x0, s16 x1, s16 y, void (*func)(s16 x, s16 y)) {
+	torch.buf.bounded(x1, y);
+	if (x0 > x1) hline(x1, x0, y, func);
 	for (; x0 <= x1; x0++)
-		func(m->at(x0, y));
+		func(x0, y);
 }
 
-void hollowCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
-	s32 left, right, top, bottom;
-	s32 x1, y1, x2, y2;
-	s32 cx = 0;
-	s32 cy = r;
-	s32 ocx = (s32) 0xffff;
-	s32 ocy = (s32) 0xffff;
-	s32 df = 1 - r;
-	s32 d_e = 3;
-	s32 d_se = -2 * r + 5;
-	s32 xpcx, xmcx, xpcy, xmcy;
-	s32 ypcy, ymcy, ypcx, ymcx;
+void hollowCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
+	s16 left, right, top, bottom;
+	s16 x1, y1, x2, y2;
+	s16 cx = 0;
+	s16 cy = r;
+	s16 ocx = (s32) 0xffff;
+	s16 ocy = (s32) 0xffff;
+	s16 df = 1 - r;
+	s16 d_e = 3;
+	s16 d_se = -2 * r + 5;
+	s16 xpcx, xmcx, xpcy, xmcy;
+	s16 ypcy, ymcy, ypcx, ymcx;
 
 	/*
 	 * Sanity check radius
@@ -39,7 +41,7 @@ void hollowCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 	 * Special case for r=0 - draw a point
 	 */
 	if (r == 0) {
-		func(m->at(x,y));
+		func(x,y);
 		return;
 	}
 
@@ -47,9 +49,9 @@ void hollowCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 	 * Get clipping boundary
 	 */
 	left = 0;
-	right = m->getWidth() - 1;
+	right = torch.buf.getw() - 1;
 	top = 0;
-	bottom = m->getHeight() - 1;
+	bottom = torch.buf.geth() - 1;
 
 	/*
 	 * Test if bounding box of circle is visible
@@ -73,13 +75,13 @@ void hollowCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 			if (cy > 0) {
 				ypcy = y + cy;
 				ymcy = y - cy;
-				func(m->at(xmcx,ypcy));
-				func(m->at(xpcx,ypcy));
-				func(m->at(xmcx,ymcy));
-				func(m->at(xpcx,ymcy));
+				func(xmcx,ypcy);
+				func(xpcx,ypcy);
+				func(xmcx,ymcy);
+				func(xpcx,ymcy);
 			} else {
-				func(m->at(xmcx,y));
-				func(m->at(xpcx,y));
+				func(xmcx,y);
+				func(xpcx,y);
 			}
 			ocy = cy;
 			xpcy = x + cy;
@@ -87,13 +89,13 @@ void hollowCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 			if (cx > 0) {
 				ypcx = y + cx;
 				ymcx = y - cx;
-				func(m->at(xmcy,ypcx));
-				func(m->at(xpcy,ypcx));
-				func(m->at(xmcy,ymcx));
-				func(m->at(xpcy,ymcx));
+				func(xmcy,ypcx);
+				func(xpcy,ypcx);
+				func(xmcy,ymcx);
+				func(xpcy,ymcx);
 			} else {
-				func(m->at(xmcy,y));
-				func(m->at(xpcy,y));
+				func(xmcy,y);
+				func(xpcy,y);
 			}
 			ocx = cx;
 		}
@@ -115,20 +117,20 @@ void hollowCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*)) {
 }
 
 // stolen from SDL_gfxPrimitives
-void filledCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*))
+void filledCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y))
 {
-	s32 left, right, top, bottom;
+	s16 left, right, top, bottom;
 	int result;
-	s32 x1, y1, x2, y2;
-	s32 cx = 0;
-	s32 cy = r;
-	s32 ocx = (s32) 0xffff;
-	s32 ocy = (s32) 0xffff;
-	s32 df = 1 - r;
-	s32 d_e = 3;
-	s32 d_se = -2 * r + 5;
-	s32 xpcx, xmcx, xpcy, xmcy;
-	s32 ypcy, ymcy, ypcx, ymcx;
+	s16 x1, y1, x2, y2;
+	s16 cx = 0;
+	s16 cy = r;
+	s16 ocx = (s32) 0xffff;
+	s16 ocy = (s32) 0xffff;
+	s16 df = 1 - r;
+	s16 d_e = 3;
+	s16 d_se = -2 * r + 5;
+	s16 xpcx, xmcx, xpcy, xmcy;
+	s16 ypcy, ymcy, ypcx, ymcx;
 
 	/*
 	 * Sanity check radius
@@ -140,7 +142,7 @@ void filledCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*))
 	 * Special case for r=0 - draw a point
 	 */
 	if (r == 0) {
-		func(m->at(x, y));
+		func(x, y);
 		return;
 	}
 
@@ -148,9 +150,9 @@ void filledCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*))
 	 * Get clipping boundary
 	 */
 	left = 0;
-	right = m->getWidth() - 1;
+	right = torch.buf.getw() - 1;
 	top = 0;
-	bottom = m->getHeight() - 1;
+	bottom = torch.buf.geth() - 1;
 
 	/*
 	 * Test if bounding box of circle is visible
@@ -177,10 +179,10 @@ void filledCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*))
 			if (cy > 0) {
 				ypcy = y + cy;
 				ymcy = y - cy;
-				hline(m, xmcx, xpcx, ypcy, func);
-				hline(m, xmcx, xpcx, ymcy, func);
+				hline(xmcx, xpcx, ypcy, func);
+				hline(xmcx, xpcx, ymcy, func);
 			} else {
-				hline(m, xmcx, xpcx, y, func);
+				hline(xmcx, xpcx, y, func);
 			}
 			ocy = cy;
 		}
@@ -189,10 +191,10 @@ void filledCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*))
 				if (cx > 0) {
 					ypcx = y + cx;
 					ymcx = y - cx;
-					hline(m, xmcy, xpcy, ymcx, func);
-					hline(m, xmcy, xpcy, ypcx, func);
+					hline(xmcy, xpcy, ymcx, func);
+					hline(xmcy, xpcy, ypcx, func);
 				} else {
-					hline(m, xmcy, xpcy, y, func);
+					hline(xmcy, xpcy, y, func);
 				}
 			}
 			ocx = cx;
@@ -214,24 +216,24 @@ void filledCircle(Map *m, s32 x, s32 y, s32 r, void (*func)(Cell*))
 	} while (cx <= cy);
 }
 
-void bresenham(Map *m, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(Cell*)) {
+void bresenham(s16 x0, s16 y0, s16 x1, s16 y1, void (*func)(s16 x, s16 y)) {
 	bool steep = abs(y1 - y0) > abs(x1 - x0);
 	if (steep) {
-		s32 tmp = x0; x0 = y0; y0 = tmp;
+		s16 tmp = x0; x0 = y0; y0 = tmp;
 		tmp = x1; x1 = y1; y1 = tmp;
 	}
 	if (x0 > x1) {
-		s32 tmp = x0; x0 = x1; x1 = tmp;
+		s16 tmp = x0; x0 = x1; x1 = tmp;
 		tmp = y0; y0 = y1; y1 = tmp;
 	}
-	s32 deltax = x1 - x0;
-	s32 deltay = abs(y1-y0);
-	s32 error = -(deltax + 1) / 2;
-	s32 ystep = y0 < y1 ? 1 : -1;
-	s32 y = y0;
+	s16 deltax = x1 - x0;
+	s16 deltay = abs(y1-y0);
+	s16 error = -(deltax + 1) / 2;
+	s16 ystep = y0 < y1 ? 1 : -1;
+	s16 y = y0;
 	for (int x = x0; x < x1; x++) {
-		if (steep) func(m->at(y, x));
-		else func(m->at(x, y));
+		if (steep) func(y, x);
+		else func(x, y);
 		error += deltay;
 		if (error >= 0) {
 			y += ystep;
@@ -240,15 +242,21 @@ void bresenham(Map *m, s32 x0, s32 y0, s32 x1, s32 y1, void (*func)(Cell*)) {
 	}
 }
 
-#define DEF(type, ch, col, opaque, forget) \
-	static inline void SET_##type(Cell *c) { *c = (Cell){ T_##type, (col), (ch), (opaque), (forget) }; }
-DEF(TREE, '*', RGB15(4,31,1), true, false);
-DEF(GROUND, '.', RGB15(17,9,6), false, true);
-DEF(NONE, ' ', RGB15(31,31,31), false, true);
-DEF(GLASS, '/', RGB15(4,12,30), false, false);
+#define DEF(type_, ch_, col_, opaque_) \
+	static inline void SET_##type_(s16 x, s16 y) { \
+		game.map.at(x,y)->type = T_##type_; \
+		mapel *m = torch.buf.at(x,y); \
+		m->recall = 0; m->col = col_; m->ch = ch_; \
+		blockel *b = game.map.block.at(x,y); \
+		b->opaque = opaque_; \
+	}
+DEF(TREE, '*', RGB15(4,31,1), true);
+DEF(GROUND, '.', RGB15(17,9,6), false);
+DEF(NONE, ' ', RGB15(31,31,31), false);
+DEF(GLASS, '/', RGB15(4,12,30), false);
 #undef DEF
 
-void randwalk(s32 &x, s32 &y) {
+void randwalk(s16 &x, s16 &y) {
 	unsigned int a = genrand_int32();
 	switch (a & 3) {
 		case 0: x++; break;
@@ -258,14 +266,14 @@ void randwalk(s32 &x, s32 &y) {
 	}
 }
 
-void haunted_grove(s32 cx, s32 cy) {
+void haunted_grove(s16 cx, s16 cy) {
 	int r0 = 5, r1 = 15;
 	int w0 = 2, w1 = 4;
 	for (unsigned int t = 0; t < 0x1ff; t += 4) {
 		int r = (rand8() & 3) + r0;
 		int x = COS[t], y = SIN[t];
 		if (t % 16 != 0)
-			bresenham(&map, cx + ((x*r) >> 12), cy + ((y*r) >> 12),
+			bresenham(cx + ((x*r) >> 12), cy + ((y*r) >> 12),
 			               cx + ((x*(r+w0)) >> 12), cy + ((y*(r+w0)) >> 12), SET_TREE);
 	}
 	for (unsigned int t = 0; t < 0x1ff; t += 2) {
@@ -273,36 +281,38 @@ void haunted_grove(s32 cx, s32 cy) {
 		int r = (a & 3) + r1; a >>= 2;
 		int x = COS[t], y = SIN[t];
 		if (t % 16 > (a & 3))
-			bresenham(&map, cx + ((x*r) >> 12), cy + ((y*r) >> 12),
+			bresenham(cx + ((x*r) >> 12), cy + ((y*r) >> 12),
 			               cx + ((x*(r+w1)) >> 12), cy + ((y*(r+w1)) >> 12), SET_TREE);
 	}
 	u16 k = rand16() & 0x1ff;
 	int x = COS[k], y = SIN[k];
-	bresenham(&map, cx + ((x*r0) >> 12), cy + ((y*r0) >> 12),
+	bresenham(cx + ((x*r0) >> 12), cy + ((y*r0) >> 12),
 	               cx + ((x*(r0+w0)) >> 12), cy + ((y*(r0+w0)) >> 12), SET_GROUND);
 	k = rand16() & 0x1ff;
 	x = COS[k]; y = SIN[k];
-	bresenham(&map, cx + ((x*r1) >> 12), cy + ((y*r1) >> 12),
+	bresenham(cx + ((x*r1) >> 12), cy + ((y*r1) >> 12),
 	               cx + ((x*(r1+w1)) >> 12), cy + ((y*(r1+w1)) >> 12), SET_GROUND);
 }
 
+#include "assert.h"
+
 void generate_terrarium() {
-	s32 cx = map.getWidth()/2, cy = map.getHeight()/2;
+	s16 cx = torch.buf.getw()/2, cy = torch.buf.geth()/2;
 
-	map.pX = cx;
-	map.pY = cy;
+	game.player.x = cx;
+	game.player.y = cy;
 
-	map.reset();
-	map.reset_cache();
+	torch.buf.reset();
+	torch.buf.cache.reset();
 
-	for (int y = 0; y < map.getHeight(); y++)
-		for (int x = 0; x < map.getWidth(); x++)
-			SET_NONE(map.at(x,y));
+	for (int y = 0; y < torch.buf.getw(); y++)
+		for (int x = 0; x < torch.buf.geth(); x++)
+			SET_NONE(x,y);
 
-	filledCircle(&map, cx, cy, 60, SET_GROUND);
-	hollowCircle(&map, cx, cy, 60, SET_GLASS);
+	filledCircle(cx, cy, 60, SET_GROUND);
+	hollowCircle(cx, cy, 60, SET_GLASS);
 
 	haunted_grove(cx, cy);
 
-	map.refresh_blockmap();
+	//map.refresh_blockmap();
 }

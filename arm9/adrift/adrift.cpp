@@ -14,51 +14,55 @@
 
 #include "assert.h"
 
-Game game;
+#include "draw.h"
+#include "nocash.h"
 
-Game::Game() {
+mapel typedesc[] = {
+	mapel(' ', RGB15(31,31,31)),
+	mapel('*', RGB15(4,31,1)),
+	mapel('.', RGB15(17,9,6)),
+	mapel('/', RGB15(4,12,30))
+};
+
+Adrift game;
+
+Adrift::Adrift() {
 	// the fov_settings_type that will be used for non-player-held lights.
 	fov_light = build_fov_settings(opacity_test, apply_light, FOV_SHAPE_OCTAGON);
 	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
 }
 
-void process_sight() {
-	game.player.light->x = map.pX << 12;
-	game.player.light->y = map.pY << 12;
-	fov_circle(game.fov_sight, &map, game.player.light, map.pX, map.pY, 32);
-	Cell *cell = map.at(map.pX, map.pY);
-	cell->visible = true;
-	Cache *cache = map.cache_at(map.pX, map.pY);
-	cache->light = (1<<12);
-	cache->lr = game.player.light->r;
-	cache->lg = game.player.light->g;
-	cache->lb = game.player.light->b;
-	cell->recall = 1<<12;
+void recalc(s16 x, s16 y) {
+	Cell *l = game.map.at(x,y);
+	mapel *m = torch.buf.at(x,y);
+	m->ch = typedesc[l->type].ch;
+	m->col = typedesc[l->type].col;
 }
 
-bool solid(Cell *cell) {
+bool solid(s16 x, s16 y) {
+	Cell *cell = game.map.at(x, y);
 	if (cell->type == T_GROUND) return false; // TODO: hack, make this a flag
 	return true;
 }
 
 void move_player(DIRECTION dir) {
-	s32 pX = map.pX, pY = map.pY;
+	s32 pX = game.player.x, pY = game.player.y;
 
 	int dpX = D_DX[dir],
 	    dpY = D_DY[dir];
 
-	if (pX + dpX < 0 || pX + dpX >= map.getWidth()) { dpX = 0; }
-	if (pY + dpY < 0 || pY + dpY >= map.getHeight()) { dpY = 0; }
+	if (pX + dpX < 0 || pX + dpX >= torch.buf.getw()) { dpX = 0; }
+	if (pY + dpY < 0 || pY + dpY >= torch.buf.geth()) { dpY = 0; }
 
-	Cell *cell = map.at(pX + dpX, pY + dpY);
+	Cell *cell;
 
-	if (solid(cell)) {
+	if (solid(pX + dpX, pY + dpY)) {
 		if (dpX && dpY) {
 			// if we could just go left or right, do that. This results in 'sliding'
 			// along walls when moving diagonally
-			if (!solid(map.at(pX + dpX, pY)))
+			if (!solid(pX + dpX, pY))
 				dpY = 0;
-			else if (!solid(map.at(pX, pY + dpY)))
+			else if (!solid(pX, pY + dpY))
 				dpX = 0;
 			else
 				dpX = dpY = 0;
@@ -71,42 +75,81 @@ void move_player(DIRECTION dir) {
 		if (dpX && dpY) game.frm = 7;
 		else game.frm = 5;
 
-		cell = map.at(pX + dpX, pY + dpY);
+		cell = game.map.at(pX + dpX, pY + dpY);
 
 		// dirty the cell we just stepped away from
-		map.cache_at(pX, pY)->dirty = 2;
+		torch.buf.cacheat(pX, pY)->dirty = 2;
 
 		// move the player object
-		map.move_object(game.player.obj, pX + dpX, pY + dpY);
+		//map.move_object(game.player.obj, pX + dpX, pY + dpY);
+		/*game.map.at(pX, pY)->objs.remove(game.player.obj);
+		game.map.at(pX + dpX, pY + dpY)->objs.push(game.player.obj);
+		recalc(pX, pY);
+		recalc(pX + dpX, pY + dpY);*/
 
-		pX += dpX; map.pX = pX;
-		pY += dpY; map.pY = pY;
+		pX += dpX; game.player.x = pX;
+		pY += dpY; game.player.y = pY;
 
 		// dirty the cell we just entered
-		map.cache_at(pX, pY)->dirty = 2;
+		torch.buf.cacheat(pX, pY)->dirty = 2;
 
-		// TODO: split into a separate (generic?) function
+		// TODO: move to engine
 		s32 dsX = 0, dsY = 0;
 		// keep the screen vaguely centred on the player (gap of 8 cells)
-		if (pX - map.scrollX < 8 && map.scrollX > 0) { // it's just a scroll to the left
-			dsX = (pX - 8) - map.scrollX;
-			map.scrollX = pX - 8;
-		} else if (pX - map.scrollX > 24 && map.scrollX < map.getWidth()-32) {
-			dsX = (pX - 24) - map.scrollX;
-			map.scrollX = pX - 24;
+		if (pX - torch.buf.scroll.x < 8 && torch.buf.scroll.x > 0) { // it's just a scroll to the left
+			dsX = (pX - 8) - torch.buf.scroll.x;
+			torch.buf.scroll.x = pX - 8;
+		} else if (pX - torch.buf.scroll.x > 24 && torch.buf.scroll.x < torch.buf.getw()-32) {
+			dsX = (pX - 24) - torch.buf.scroll.x;
+			torch.buf.scroll.x = pX - 24;
 		}
 
-		if (pY - map.scrollY < 8 && map.scrollY > 0) {
-			dsY = (pY - 8) - map.scrollY;
-			map.scrollY = pY - 8;
-		} else if (pY - map.scrollY > 16 && map.scrollY < map.getHeight()-24) {
-			dsY = (pY - 16) - map.scrollY;
-			map.scrollY = pY - 16;
+		if (pY - torch.buf.scroll.y < 8 && torch.buf.scroll.y > 0) {
+			dsY = (pY - 8) - torch.buf.scroll.y;
+			torch.buf.scroll.y = pY - 8;
+		} else if (pY - torch.buf.scroll.y > 16 && torch.buf.scroll.y < torch.buf.geth()-24) {
+			dsY = (pY - 16) - torch.buf.scroll.y;
+			torch.buf.scroll.y = pY - 16;
 		}
 
 		if (dsX || dsY)
-			scroll_screen(dsX, dsY);
+			torch.scroll(dsX, dsY);
 	}
+}
+
+/*ObjType ot_player = {
+	'@',
+	RGB15(31,31,31),
+	255,
+	NULL,
+	NULL,
+	NULL
+};
+ObjType *OT_PLAYER = &ot_player;*/
+
+/*Node<Object> *new_object(ObjType *T, s32 x, s32 y, void *data) {
+	Node<Object> *node = map.new_object(T, data);
+	map.insert_object(node, x, y);
+	return node;
+}*/
+
+void new_player() {
+	//((Object*)*game.player.obj)->type = 0; // XXX XXX XXX
+	game.player.light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
+}
+
+void process_sight() {
+	game.player.light->x = game.player.x << 12;
+	game.player.light->y = game.player.y << 12;
+	fov_circle(game.fov_sight, &game.map.block, game.player.light, game.player.x, game.player.y, 32);
+	luxel *e = torch.buf.luxat(game.player.x, game.player.y);
+	game.map.block.at(game.player.x, game.player.y)->visible = true;
+	//cachel *cache = torch.buf.cacheat(map.pX, map.pY);
+	e->lval = (1<<12);
+	e->lr = game.player.light->r;
+	e->lg = game.player.light->g;
+	e->lb = game.player.light->b;
+	torch.buf.at(game.player.x, game.player.y)->recall = 1<<12;
 }
 
 void process_keys() {
@@ -132,50 +175,32 @@ void process_keys() {
 		game.frm--;
 }
 
-ObjType ot_player = {
-	'@',
-	RGB15(31,31,31),
-	255,
-	NULL,
-	NULL,
-	NULL
-};
-ObjType *OT_PLAYER = &ot_player;
-
-Node<Object> *new_obj_player() {
-	Node<Object> *node = map.new_object(OT_PLAYER, NULL);
-	map.insert_object(node, map.pX, map.pY);
-	return node;
-}
-void new_player() {
-	game.player.obj = new_obj_player();
-	game.player.light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
-}
-
 void handler() {
 	process_keys();
 	process_sight();
 }
 
+#include "assert.h"
+
 void new_game() {
-	map.resize(128,128);
+	game.map.resize(128,128);
+	game.map.block.resize(128,128);
+	torch.buf.resize(128,128);
 
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds +
 				IPC->time.rtc.minutes*60 + IPC->time.rtc.hours*60*60 +
 				IPC->time.rtc.weekday*7*24*60*60));
 
 	generate_terrarium();
-	map.reset_cache();
+	torch.buf.cache.reset();
 
 	new_player();
 
-	map.scrollX = map.pX - 16;
-	map.scrollY = map.pY - 12;
-	map.bounded(map.scrollX, map.scrollY);
+	torch.buf.scroll.x = game.player.x - 16;
+	torch.buf.scroll.y = game.player.y - 12;
+	torch.buf.bounded(torch.buf.scroll.x, torch.buf.scroll.y);
 
-	map.handler = handler;
-
-	run();
+	torch.run(handler);
 }
 
 void init_world() {

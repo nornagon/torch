@@ -6,9 +6,9 @@
 #include "world.h"
 
 int main(void) {
-	torch_init();
+	torch.init();
 
-	dirty_screen(); // the whole screen is dirty first frame.
+	torch.dirty_screen(); // the whole screen is dirty first frame.
 
 	init_world();
 

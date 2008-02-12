@@ -43,6 +43,7 @@ struct Pool {
 
 template <class T>
 struct Node {
+	Node(): next(0) {}
 	Node<T> *next;
 	T data;
 	static Pool<T> pool;
@@ -55,12 +56,12 @@ template <class T> Pool<T> Node<T>::pool = Pool<T>();
 
 template <class T>
 struct List {
-	List(): head(NULL) {}
+	List(): head(0) {}
 
 	Node<T> *head;
 
 	void remove(Node<T> *node) {
-		if (head == NULL) return;
+		if (head == 0) return;
 		if (node == head) { head = head->next; return; }
 		Node<T>* prev = head;
 		Node<T>* k = prev->next;
@@ -76,7 +77,7 @@ struct List {
 		head = node;
 	}
 	Node<T> *pop() {
-		if (head == NULL) return NULL;
+		if (head == 0) return 0;
 		Node<T> *ret = head;
 		head = head->next;
 		return ret;
@@ -89,6 +90,8 @@ struct List {
 		return len;
 	}
 };
+
+#include <stdio.h>
 
 template <class T> void Pool<T>::alloc_space(unsigned int n) {
 	for (; n > 0; n--) {

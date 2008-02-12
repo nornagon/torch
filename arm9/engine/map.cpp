@@ -1,42 +1,44 @@
 #include "map.h"
-#include <malloc.h>
+/*#include <malloc.h>
 #include "mem.h"
 #include "process.h"
-#include "mersenne.h"
+#include "mersenne.h"*/
 
-Map map;
-
-Map::Map() {
+torchbuf::torchbuf() {
 	w = 0; h = 0;
-	handler = NULL;
-	cells = NULL;
-
-	cache = new Cache[32*24];
-	reset_cache();
-
-	pX = pY = 0;
-	scrollX = scrollY = 0;
+	map = 0;
+	light = 0;
 }
 
-void Map::reset_cache() {
-	memset(cache, 0, 32*24*sizeof(Cache));
-	// note that the cache is origin-agnostic, so the top-left corner of cache
-	// when scrollX = 0 does not have to correspond with cacheX = 0. The caching
-	// mechanisms will deal just fine whereever the origin is. Really, we don't
-	// need to set cacheX or cacheY here, but we do (just in case something weird
-	// happened to them)
-	cacheX = cacheY = 0;
+torchbuf::torchbuf(s16 w, s16 h) {
+	resize(w,h);
 }
 
-void free_process_list(List<Process> list) {
-	while (list.head) {
-		Node<Process> *node = list.pop();
-		Process *p = *node;
-		if (p->end)
-			p->end(p);
-		node->free();
-	}
+void torchbuf::resize(s16 _w, s16 _h) {
+	w = _w;
+	h = _h;
+
+	if (map) delete [] map;
+	if (light) delete [] light;
+
+	map = new mapel[w*h];
+	light = new luxel[32*24]; // TODO: remove constants
+
+	scroll.reset();
+	cache.reset();
 }
+
+void torchbuf::reset() {
+	for (int y = 0; y < h; y++)
+		for (int x = 0; x < w; x++)
+			at(x,y)->reset();
+
+	for (int y = 0; y < 24; y++)
+		for (int x = 0; x < 32; x++)
+			light[y*32+x].reset();
+}
+
+/*
 
 void Map::reset() {
 	for (s32 y = 0; y < h; y++)
@@ -187,4 +189,4 @@ Node<Object> *has_objtype(Cell *cell, ObjType *objtype) {
 	for (; k; k = k->next)
 		if (((Object*)*k)->type == objtype) return k;
 	return NULL;
-}
+}*/

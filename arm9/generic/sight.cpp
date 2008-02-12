@@ -3,31 +3,34 @@
 #include "light.h"
 #include "generic.h"
 
+#include "nocash.h"
+
+#include "blockmap.h"
+
 bool sight_opaque(void *map_, int x, int y) {
-	Map *map = (Map*)map_;
+	blockmap *map = (blockmap*)map_;
 	// stop at the edge of the screen
-	if (y < map->scrollY || y >= map->scrollY + 24
-	    || x < map->scrollX || x >= map->scrollX + 32)
+	if (y < torch.buf.scroll.y || y >= torch.buf.scroll.y + 24
+	    || x < torch.buf.scroll.x || x >= torch.buf.scroll.x + 32)
 		return true;
 	return map->at(x, y)->opaque;
 }
 
-void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
-	Map *map = (Map*)map_;
+void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
+	blockmap *map = (blockmap*)map_;
 	if (map->is_outside(x,y)) return;
-	light_t *l = (light_t*)src_;
+	light_t *l = (light_t*)src;
 
 	// don't bother calculating if we're outside the edge of the screen
-	s32 scrollX = map->scrollX, scrollY = map->scrollY;
-	if (x < scrollX || y < scrollY || x > scrollX + 31 || y > scrollY + 23) return;
+	s32 scrollX = torch.buf.scroll.x, scrollY = torch.buf.scroll.y;
+	if (x < scrollX || y < scrollY || x >= scrollX + 32 || y >= scrollY + 24) return;
 
-	Cell *cell = map->at(x, y);
-	Cache *cache = map->cache_at(x, y);
+	blockel *b = map->at(x, y);
 
 	DIRECTION d = D_NONE;
-	if (cell->opaque)
-		d = seen_from(direction(map->pX, map->pY, x, y), cell);
-	cache->seen_from = d;
+	if (b->opaque)
+		d = seen_from(direction(map->pX, map->pY, x, y), b);
+	b->seen_from = d;
 
 	// the funny bit-twiddling here is to preserve a few more bits in dx/dy
 	// during multiplication. mulf32 is a software multiply, and thus slow.
@@ -39,15 +42,16 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src_) {
 
 	if (dist2 < rad2) {
 		div_32_32_raw(dist2<<8, rad2>>4);
-		Cache *cache = map->cache_at(x, y); // load the cache while waiting for the division
+		//Cache *cache = map->cache_at(x, y); // load the cache while waiting for the division
+		luxel *e = torch.buf.luxat(x,y);
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = (1<<12) - DIV_RESULT32;
 
-		cache->light = intensity;
+		e->lval = intensity;
 
-		cache->lr = l->r;
-		cache->lg = l->g;
-		cache->lb = l->b;
+		e->lr = l->r;
+		e->lg = l->g;
+		e->lb = l->b;
 	}
-	cell->visible = true;
+	b->visible = true;
 }
