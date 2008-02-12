@@ -143,6 +143,7 @@ ObjType *OT_PLAYER = &ot_player;*/
 void new_player() {
 	game.player.obj = Node<Object>::pool.request_node();
 	game.map.at(game.player.x, game.player.y)->objs.push(game.player.obj);
+	recalc(game.player.x, game.player.y);
 	((Object*)*game.player.obj)->type = 0; // XXX XXX XXX
 	game.player.light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 }

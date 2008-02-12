@@ -165,8 +165,8 @@ void engine::scroll(int dsX, int dsY) {
 		DIRECTION dir = direction(dsX, dsY, 0, 0);
 		move_port(dir);
 		just_scrolled = dir;
-		for (int y = 0; y < 24; y++)
-			for (int x = 0; x < 32; x++)
+		for (int y = (dir&D_NORTH ? 1 : 0); y < (dir&D_SOUTH ? 23 : 24); y++)
+			for (int x = (dir&D_WEST ? 1 : 0); x < (dir&D_EAST ? 31 : 32); x++)
 				*(buf.luxat_s(x,y)) = *(buf.luxat_s(x+D_DX[dir], y+D_DY[dir]));
 	}
 }
