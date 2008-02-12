@@ -36,6 +36,8 @@ class blockmap {
 		inline blockel *at(int x, int y) {
 			return &els[y*w+x];
 		}
+
+		void refresh();
 };
 
 #endif /* BLOCKMAP_H */

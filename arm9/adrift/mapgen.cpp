@@ -242,18 +242,18 @@ void bresenham(s16 x0, s16 y0, s16 x1, s16 y1, void (*func)(s16 x, s16 y)) {
 	}
 }
 
-#define DEF(type_, ch_, col_, opaque_) \
+#define DEF(type_, opaque_) \
 	static inline void SET_##type_(s16 x, s16 y) { \
 		game.map.at(x,y)->type = T_##type_; \
 		mapel *m = torch.buf.at(x,y); \
-		m->recall = 0; m->col = col_; m->ch = ch_; \
+		m->recall = 0; m->col = typedesc[T_##type_].col; m->ch = typedesc[T_##type_].ch; \
 		blockel *b = game.map.block.at(x,y); \
 		b->opaque = opaque_; \
 	}
-DEF(TREE, '*', RGB15(4,31,1), true);
-DEF(GROUND, '.', RGB15(17,9,6), false);
-DEF(NONE, ' ', RGB15(31,31,31), false);
-DEF(GLASS, '/', RGB15(4,12,30), false);
+DEF(TREE, true);
+DEF(GROUND, false);
+DEF(NONE, false);
+DEF(GLASS, false);
 #undef DEF
 
 void randwalk(s16 &x, s16 &y) {
@@ -314,5 +314,5 @@ void generate_terrarium() {
 
 	haunted_grove(cx, cy);
 
-	//map.refresh_blockmap();
+	game.map.block.refresh();
 }

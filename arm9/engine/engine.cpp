@@ -165,6 +165,9 @@ void engine::scroll(int dsX, int dsY) {
 		DIRECTION dir = direction(dsX, dsY, 0, 0);
 		move_port(dir);
 		just_scrolled = dir;
+		for (int y = 0; y < 24; y++)
+			for (int x = 0; x < 32; x++)
+				*(buf.luxat_s(x,y)) = *(buf.luxat_s(x+D_DX[dir], y+D_DY[dir]));
 	}
 }
 
@@ -243,10 +246,10 @@ void engine::draw() {
 				// or more, i guess) we'll recalculate the colour. Otherwise, we won't
 				// bother.
 				if (changed) {
-						l->last_lr = l->lr >> 8;
-						l->last_lg = l->lg >> 8;
-						l->last_lb = l->lb >> 8;
-						l->last_lval = l->lval >> 8;
+					l->last_lr = l->lr >> 8;
+					l->last_lg = l->lg >> 8;
+					l->last_lb = l->lb >> 8;
+					l->last_lval = l->lval >> 8;
 					c->last_col = col;
 					// fade out to the recalled colour (or 0 for ground)
 					int32 minval = 0;
@@ -277,6 +280,7 @@ void engine::draw() {
 						c->last_col_final = col_to_draw;
 						c->dirty = 2;
 					} else if (c->dirty > 0 || dirty > 0) {
+						iprintf("blub");
 						drawcq(x*8, y*8, ch, col_to_draw);
 						if (c->dirty > 0)
 							c->dirty--;

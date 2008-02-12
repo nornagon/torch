@@ -87,6 +87,8 @@ class torchbuf {
 		mapel *map;
 		luxel *light;
 
+		inline luxel *luxat_s(s16 x, s16 y) { return &light[y*32+x]; }
+
 	public:
 		torchbuf();
 		torchbuf(s16 w, s16 h);

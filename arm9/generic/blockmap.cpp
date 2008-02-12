@@ -23,3 +23,18 @@ void blockmap::reset() {
 		for (int x = 0; x < w; x++)
 			at(x,y)->reset();
 }
+
+void blockmap::refresh() {
+	// each cell needs to know which cells around them are opaque for purposes of
+	// direction-aware lighting.
+
+	for (int y = 0; y < h; y++)
+		for (int x = 0; x < w; x++) {
+			unsigned int blocked_from = 0;
+			if (y != 0 && at(x, y-1)->opaque) blocked_from |= D_NORTH;
+			if (y != h - 1 && at(x, y+1)->opaque) blocked_from |= D_SOUTH;
+			if (x != w - 1 && at(x+1, y)->opaque) blocked_from |= D_EAST;
+			if (x != 0 && at(x-1, y)->opaque) blocked_from |= D_WEST;
+			at(x, y)->blocked_from = blocked_from;
+		}
+}
