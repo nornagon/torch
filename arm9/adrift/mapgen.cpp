@@ -254,6 +254,7 @@ DEF(TREE, true);
 DEF(GROUND, false);
 DEF(NONE, false);
 DEF(GLASS, false);
+DEF(WATER, false);
 #undef DEF
 
 void randwalk(s16 &x, s16 &y) {
@@ -267,8 +268,21 @@ void randwalk(s16 &x, s16 &y) {
 }
 
 void haunted_grove(s16 cx, s16 cy) {
-	int r0 = 5, r1 = 15;
-	int w0 = 2, w1 = 4;
+	int r0 = 7, r1 = 15;
+	int w0 = 3, w1 = 4;
+
+	unsigned int playerpos = ((rand32() & 0x1ff) / 8) * 8;
+	for (unsigned int t = 0; t < 0x1ff; t += 8) {
+		int r = rand32() % 5;
+		int x = COS[t], y = SIN[t];
+		bresenham(cx, cy, cx + ((x*r) >> 12), cy + ((y*r) >> 12), SET_WATER);
+		if (t == playerpos) {
+			unsigned int extra = rand8() % 3;
+			game.player.x = cx + ((x*(5+extra)) >> 12);
+			game.player.y = cy + ((y*(5+extra)) >> 12);
+		}
+	}
+
 	for (unsigned int t = 0; t < 0x1ff; t += 4) {
 		int r = (rand8() & 3) + r0;
 		int x = COS[t], y = SIN[t];
@@ -298,9 +312,6 @@ void haunted_grove(s16 cx, s16 cy) {
 
 void generate_terrarium() {
 	s16 cx = torch.buf.getw()/2, cy = torch.buf.geth()/2;
-
-	game.player.x = cx;
-	game.player.y = cy;
 
 	torch.buf.reset();
 	torch.buf.cache.reset();

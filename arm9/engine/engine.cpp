@@ -209,29 +209,6 @@ void engine::draw() {
 				u16 ch = m->ch;
 				u16 col = m->col;
 
-				// if there are objects in the cell, we want to draw them instead of
-				// the terrain.
-				/*if (cell->objects.head) {
-					// we'll only draw the head of the list. since the object list is
-					// maintained as sorted, this will be the most recently added most
-					// important object in the cell.
-					Object *obj = *(cell->objects.head);
-					ObjType *objtype = obj->type;
-
-					// if the object has a custom display function, we'll ask that.
-					if (objtype->display) {
-						u32 disp = objtype->display(obj);
-						// the character should be in the high bytes
-						ch = disp >> 16;
-						// and the colour in the low bytes
-						col = disp & 0xffff;
-					} else {
-						// otherwise we just use what's default for the object type.
-						ch = objtype->ch;
-						col = objtype->col;
-					}
-				}*/
-
 				int32 rval = l->lr,
 							gval = l->lg,
 							bval = l->lb;

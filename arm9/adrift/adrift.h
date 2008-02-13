@@ -12,19 +12,38 @@ enum CELL_TYPE {
 	T_TREE,
 	T_GROUND,
 	T_GLASS,
+	T_WATER,
 	MAX_CELL_TYPE
 };
 
 extern mapel typedesc[];
 
+enum CREATURE_TYPE {
+	C_NONE = 0,
+	C_PLAYER,
+	MAX_CREATURE_TYPE
+};
+
+struct CreatureDesc {
+	u16 ch, col;
+	const char *name;
+};
+
+extern CreatureDesc creaturedesc[];
+
+struct Creature {
+	u16 type;
+};
+
 struct Object {
 	Object(): type(0) {}
-	int type;
+	u16 type;
 };
 
 struct Cell {
 	CELL_TYPE type;
 	List<Object> objs;
+	List<Creature> creatures;
 };
 
 class Map {
@@ -49,7 +68,7 @@ class Map {
 
 struct Player {
 	List<Object> bag;
-	Node<Object> *obj;
+	Node<Creature> *obj;
 	light_t *light;
 
 	s16 x, y;

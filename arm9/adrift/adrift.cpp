@@ -21,7 +21,13 @@ mapel typedesc[] = {
 	mapel(' ', RGB15(31,31,31)),
 	mapel('*', RGB15(4,31,1)),
 	mapel('.', RGB15(17,9,6)),
-	mapel('/', RGB15(4,12,30))
+	mapel('/', RGB15(4,12,30)),
+	mapel('~', RGB15(5,14,23)),
+};
+
+CreatureDesc creaturedesc[] = {
+	{ 'X', RGB15(31,0,0), "NONE" },
+	{ '@', RGB15(31,31,31), "player" },
 };
 
 Adrift game;
@@ -35,8 +41,11 @@ Adrift::Adrift() {
 void recalc(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
 	u16 ch, col;
-	if (l->objs.head) {
-		ch = '@'; col = RGB15(31,31,31);
+	if (l->creatures.head) {
+		ch = creaturedesc[l->creatures.head->data.type].ch;
+		col = creaturedesc[l->creatures.head->data.type].col;
+	} else if (l->objs.head) {
+		//ch = '@'; col = RGB15(31,31,31);
 	} else {
 		ch = typedesc[l->type].ch;
 		col = typedesc[l->type].col;
@@ -89,8 +98,8 @@ void move_player(DIRECTION dir) {
 
 		// move the player object
 		//map.move_object(game.player.obj, pX + dpX, pY + dpY);
-		game.map.at(pX, pY)->objs.remove(game.player.obj);
-		game.map.at(pX + dpX, pY + dpY)->objs.push(game.player.obj);
+		game.map.at(pX, pY)->creatures.remove(game.player.obj);
+		game.map.at(pX + dpX, pY + dpY)->creatures.push(game.player.obj);
 		recalc(pX, pY);
 		recalc(pX + dpX, pY + dpY);
 
@@ -141,10 +150,10 @@ ObjType *OT_PLAYER = &ot_player;*/
 }*/
 
 void new_player() {
-	game.player.obj = Node<Object>::pool.request_node();
-	game.map.at(game.player.x, game.player.y)->objs.push(game.player.obj);
+	game.player.obj = Node<Creature>::pool.request_node();
+	game.map.at(game.player.x, game.player.y)->creatures.push(game.player.obj);
+	game.player.obj->data.type = C_PLAYER;
 	recalc(game.player.x, game.player.y);
-	((Object*)*game.player.obj)->type = 0; // XXX XXX XXX
 	game.player.light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 }
 
