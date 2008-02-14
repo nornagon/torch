@@ -242,19 +242,19 @@ void bresenham(s16 x0, s16 y0, s16 x1, s16 y1, void (*func)(s16 x, s16 y)) {
 	}
 }
 
-#define DEF(type_, opaque_) \
+#define DEF(type_) \
 	static inline void SET_##type_(s16 x, s16 y) { \
 		game.map.at(x,y)->type = T_##type_; \
 		mapel *m = torch.buf.at(x,y); \
-		m->recall = 0; m->col = typedesc[T_##type_].col; m->ch = typedesc[T_##type_].ch; \
+		m->recall = 0; m->col = celldesc[T_##type_].col; m->ch = celldesc[T_##type_].ch; \
 		blockel *b = game.map.block.at(x,y); \
-		b->opaque = opaque_; \
+		b->opaque = celldesc[T_##type_].opaque; \
 	}
-DEF(TREE, true);
-DEF(GROUND, false);
-DEF(NONE, false);
-DEF(GLASS, false);
-DEF(WATER, false);
+DEF(TREE);
+DEF(GROUND);
+DEF(NONE);
+DEF(GLASS);
+DEF(WATER);
 #undef DEF
 
 void randwalk(s16 &x, s16 &y) {

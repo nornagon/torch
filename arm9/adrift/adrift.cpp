@@ -17,19 +17,6 @@
 #include "draw.h"
 #include "nocash.h"
 
-mapel typedesc[] = {
-	mapel(' ', RGB15(31,31,31)),
-	mapel('*', RGB15(4,31,1)),
-	mapel('.', RGB15(17,9,6)),
-	mapel('/', RGB15(4,12,30)),
-	mapel('~', RGB15(5,14,23)),
-};
-
-CreatureDesc creaturedesc[] = {
-	{ 'X', RGB15(31,0,0), "NONE" },
-	{ '@', RGB15(31,31,31), "player" },
-};
-
 Adrift game;
 
 Adrift::Adrift() {
@@ -47,8 +34,8 @@ void recalc(s16 x, s16 y) {
 	} else if (l->objs.head) {
 		//ch = '@'; col = RGB15(31,31,31);
 	} else {
-		ch = typedesc[l->type].ch;
-		col = typedesc[l->type].col;
+		ch = celldesc[l->type].ch;
+		col = celldesc[l->type].col;
 	}
 	mapel *m = torch.buf.at(x,y);
 	m->ch = ch;
@@ -57,8 +44,8 @@ void recalc(s16 x, s16 y) {
 
 bool solid(s16 x, s16 y) {
 	Cell *cell = game.map.at(x, y);
-	if (cell->type == T_GROUND) return false; // TODO: hack, make this a flag
-	return true;
+	if (celldesc[cell->type].solid) return true;
+	return false;
 }
 
 void move_player(DIRECTION dir) {

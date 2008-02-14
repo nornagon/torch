@@ -6,44 +6,12 @@
 #include "map.h"
 #include "list.h"
 #include "blockmap.h"
-
-enum CELL_TYPE {
-	T_NONE = 0,
-	T_TREE,
-	T_GROUND,
-	T_GLASS,
-	T_WATER,
-	MAX_CELL_TYPE
-};
-
-extern mapel typedesc[];
-
-enum CREATURE_TYPE {
-	C_NONE = 0,
-	C_PLAYER,
-	MAX_CREATURE_TYPE
-};
-
-struct CreatureDesc {
-	u16 ch, col;
-	const char *name;
-};
-
-extern CreatureDesc creaturedesc[];
-
-struct Creature {
-	u16 type;
-};
+#include "creature.h"
+#include "cell.h"
 
 struct Object {
 	Object(): type(0) {}
 	u16 type;
-};
-
-struct Cell {
-	CELL_TYPE type;
-	List<Object> objs;
-	List<Creature> creatures;
 };
 
 class Map {
