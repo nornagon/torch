@@ -179,8 +179,6 @@ void engine::reset_luminance() {
 	low_luminance = 0;
 }
 
-#include <stdio.h>
-
 void engine::draw() {
 	// adjust is a war between values above the top of the luminance window and
 	// values below the bottom
@@ -259,7 +257,7 @@ void engine::draw() {
 						c->last_col_final = col_to_draw;
 						c->dirty = 2;
 					} else if (c->dirty > 0 || dirty > 0) {
-						iprintf("blub");
+						// TODO: does this ever get called?
 						drawcq(x*8, y*8, ch, col_to_draw);
 						if (c->dirty > 0)
 							c->dirty--;
