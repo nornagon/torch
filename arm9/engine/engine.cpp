@@ -192,7 +192,7 @@ void engine::draw() {
 			luxel *l = buf.luxat(x+buf.scroll.x, y+buf.scroll.y);
 
 			if (l->lval > 0) {
-				m->recall = min(1<<12, max(l->lval, m->recall));
+				//m->recall = min(1<<12, max(l->lval, m->recall));
 
 				if (l->lval > max_luminance) max_luminance = l->lval;
 				if (l->lval < low_luminance) {

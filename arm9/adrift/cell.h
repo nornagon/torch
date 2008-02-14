@@ -17,6 +17,7 @@ struct CellDesc {
 	u16 ch, col;
 	bool solid : 1;
 	bool opaque : 1;
+	bool forgettable : 1;
 };
 
 extern CellDesc celldesc[];

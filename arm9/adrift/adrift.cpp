@@ -114,28 +114,23 @@ void move_player(DIRECTION dir) {
 	}
 }
 
-/*ObjType ot_player = {
-	'@',
-	RGB15(31,31,31),
-	255,
-	NULL,
-	NULL,
-	NULL
-};
-ObjType *OT_PLAYER = &ot_player;*/
-
-/*Node<Object> *new_object(ObjType *T, s32 x, s32 y, void *data) {
-	Node<Object> *node = map.new_object(T, data);
-	map.insert_object(node, x, y);
-	return node;
-}*/
-
 void new_player() {
 	game.player.obj = Node<Creature>::pool.request_node();
 	game.map.at(game.player.x, game.player.y)->creatures.push(game.player.obj);
 	game.player.obj->data.type = C_PLAYER;
 	recalc(game.player.x, game.player.y);
 	game.player.light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
+}
+
+void updaterecall(s16 x, s16 y) {
+	Cell *c = game.map.at(x, y);
+	if (!celldesc[c->type].forgettable) {
+		int32 v = torch.buf.luxat(x, y)->lval;
+		mapel *m = torch.buf.at(x, y);
+		m->recall = min(1<<12, max(v, m->recall));
+	} else {
+		torch.buf.at(x, y)->recall = 0;
+	}
 }
 
 void process_sight() {
@@ -148,7 +143,7 @@ void process_sight() {
 	e->lr = game.player.light->r;
 	e->lg = game.player.light->g;
 	e->lb = game.player.light->b;
-	torch.buf.at(game.player.x, game.player.y)->recall = 1<<12;
+	updaterecall(game.player.x, game.player.y);
 }
 
 void process_keys() {
@@ -177,9 +172,11 @@ void process_keys() {
 void handler() {
 	process_keys();
 	process_sight();
-}
 
-#include "assert.h"
+	for (int y = 0; y < 24; y++)
+		for (int x = 0; x < 32; x++)
+			updaterecall(x+torch.buf.scroll.x, y+torch.buf.scroll.y);
+}
 
 void new_game() {
 	game.map.resize(128,128);
