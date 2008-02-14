@@ -217,7 +217,8 @@ void engine::draw() {
 						gval >> 8 != l->last_lg ||
 						bval >> 8 != l->last_lb ||
 						l->last_lval != l->lval >> 8 ||
-						col != c->last_col;
+						col != c->last_col ||
+						ch != c->last_ch;
 
 				// if the values have changed significantly from last time (by 7 bits
 				// or more, i guess) we'll recalculate the colour. Otherwise, we won't
@@ -228,6 +229,7 @@ void engine::draw() {
 					l->last_lb = l->lb >> 8;
 					l->last_lval = l->lval >> 8;
 					c->last_col = col;
+					c->last_ch = ch;
 					// fade out to the recalled colour (or 0 for ground)
 					int32 minval = 0;
 					/*if (!cell->forgettable)*/ minval = (m->recall>>2);
@@ -298,6 +300,7 @@ void engine::draw() {
 				} else {
 					drawcq(x*8, y*8, ' ', 0); // clear
 					c->last_col_final = 0;
+					c->last_ch = ' ';
 					c->last_col = 0;
 					l->last_lr = 0;
 					l->last_lg = 0;

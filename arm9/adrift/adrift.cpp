@@ -60,6 +60,7 @@ void move_player(DIRECTION dir) {
 	Cell *cell;
 
 	if (solid(pX + dpX, pY + dpY)) {
+		// your path is blocked
 		if (dpX && dpY) {
 			// if we could just go left or right, do that. This results in 'sliding'
 			// along walls when moving diagonally
@@ -80,11 +81,7 @@ void move_player(DIRECTION dir) {
 
 		cell = game.map.at(pX + dpX, pY + dpY);
 
-		// dirty the cell we just stepped away from
-		torch.buf.cacheat(pX, pY)->dirty = 2;
-
 		// move the player object
-		//map.move_object(game.player.obj, pX + dpX, pY + dpY);
 		game.map.at(pX, pY)->creatures.remove(game.player.obj);
 		game.map.at(pX + dpX, pY + dpY)->creatures.push(game.player.obj);
 		recalc(pX, pY);
@@ -92,9 +89,6 @@ void move_player(DIRECTION dir) {
 
 		pX += dpX; game.player.x = pX;
 		pY += dpY; game.player.y = pY;
-
-		// dirty the cell we just entered
-		torch.buf.cacheat(pX, pY)->dirty = 2;
 
 		// TODO: move to engine
 		s32 dsX = 0, dsY = 0;
@@ -150,7 +144,6 @@ void process_sight() {
 	fov_circle(game.fov_sight, &game.map.block, game.player.light, game.player.x, game.player.y, 32);
 	luxel *e = torch.buf.luxat(game.player.x, game.player.y);
 	game.map.block.at(game.player.x, game.player.y)->visible = true;
-	//cachel *cache = torch.buf.cacheat(map.pX, map.pY);
 	e->lval = (1<<12);
 	e->lr = game.player.light->r;
 	e->lg = game.player.light->g;
@@ -198,7 +191,6 @@ void new_game() {
 				IPC->time.rtc.weekday*7*24*60*60));
 
 	generate_terrarium();
-	torch.buf.cache.reset();
 
 	new_player();
 

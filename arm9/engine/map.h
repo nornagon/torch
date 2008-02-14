@@ -35,7 +35,7 @@ struct luxel {
 };
 struct cachel {
 	cachel() { reset(); }
-	u16 last_col, last_col_final;
+	u16 last_col, last_col_final, last_ch;
 	u8 dirty : 2;
 	bool was_visible : 1;
 
