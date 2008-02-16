@@ -255,6 +255,7 @@ DEF(GROUND);
 DEF(NONE);
 DEF(GLASS);
 DEF(WATER);
+DEF(FIRE);
 #undef DEF
 
 void randwalk(s16 &x, s16 &y) {
@@ -283,12 +284,21 @@ void haunted_grove(s16 cx, s16 cy) {
 		}
 	}
 
+	unsigned int firepos = ((rand32() & 0x1ff) / 4) * 4;
 	for (unsigned int t = 0; t < 0x1ff; t += 4) {
 		int r = (rand8() & 3) + r0;
 		int x = COS[t], y = SIN[t];
 		if (t % 16 != 0)
 			bresenham(cx + ((x*r) >> 12), cy + ((y*r) >> 12),
 			               cx + ((x*(r+w0)) >> 12), cy + ((y*(r+w0)) >> 12), SET_TREE);
+		if (t == firepos) {
+			int px = cx + ((x*(r0+w0+1)) >> 12),
+			    py = cy + ((y*(r0+w0+1)) >> 12);
+			SET_FIRE(px, py);
+			light_t *l = new_light(8<<12, (int)(0.9*(1<<12)), (int)(0.3*(1<<12)), (int)(0.1*(1<<12)));
+			l->x = px<<12; l->y = py<<12;
+			game.map.add_light(l);
+		}
 	}
 	for (unsigned int t = 0; t < 0x1ff; t += 2) {
 		int a = rand8();

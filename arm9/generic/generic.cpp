@@ -18,12 +18,15 @@ fov_settings_type *build_fov_settings(
   return settings;
 }
 
+#include <stdio.h>
+
 void draw_light(fov_settings_type *settings, blockmap *map, light_t *l) {
 	// don't bother calculating if the light's completely outside the screen.
 	if (((l->x + l->radius) >> 12) < torch.buf.scroll.x ||
 	    ((l->x - l->radius) >> 12) >= torch.buf.scroll.x + 32 ||
 	    ((l->y + l->radius) >> 12) < torch.buf.scroll.y ||
-	    ((l->y - l->radius) >> 12) >= torch.buf.scroll.y + 24) return;
+	    ((l->y - l->radius) >> 12) >= torch.buf.scroll.y + 24 ||
+	    l->radius == 0 || (l->r == 0 && l->g == 0 && l->b == 0)) return;
 
 	// calculate lighting values
 	fov_circle(settings, map, l,
@@ -70,7 +73,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 		DIRECTION d = D_NONE;
 		if (b->opaque)
 			d = seen_from(direction(l->x>>12, l->y>>12, x, y), b);
-		luxel *e = torch.buf.luxat(l->x>>12, l->y>>12);
+		luxel *e = torch.buf.luxat(x, y);
 
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = (1<<12) - DIV_RESULT32;

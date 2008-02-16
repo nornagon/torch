@@ -1,9 +1,10 @@
 #include "cell.h"
 
-CellDesc celldesc[] = {
-	{ ' ', RGB15(31,31,31), false, false, true },
-	{ '*', RGB15(4,31,1), true, true, false },
-	{ '.', RGB15(17,9,6), false, false, true },
-	{ '/', RGB15(4,12,30), true, false, false },
-	{ '~', RGB15(5,14,23), true, false, false },
+CellDesc celldesc[] = {/* s  o  f */
+	{ ' ', RGB15(31,31,31), 0, 0, 1 },
+	{ '*', RGB15(4,31,1),   1, 1, 0 },
+	{ '.', RGB15(17,9,6),   0, 0, 1 },
+	{ '/', RGB15(4,12,30),  1, 0, 0 },
+	{ '~', RGB15(5,14,23),  1, 0, 0 },
+	{ 'w', RGB15(28,17,7),  1, 0, 0 },
 };

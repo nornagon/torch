@@ -72,6 +72,23 @@ struct List {
 		if (k) // didn't hit the end
 			prev->next = k->next;
 	}
+	void remove(T x) {
+		if (head == 0) return;
+		if (x == head->data) { head = head->next; return; }
+		Node<T>* prev = head;
+		Node<T>* k = prev->next;
+		while (k && k->data != x) {
+			prev = k;
+			k = k->next;
+		}
+		if (k) // didn't hit the end
+			prev->next = k->next;
+	}
+	inline void push(T x) {
+		Node<T>* n = Node<T>::pool.request_node();
+		n->data = x;
+		push(n);
+	}
 	void push(Node<T> *node) {
 		node->next = head;
 		head = node;

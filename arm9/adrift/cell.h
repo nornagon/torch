@@ -10,6 +10,7 @@ enum CELL_TYPE {
 	T_GROUND,
 	T_GLASS,
 	T_WATER,
+	T_FIRE,
 	MAX_CELL_TYPE
 };
 

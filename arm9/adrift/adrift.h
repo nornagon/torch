@@ -8,11 +8,7 @@
 #include "blockmap.h"
 #include "creature.h"
 #include "cell.h"
-
-struct Object {
-	Object(): type(0) {}
-	u16 type;
-};
+#include "object.h"
 
 class Map {
 	private:
@@ -21,6 +17,7 @@ class Map {
 
 	public:
 		blockmap block;
+		List<light_t*> lights; // TODO: hrm, should this be private? how should process_lights work?
 
 		Map() { cells = 0; w = h = 0; }
 		Map(s16 w, s16 h) { resize(w,h); }
@@ -32,6 +29,9 @@ class Map {
 		Cell *at(s16 x, s16 y) {
 			return &cells[y*w+x];
 		}
+
+		void add_light(light_t *l);
+		void remove_light(light_t *l);
 };
 
 struct Player {

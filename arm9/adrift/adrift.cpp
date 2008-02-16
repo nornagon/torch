@@ -1,4 +1,3 @@
-#include "world.h"
 #include "generic.h"
 #include "adrift.h"
 
@@ -25,6 +24,14 @@ Adrift::Adrift() {
 	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
 }
 
+void Map::add_light(light_t *l) {
+	lights.push(l);
+}
+
+void Map::remove_light(light_t *l) {
+	lights.remove(l);
+}
+
 void recalc(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
 	u16 ch, col;
@@ -32,7 +39,7 @@ void recalc(s16 x, s16 y) {
 		ch = creaturedesc[l->creatures.head->data.type].ch;
 		col = creaturedesc[l->creatures.head->data.type].col;
 	} else if (l->objs.head) {
-		//ch = '@'; col = RGB15(31,31,31);
+		ch = 'X'; col = RGB15(31,31,0);
 	} else {
 		ch = celldesc[l->type].ch;
 		col = celldesc[l->type].col;
@@ -133,6 +140,28 @@ void updaterecall(s16 x, s16 y) {
 	}
 }
 
+void process_keys() {
+	if (game.frm <= 0) {
+		scanKeys();
+		u32 keys = keysHeld();
+
+		DIRECTION dir = 0;
+		if (keys & KEY_RIGHT)
+			dir |= D_EAST;
+		else if (keys & KEY_LEFT)
+			dir |= D_WEST;
+		if (keys & KEY_DOWN)
+			dir |= D_SOUTH;
+		else if (keys & KEY_UP)
+			dir |= D_NORTH;
+
+		if (!dir) return;
+
+		move_player(dir);
+	} else if (game.frm > 0)
+		game.frm--;
+}
+
 void process_sight() {
 	game.player.light->x = game.player.x << 12;
 	game.player.light->y = game.player.y << 12;
@@ -146,36 +175,22 @@ void process_sight() {
 	updaterecall(game.player.x, game.player.y);
 }
 
-void process_keys() {
-	if (game.frm == 0) {
-		scanKeys();
-		u32 keys = keysHeld();
-
-		DIRECTION dir = 0;
-		if (keys & KEY_RIGHT)
-			dir |= D_EAST;
-		if (keys & KEY_LEFT)
-			dir |= D_WEST;
-		if (keys & KEY_DOWN)
-			dir |= D_SOUTH;
-		if (keys & KEY_UP)
-			dir |= D_NORTH;
-
-		if (!dir) return;
-
-		move_player(dir);
-	}
-	if (game.frm > 0)
-		game.frm--;
+void process_lights() {
+	Node<light_t *> *k = game.map.lights.head;
+	for (; k; k = k->next)
+		draw_light(game.fov_light, &game.map.block, k->data);
 }
 
 void handler() {
 	process_keys();
 	process_sight();
+	process_lights();
 
 	for (int y = 0; y < 24; y++)
-		for (int x = 0; x < 32; x++)
+		for (int x = 0; x < 32; x++) {
 			updaterecall(x+torch.buf.scroll.x, y+torch.buf.scroll.y);
+			game.map.block.at(x+torch.buf.scroll.x, y+torch.buf.scroll.y)->visible = 0;
+		}
 }
 
 void new_game() {
