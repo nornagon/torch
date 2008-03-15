@@ -32,21 +32,27 @@ void Map::remove_light(light_t *l) {
 	lights.remove(l);
 }
 
-void recalc(s16 x, s16 y) {
-	Cell *l = game.map.at(x,y);
+void recalc_recall(s16 x, s16 y) {
 	u16 ch, col;
-	if (l->creatures.head) {
-		ch = creaturedesc[l->creatures.head->data.type].ch;
-		col = creaturedesc[l->creatures.head->data.type].col;
-	} else if (l->objs.head) {
+	Cell *l = game.map.at(x,y);
+	if (l->objs.head) {
 		ch = 'X'; col = RGB15(31,31,0);
-	} else {
+	} else if ((game.map.block.at(x,y)->visible && torch.buf.luxat(x,y)->lval > 0) || !celldesc[l->type].forgettable) {
 		ch = celldesc[l->type].ch;
 		col = celldesc[l->type].col;
-	}
+	} else { ch = ' '; col = RGB15(0,0,0); }
 	mapel *m = torch.buf.at(x,y);
 	m->ch = ch;
 	m->col = col;
+}
+
+void recalc_visible(s16 x, s16 y) {
+	Cell *l = game.map.at(x,y);
+	if (l->creatures.head) {
+		mapel *m = torch.buf.at(x,y);
+		m->ch = creaturedesc[l->creatures.head->data.type].ch;
+		m->col = creaturedesc[l->creatures.head->data.type].col;
+	} else recalc_recall(x,y);
 }
 
 bool solid(s16 x, s16 y) {
@@ -91,8 +97,9 @@ void move_player(DIRECTION dir) {
 		// move the player object
 		game.map.at(pX, pY)->creatures.remove(game.player.obj);
 		game.map.at(pX + dpX, pY + dpY)->creatures.push(game.player.obj);
-		recalc(pX, pY);
-		recalc(pX + dpX, pY + dpY);
+		// TODO: i assume these two squares are visible... correct?
+		recalc_visible(pX, pY);
+		recalc_visible(pX + dpX, pY + dpY);
 
 		pX += dpX; game.player.x = pX;
 		pY += dpY; game.player.y = pY;
@@ -125,19 +132,15 @@ void new_player() {
 	game.player.obj = Node<Creature>::pool.request_node();
 	game.map.at(game.player.x, game.player.y)->creatures.push(game.player.obj);
 	game.player.obj->data.type = C_PLAYER;
-	recalc(game.player.x, game.player.y);
+	recalc_visible(game.player.x, game.player.y);
 	game.player.light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 }
 
 void updaterecall(s16 x, s16 y) {
 	Cell *c = game.map.at(x, y);
-	if (!celldesc[c->type].forgettable) {
-		int32 v = torch.buf.luxat(x, y)->lval;
-		mapel *m = torch.buf.at(x, y);
-		m->recall = min(1<<12, max(v, m->recall));
-	} else {
-		torch.buf.at(x, y)->recall = 0;
-	}
+	int32 v = torch.buf.luxat(x, y)->lval;
+	mapel *m = torch.buf.at(x, y);
+	m->recall = min(1<<12, max(v, m->recall));
 }
 
 void process_keys() {
@@ -186,10 +189,16 @@ void handler() {
 	process_sight();
 	process_lights();
 
-	for (int y = 0; y < 24; y++)
-		for (int x = 0; x < 32; x++) {
-			updaterecall(x+torch.buf.scroll.x, y+torch.buf.scroll.y);
-			game.map.block.at(x+torch.buf.scroll.x, y+torch.buf.scroll.y)->visible = 0;
+	for (int y = torch.buf.scroll.y; y < torch.buf.scroll.y + 24; y++)
+		for (int x = torch.buf.scroll.x; x < torch.buf.scroll.x + 32; x++) {
+			updaterecall(x, y);
+			blockel *b = game.map.block.at(x, y);
+			if (b->visible && torch.buf.luxat(x,y)->lval > 0) {
+				recalc_visible(x,y);
+			} else if (torch.buf.cacheat(x,y)->was_visible) {
+				recalc_recall(x,y);
+			}
+			b->visible = false;
 		}
 }
 

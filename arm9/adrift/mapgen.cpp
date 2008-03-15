@@ -335,5 +335,17 @@ void generate_terrarium() {
 
 	haunted_grove(cx, cy);
 
+	Cell *l = game.map.at(game.player.x+1, game.player.y);
+	Node<Creature> *cn = Node<Creature>::pool.request_node();
+	Creature *cr = &cn->data;
+	cr->type = 0;
+	l->creatures.push(cn);
+
+	l = game.map.at(game.player.x-1, game.player.y);
+	Node<Object> *on = Node<Object>::pool.request_node();
+	Object *ob = &on->data;
+	ob->type = 0;
+	l->objs.push(on);
+
 	game.map.block.refresh();
 }
