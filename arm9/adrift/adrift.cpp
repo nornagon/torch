@@ -36,7 +36,8 @@ void recalc_recall(s16 x, s16 y) {
 	u16 ch, col;
 	Cell *l = game.map.at(x,y);
 	if (l->objs.head) {
-		ch = 'X'; col = RGB15(31,31,0);
+		ch = objdesc[l->objs.head->data.type].ch;
+		col = objdesc[l->objs.head->data.type].col;
 	} else if ((game.map.block.at(x,y)->visible && torch.buf.luxat(x,y)->lval > 0) || !celldesc[l->type].forgettable) {
 		ch = celldesc[l->type].ch;
 		col = celldesc[l->type].col;

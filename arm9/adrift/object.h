@@ -1,6 +1,18 @@
 #ifndef OBJECT_H
 #define OBJECT_H 1
 
+#include <nds.h>
+
+enum OBJ_TYPE {
+	J_NONE,
+};
+
+struct ObjDesc {
+	u16 ch, col;
+};
+
+extern ObjDesc objdesc[];
+
 struct Object {
 	Object(): type(0) {}
 	u16 type;
