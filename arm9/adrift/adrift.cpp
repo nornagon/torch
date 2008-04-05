@@ -1,20 +1,12 @@
-#include "light.h"
 #include "adrift.h"
-
 #include "mapgen.h"
+#include "light.h"
+#include "sight.h"
 
 #include "torch.h"
-
 #include <nds.h>
 
-#include "sight.h"
-#include "light.h"
 #include "mersenne.h"
-
-#include "assert.h"
-
-#include "draw.h"
-#include "nocash.h"
 
 Adrift game;
 
@@ -24,6 +16,14 @@ Adrift::Adrift() {
 	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
 }
 
+/* this bit's annoying. These recalc functions update the representation of one
+ * cell. I have two of them, one for when the cell in question is actually in
+ * view, and one for when it's just gone out of sight. The reason they're
+ * different is so I can make the map forget monsters that are out of FOV, but
+ * remember items. The latter are far less likely to move, you see.
+ *
+ * I don't think this is easily genericable.
+ */
 void recalc_recall(s16 x, s16 y) {
 	u16 ch, col;
 	Cell *l = game.map.at(x,y);
