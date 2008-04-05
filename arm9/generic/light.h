@@ -3,7 +3,7 @@
 
 #include <nds.h>
 #include "fov.h"
-#include "map.h"
+#include "buf.h"
 #include "lightsource.h"
 #include "direction.h"
 #include "list.h"

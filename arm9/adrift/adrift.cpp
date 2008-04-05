@@ -81,8 +81,8 @@ void move_player(DIRECTION dir) {
 
 	if (dpX || dpY) {
 		// moving diagonally takes longer. 5*sqrt(2) ~= 7
-		if (dpX && dpY) game.frm = 7;
-		else game.frm = 5;
+		if (dpX && dpY) game.cooldown = 7;
+		else game.cooldown = 5;
 
 		cell = game.map.at(pX + dpX, pY + dpY);
 
@@ -135,7 +135,7 @@ void updaterecall(s16 x, s16 y) {
 }
 
 void process_keys() {
-	if (game.frm <= 0) {
+	if (game.cooldown <= 0) {
 		scanKeys();
 		u32 keys = keysHeld();
 
@@ -152,8 +152,8 @@ void process_keys() {
 		if (!dir) return;
 
 		move_player(dir);
-	} else if (game.frm > 0)
-		game.frm--;
+	} else if (game.cooldown > 0)
+		game.cooldown--;
 }
 
 void process_sight() {

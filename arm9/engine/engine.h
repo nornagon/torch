@@ -1,7 +1,7 @@
 #ifndef ENGINE_H
 #define ENGINE_H 1
 
-#include "map.h"
+#include "buf.h"
 #include "direction.h"
 //#include "list.h"
 

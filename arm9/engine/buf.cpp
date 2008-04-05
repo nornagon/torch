@@ -1,8 +1,4 @@
-#include "map.h"
-/*#include <malloc.h>
-#include "mem.h"
-#include "process.h"
-#include "mersenne.h"*/
+#include "buf.h"
 
 torchbuf::torchbuf() {
 	w = 0; h = 0;

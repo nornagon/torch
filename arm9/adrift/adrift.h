@@ -3,7 +3,7 @@
 
 #include "lightsource.h"
 #include "fov.h"
-#include "map.h"
+#include "buf.h"
 #include "list.h"
 #include "blockmap.h"
 #include "creature.h"
@@ -21,6 +21,7 @@ class Map {
 
 		Map() { cells = 0; w = h = 0; }
 		Map(s16 w, s16 h) { resize(w,h); }
+
 		void resize(s16 _w, s16 _h) {
 			if (cells) delete [] cells;
 			w = _w; h = _h;
@@ -46,7 +47,7 @@ struct Adrift {
 
 	fov_settings_type *fov_light, *fov_sight;
 
-	unsigned int frm;
+	int cooldown;
 };
 
 extern Adrift game;

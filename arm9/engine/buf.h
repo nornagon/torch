@@ -1,5 +1,5 @@
-#ifndef MAP_H
-#define MAP_H 1
+#ifndef BUF_H
+#define BUF_H 1
 
 #include <nds.h>
 //#include <string.h>
@@ -263,4 +263,4 @@ class Map {
 // in the given cell, or NULL if there are none.
 //Node<Object> *has_objtype(Cell *cell, ObjType *objtype);
 
-#endif /* MAP_H */
+#endif /* BUF_H */
