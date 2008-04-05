@@ -4,6 +4,7 @@
 #include <nds.h>
 #include <sys/iosupport.h>
 #include <stdio.h>
+#include "mem.h"
 
 /* font data */
 #define NO_CHARS 94
@@ -17,6 +18,9 @@ unsigned short bitmapwidth;
 unsigned int xoffset, yoffset;
 char text_buffer[TEXT_BUFFER_SIZE];
 int renderconsole, keepstate;
+
+void text_display_setup();
+void sub_clear();
 
 /* this is infrasturcture for hooking ourselves up to fds */
 void text_render_str(const char *str, int len);
