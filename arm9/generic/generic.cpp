@@ -38,9 +38,9 @@ void draw_light(fov_settings_type *settings, blockmap *map, light_t *l) {
 	if (b->visible) {
 		luxel *e = torch.buf.luxat(l->x>>12, l->y>>12);
 		e->lval += (1<<12);
-		e->lr = l->r;
-		e->lg = l->g;
-		e->lb = l->b;
+		e->lr += l->r;
+		e->lg += l->g;
+		e->lb += l->b;
 		torch.buf.at(l->x>>12, l->y>>12)->recall = 1<<12;
 	}
 }
