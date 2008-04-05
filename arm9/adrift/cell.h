@@ -1,7 +1,7 @@
 #ifndef CELL_H
 #define CELL_H 1
 
-#include <nds.h>
+#include <nds/jtypes.h>
 #include "list.h"
 
 enum CELL_TYPE {

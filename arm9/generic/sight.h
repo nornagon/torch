@@ -1,7 +1,7 @@
 #ifndef SIGHT_H
 #define SIGHT_H 1
 
-#include <nds.h>
+#include <nds/jtypes.h>
 #include "fov.h"
 #include "lightsource.h"
 #include "blockmap.h"

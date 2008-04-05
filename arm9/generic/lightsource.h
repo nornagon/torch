@@ -1,7 +1,7 @@
 #ifndef LIGHTSOURCE_H
 #define LIGHTSOURCE_H 1
 
-#include <nds.h>
+#include <nds/jtypes.h>
 
 // lightsource holds information about a specific light source, as well as
 // intermediate information used by processes that alter the light source (such

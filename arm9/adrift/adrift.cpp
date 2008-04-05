@@ -4,7 +4,7 @@
 #include "sight.h"
 
 #include "torch.h"
-#include <nds.h>
+#include <nds/jtypes.h>
 
 #include "mersenne.h"
 

@@ -1,8 +1,8 @@
 #ifndef ASSERT_H
 #define ASSERT_H 1
 
-#include <nds.h>
 #include <stdio.h>
+#include <nds/jtypes.h>
 
 #ifdef __cplusplus
 extern "C" {

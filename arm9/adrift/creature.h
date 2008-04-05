@@ -1,7 +1,7 @@
 #ifndef CREATURE_H
 #define CREATURE_H 1
 
-#include <nds.h>
+#include <nds/jtypes.h>
 
 enum CREATURE_TYPE {
 	C_NONE = 0,

@@ -1,15 +1,7 @@
 #ifndef BUF_H
 #define BUF_H 1
 
-#include <nds.h>
-//#include <string.h>
-
-/*#include "list.h"
-#include "process.h"
-#include "cache.h"
-#include "object.h"
-
-#include "direction.h"*/
+#include <nds/jtypes.h>
 
 struct mapel {
 	mapel() { reset(); }

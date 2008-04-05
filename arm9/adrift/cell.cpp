@@ -1,4 +1,5 @@
 #include "cell.h"
+#include <nds/arm9/video.h>
 
 CellDesc celldesc[] = {/* s  o  f */
 	{ ' ', RGB15(31,31,31), 1, 0, 1 },

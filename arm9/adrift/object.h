@@ -1,7 +1,7 @@
 #ifndef OBJECT_H
 #define OBJECT_H 1
 
-#include <nds.h>
+#include <nds/jtypes.h>
 
 enum OBJ_TYPE {
 	J_NONE,

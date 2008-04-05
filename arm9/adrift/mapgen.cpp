@@ -8,6 +8,7 @@
 #include <malloc.h>
 
 #include <stdio.h>
+#include <nds.h>
 
 #define abs(x) ((x) < 0 ? -(x) : (x))
 

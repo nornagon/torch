@@ -1,7 +1,7 @@
 #ifndef LIGHT_H
 #define LIGHT_H 1
 
-#include <nds.h>
+#include <nds/jtypes.h>
 #include "fov.h"
 #include "buf.h"
 #include "lightsource.h"

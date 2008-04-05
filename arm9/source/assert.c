@@ -1,5 +1,7 @@
 #include "assert.h"
 
+#include <nds.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
