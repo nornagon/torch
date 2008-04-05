@@ -1,26 +1,16 @@
-#include "generic.h"
+#include "light.h"
 #include "engine.h"
 #include "util.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-fov_settings_type *build_fov_settings(
-    bool (*opaque)(void *map, int x, int y),
-    void (*apply)(void *map, int x, int y, int dx, int dy, void *src),
-    fov_shape_type shape) {
-  fov_settings_type *settings = new fov_settings_type;
-  fov_settings_init(settings);
-  fov_settings_set_shape(settings, shape);
-  fov_settings_set_opacity_test_function(settings, opaque);
-  fov_settings_set_apply_lighting_function(settings, apply);
-  return settings;
-}
-
 #include <stdio.h>
 
-void draw_light(fov_settings_type *settings, blockmap *map, light_t *l) {
+void draw_lights(fov_settings_type *settings, blockmap *map, List<lightsource*> lights) {
+	Node<lightsource*> *k = lights.head;
+	for (; k; k = k->next)
+		draw_light(settings, map, k->data);
+}
+
+void draw_light(fov_settings_type *settings, blockmap *map, lightsource *l) {
 	// don't bother calculating if the light's completely outside the screen.
 	if (((l->x + l->radius) >> 12) < torch.buf.scroll.x ||
 	    ((l->x - l->radius) >> 12) >= torch.buf.scroll.x + 32 ||
@@ -60,7 +50,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 	// don't light the cell if we can't see it
 	if (!b->visible) return;
 
-	light_t *l = (light_t*)src;
+	lightsource *l = (lightsource*)src;
 	int32 dx = (l->x - (x << 12)) >> 2, // shifting is for accuracy reasons
 	      dy = (l->y - (y << 12)) >> 2,
 	      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
@@ -94,6 +84,3 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 		e->lb += (l->b * intensity) >> 12;
 	}
 }
-#ifdef __cplusplus
-}
-#endif

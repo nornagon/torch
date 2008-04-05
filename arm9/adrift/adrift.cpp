@@ -1,4 +1,4 @@
-#include "generic.h"
+#include "light.h"
 #include "adrift.h"
 
 #include "mapgen.h"
@@ -22,14 +22,6 @@ Adrift::Adrift() {
 	// the fov_settings_type that will be used for non-player-held lights.
 	fov_light = build_fov_settings(opacity_test, apply_light, FOV_SHAPE_OCTAGON);
 	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
-}
-
-void Map::add_light(light_t *l) {
-	lights.push(l);
-}
-
-void Map::remove_light(light_t *l) {
-	lights.remove(l);
 }
 
 void recalc_recall(s16 x, s16 y) {
@@ -56,10 +48,9 @@ void recalc_visible(s16 x, s16 y) {
 	} else recalc_recall(x,y);
 }
 
-bool solid(s16 x, s16 y) {
+inline bool solid(s16 x, s16 y) {
 	Cell *cell = game.map.at(x, y);
-	if (celldesc[cell->type].solid) return true;
-	return false;
+	return celldesc[cell->type].solid;
 }
 
 void move_player(DIRECTION dir) {
@@ -138,7 +129,6 @@ void new_player() {
 }
 
 void updaterecall(s16 x, s16 y) {
-	Cell *c = game.map.at(x, y);
 	int32 v = torch.buf.luxat(x, y)->lval;
 	mapel *m = torch.buf.at(x, y);
 	m->recall = min(1<<12, max(v, m->recall));
@@ -169,26 +159,13 @@ void process_keys() {
 void process_sight() {
 	game.player.light->x = game.player.x << 12;
 	game.player.light->y = game.player.y << 12;
-	fov_circle(game.fov_sight, &game.map.block, game.player.light, game.player.x, game.player.y, 32);
-	luxel *e = torch.buf.luxat(game.player.x, game.player.y);
-	game.map.block.at(game.player.x, game.player.y)->visible = true;
-	e->lval = (1<<12);
-	e->lr = game.player.light->r;
-	e->lg = game.player.light->g;
-	e->lb = game.player.light->b;
-	updaterecall(game.player.x, game.player.y);
-}
-
-void process_lights() {
-	Node<light_t *> *k = game.map.lights.head;
-	for (; k; k = k->next)
-		draw_light(game.fov_light, &game.map.block, k->data);
+	cast_sight(game.fov_sight, &game.map.block, game.player.light);
 }
 
 void handler() {
 	process_keys();
 	process_sight();
-	process_lights();
+	draw_lights(game.fov_light, &game.map.block, game.map.lights);
 
 	for (int y = torch.buf.scroll.y; y < torch.buf.scroll.y + 24; y++)
 		for (int x = torch.buf.scroll.x; x < torch.buf.scroll.x + 32; x++) {

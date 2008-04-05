@@ -1,5 +1,5 @@
-#ifndef LLPOOL_H
-#define LLPOOL_H 1
+#ifndef LIST_H
+#define LIST_H 1
 
 // These singly-linked lists are as memory-light and call malloc as little as I
 // could make them do without re-implementing malloc. They are designed such
@@ -131,4 +131,4 @@ Node<T>* Pool<T>::request_node() {
 	return free_nodes.pop();
 }
 
-#endif /* LLPOOL_H */
+#endif /* LIST_H */

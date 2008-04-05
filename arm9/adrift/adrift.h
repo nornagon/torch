@@ -1,7 +1,7 @@
 #ifndef ADRIFT_H
 #define ADRIFT_H 1
 
-#include "light.h"
+#include "lightsource.h"
 #include "fov.h"
 #include "map.h"
 #include "list.h"
@@ -17,7 +17,7 @@ class Map {
 
 	public:
 		blockmap block;
-		List<light_t*> lights; // TODO: hrm, should this be private? how should process_lights work?
+		List<lightsource*> lights; // TODO: hrm, should this be private? how should process_lights work?
 
 		Map() { cells = 0; w = h = 0; }
 		Map(s16 w, s16 h) { resize(w,h); }
@@ -29,15 +29,12 @@ class Map {
 		Cell *at(s16 x, s16 y) {
 			return &cells[y*w+x];
 		}
-
-		void add_light(light_t *l);
-		void remove_light(light_t *l);
 };
 
 struct Player {
 	List<Object> bag;
 	Node<Creature> *obj;
-	light_t *light;
+	lightsource *light;
 
 	s16 x, y;
 };

@@ -4,7 +4,7 @@
 
 #include "engine.h"
 
-#include "generic.h"
+#include "lightsource.h"
 #include <malloc.h>
 
 #include <stdio.h>
@@ -295,9 +295,9 @@ void haunted_grove(s16 cx, s16 cy) {
 			int px = cx + ((x*(r0+w0+1)) >> 12),
 			    py = cy + ((y*(r0+w0+1)) >> 12);
 			SET_FIRE(px, py);
-			light_t *l = new_light(8<<12, (int)(0.9*(1<<12)), (int)(0.3*(1<<12)), (int)(0.1*(1<<12)));
+			lightsource *l = new_light(8<<12, (int)(0.9*(1<<12)), (int)(0.3*(1<<12)), (int)(0.1*(1<<12)));
 			l->x = px<<12; l->y = py<<12;
-			game.map.add_light(l);
+			game.map.lights.push(l);
 		}
 	}
 	for (unsigned int t = 0; t < 0x1ff; t += 2) {

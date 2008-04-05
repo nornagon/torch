@@ -144,6 +144,11 @@ typedef struct {
  */
 void fov_settings_init(fov_settings_type *settings);
 
+fov_settings_type *build_fov_settings(
+    bool (*opaque)(void *map, int x, int y),
+    void (*apply)(void *map, int x, int y, int dx, int dy, void *src),
+    fov_shape_type shape);
+
 /**
  * Set the shape of the field of view.
  *

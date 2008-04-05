@@ -86,6 +86,18 @@ void fov_settings_init(fov_settings_type *settings) {
     settings->numheights = 0;
 }
 
+fov_settings_type *build_fov_settings(
+    bool (*opaque)(void *map, int x, int y),
+    void (*apply)(void *map, int x, int y, int dx, int dy, void *src),
+    fov_shape_type shape) {
+  fov_settings_type *settings = malloc(sizeof(fov_settings_type));
+  fov_settings_init(settings);
+  fov_settings_set_shape(settings, shape);
+  fov_settings_set_opacity_test_function(settings, opaque);
+  fov_settings_set_apply_lighting_function(settings, apply);
+  return settings;
+}
+
 void fov_settings_set_shape(fov_settings_type *settings,
                             fov_shape_type value) { 
     settings->shape = value;

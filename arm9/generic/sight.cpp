@@ -1,11 +1,21 @@
 #include "sight.h"
 #include "torch.h"
 #include "light.h"
-#include "generic.h"
 
 #include "nocash.h"
 
 #include "blockmap.h"
+
+void cast_sight(fov_settings_type *settings, blockmap *block, lightsource *l) {
+	fov_circle(settings, block, l, l->x>>12, l->y>>12, 32);
+	luxel *e = torch.buf.luxat(l->x>>12, l->y>>12);
+	e->lval = (1<<12);
+	e->lr = l->r;
+	e->lg = l->g;
+	e->lb = l->b;
+	torch.buf.at(l->x>>12, l->y>>12)->recall = 1<<12;
+	block->at(l->x>>12, l->y>>12)->visible = true;
+}
 
 bool sight_opaque(void *map_, int x, int y) {
 	blockmap *map = (blockmap*)map_;
@@ -19,7 +29,7 @@ bool sight_opaque(void *map_, int x, int y) {
 void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 	blockmap *map = (blockmap*)map_;
 	if (map->is_outside(x,y)) return;
-	light_t *l = (light_t*)src;
+	lightsource *l = (lightsource*)src;
 
 	// don't bother calculating if we're outside the edge of the screen
 	s32 scrollX = torch.buf.scroll.x, scrollY = torch.buf.scroll.y;
