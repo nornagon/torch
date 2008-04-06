@@ -2,6 +2,7 @@
 #include "mapgen.h"
 #include "light.h"
 #include "sight.h"
+#include "text.h"
 
 #include "torch.h"
 #include <nds/jtypes.h>
@@ -9,6 +10,7 @@
 #include "mersenne.h"
 
 #include <stdio.h>
+#include <string.h>
 
 Adrift game;
 
@@ -130,6 +132,29 @@ bool get_items() {
 	return true;
 }
 
+void inventory() {
+	text_console_disable();
+	text_display_clear();
+
+	while (1) {
+		Node<Object> *o = game.player.bag.head;
+		int i = 0;
+		for (; o; i++, o = o->next) {
+			const char *name = objdesc[o->data.type].name;
+			text_render_raw(5,5+i*9, name, strlen(name), RGB15(31,31,31)|BIT(15));
+		}
+		u32 keys = 0;
+		while (!keys) {
+			swiWaitForVBlank();
+			scanKeys();
+			keys = keysDown();
+		}
+		if (keys & KEY_B) break;
+	}
+
+	text_console_enable();
+}
+
 void new_player() {
 	game.player.obj = Node<Creature>::pool.request_node();
 	game.map.at(game.player.x, game.player.y)->creatures.push(game.player.obj);
@@ -148,6 +173,11 @@ void process_keys() {
 	if (game.cooldown <= 0) {
 		scanKeys();
 		u32 keys = keysHeld();
+
+		u32 down = keysDown();
+		if (down & KEY_X) {
+			inventory(); return;
+		}
 
 		if (keys & KEY_Y) {
 			if (get_items()) return;
