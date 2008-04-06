@@ -5,6 +5,7 @@
 
 enum OBJ_TYPE {
 	J_NONE,
+	J_ROCK,
 };
 
 struct ObjDesc {

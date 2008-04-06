@@ -3,4 +3,5 @@
 
 ObjDesc objdesc[] = {
 	{ 'X', RGB15(31,31,0), "unknown" },
+	{ '8', RGB15(18,18,18), "rock" },
 };

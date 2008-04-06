@@ -117,6 +117,12 @@ void text_console_rerender() {
 	/* XXX: this doesn't account for scrolling */
 	/* XXX: this renders a whole bunch of lines needlessly */
 	keepstate = 0;
+	int newlines = 0;
+	int k;
+	for (k = strlen(s)-1; k > 0 && newlines < 20; k--) {
+		if (s[k] == '\n') newlines++;
+	}
+	s = &s[k];
 	s = s + 1;
 	text_render_str(s, strlen(s));
 	keepstate = 1;

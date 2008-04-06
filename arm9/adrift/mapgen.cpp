@@ -260,7 +260,7 @@ DEF(FIRE);
 #undef DEF
 
 void randwalk(s16 &x, s16 &y) {
-	unsigned int a = genrand_int32();
+	unsigned int a = rand4();
 	switch (a & 3) {
 		case 0: x++; break;
 		case 1: x--; break;
@@ -319,6 +319,25 @@ void haunted_grove(s16 cx, s16 cy) {
 	               cx + ((x*(r1+w1)) >> 12), cy + ((y*(r1+w1)) >> 12), SET_GROUND);
 }
 
+void drop_rock(s16 x, s16 y) {
+	Cell *l = game.map.at(x,y);
+	if (rand32() % 30 == 0 && l->type == T_GROUND) {
+		Node<Object> *on = Node<Object>::pool.request_node();
+		on->data.type = J_ROCK;
+		l->objects.push(on);
+	}
+}
+
+void drop_rocks(s16 ax, s16 ay) {
+	for (unsigned int t = 0; t < 0x1ff; t += 4) {
+		int r = 4;
+		int x = COS[t], y = SIN[t];
+		if (t % 16 != 0)
+			bresenham(ax + ((x*r) >> 12), ay + ((y*r) >> 12),
+			               ax + ((x*(r+4)) >> 12), ay + ((y*(r+4)) >> 12), drop_rock);
+	}
+}
+
 #include "assert.h"
 
 void generate_terrarium() {
@@ -336,16 +355,16 @@ void generate_terrarium() {
 
 	haunted_grove(cx, cy);
 
+	drop_rocks(cx, cy);
+
 	Cell *l = game.map.at(game.player.x+1, game.player.y);
 	Node<Creature> *cn = Node<Creature>::pool.request_node();
-	Creature *cr = &cn->data;
-	cr->type = 0;
+	cn->data.type = 0;
 	l->creatures.push(cn);
 
 	l = game.map.at(game.player.x-1, game.player.y);
 	Node<Object> *on = Node<Object>::pool.request_node();
-	Object *ob = &on->data;
-	ob->type = 0;
+	on->data.type = 0;
 	l->objects.push(on);
 
 	game.map.block.refresh();
