@@ -24,6 +24,10 @@ class engine {
 		// whatever is the current backbuffer.
 		void scroll(int dsX, int dsY);
 
+		// scrolls the viewport (possibly) such that the point (x,y) is onscreen,
+		// with at least margin cells between the point and the edge of the screen.
+		void onscreen(int x, int y, unsigned int margin);
+
 		// mark the entire screen for redrawing. Slow!
 		void dirty_screen();
 

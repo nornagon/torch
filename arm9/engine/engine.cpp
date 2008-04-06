@@ -58,33 +58,6 @@ void engine::init() {
 	dirty = 0;
 }
 
-/*void run_processes(List<Process> processes) {
-	Node<Process> *node = processes.head;
-	Node<Process> *prev = NULL;
-	while (node) {
-		Process *proc = *node;
-		if (proc->process) {
-			if (proc->counter == 0)
-				proc->process(proc);
-			else
-				proc->counter--;
-			prev = node;
-			node = node->next;
-		} else { // a NULL process callback means free the process
-			if (proc->end)
-				proc->end(proc);
-			if (prev) // heal the list
-				prev->next = node->next;
-			else // there's a new head
-				processes.head = node->next;
-			// add the dead process to the free pool
-			Node<Process> *k = node->next;
-			node->free();
-			node = k;
-		}
-	}
-}*/
-
 // we copy data *away* from dir
 void engine::move_port(DIRECTION dir) {
 	u32 i;
@@ -169,6 +142,29 @@ void engine::scroll(int dsX, int dsY) {
 			for (int x = (dir&D_WEST ? 1 : 0); x < (dir&D_EAST ? 31 : 32); x++)
 				*(buf.luxat_s(x,y)) = *(buf.luxat_s(x+D_DX[dir], y+D_DY[dir]));
 	}
+}
+
+void engine::onscreen(int x, int y, unsigned int margin) {
+	s32 dsX = 0, dsY = 0;
+	// keep the screen vaguely centred on the player (gap of 8 cells)
+	if (x - buf.scroll.x < 8 && buf.scroll.x > 0) { // it's just a scroll to the left
+		dsX = (x - 8) - buf.scroll.x;
+		buf.scroll.x = x - 8;
+	} else if (x - buf.scroll.x > 24 && buf.scroll.x < buf.getw()-32) {
+		dsX = (x - 24) - buf.scroll.x;
+		buf.scroll.x = x - 24;
+	}
+
+	if (y - buf.scroll.y < 8 && buf.scroll.y > 0) {
+		dsY = (y - 8) - buf.scroll.y;
+		buf.scroll.y = y - 8;
+	} else if (y - buf.scroll.y > 16 && buf.scroll.y < buf.geth()-24) {
+		dsY = (y - 16) - buf.scroll.y;
+		buf.scroll.y = y - 16;
+	}
+
+	if (dsX || dsY)
+		scroll(dsX, dsY);
 }
 
 void engine::dirty_screen() {

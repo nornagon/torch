@@ -104,27 +104,7 @@ void move_player(DIRECTION dir) {
 		pX += dpX; game.player.x = pX;
 		pY += dpY; game.player.y = pY;
 
-		// TODO: move to engine
-		s32 dsX = 0, dsY = 0;
-		// keep the screen vaguely centred on the player (gap of 8 cells)
-		if (pX - torch.buf.scroll.x < 8 && torch.buf.scroll.x > 0) { // it's just a scroll to the left
-			dsX = (pX - 8) - torch.buf.scroll.x;
-			torch.buf.scroll.x = pX - 8;
-		} else if (pX - torch.buf.scroll.x > 24 && torch.buf.scroll.x < torch.buf.getw()-32) {
-			dsX = (pX - 24) - torch.buf.scroll.x;
-			torch.buf.scroll.x = pX - 24;
-		}
-
-		if (pY - torch.buf.scroll.y < 8 && torch.buf.scroll.y > 0) {
-			dsY = (pY - 8) - torch.buf.scroll.y;
-			torch.buf.scroll.y = pY - 8;
-		} else if (pY - torch.buf.scroll.y > 16 && torch.buf.scroll.y < torch.buf.geth()-24) {
-			dsY = (pY - 16) - torch.buf.scroll.y;
-			torch.buf.scroll.y = pY - 16;
-		}
-
-		if (dsX || dsY)
-			torch.scroll(dsX, dsY);
+		torch.onscreen(pX,pY,8);
 	}
 }
 

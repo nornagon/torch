@@ -17,7 +17,7 @@ class Map {
 
 	public:
 		blockmap block;
-		List<lightsource*> lights; // TODO: hrm, should this be private? how should process_lights work?
+		List<lightsource*> lights;
 
 		Map() { cells = 0; w = h = 0; }
 		Map(s16 w, s16 h) { resize(w,h); }
@@ -27,7 +27,7 @@ class Map {
 			w = _w; h = _h;
 			cells = new Cell[w*h];
 		}
-		Cell *at(s16 x, s16 y) {
+		inline Cell *at(s16 x, s16 y) {
 			return &cells[y*w+x];
 		}
 };
