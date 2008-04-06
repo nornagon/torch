@@ -346,7 +346,7 @@ void generate_terrarium() {
 	Node<Object> *on = Node<Object>::pool.request_node();
 	Object *ob = &on->data;
 	ob->type = 0;
-	l->objs.push(on);
+	l->objects.push(on);
 
 	game.map.block.refresh();
 }

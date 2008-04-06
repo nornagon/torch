@@ -8,6 +8,8 @@
 
 #include "mersenne.h"
 
+#include <stdio.h>
+
 Adrift game;
 
 Adrift::Adrift() {
@@ -27,9 +29,9 @@ Adrift::Adrift() {
 void recalc_recall(s16 x, s16 y) {
 	u16 ch, col;
 	Cell *l = game.map.at(x,y);
-	if (l->objs.head) {
-		ch = objdesc[l->objs.head->data.type].ch;
-		col = objdesc[l->objs.head->data.type].col;
+	if (l->objects.head) {
+		ch = objdesc[l->objects.head->data.type].ch;
+		col = objdesc[l->objects.head->data.type].col;
 	} else if ((game.map.block.at(x,y)->visible && torch.buf.luxat(x,y)->lval > 0) || !celldesc[l->type].forgettable) {
 		ch = celldesc[l->type].ch;
 		col = celldesc[l->type].col;
@@ -108,6 +110,26 @@ void move_player(DIRECTION dir) {
 	}
 }
 
+bool vowel(char c) {
+	return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u';
+}
+
+bool get_items() {
+	List<Object> &os = game.map.at(game.player.x, game.player.y)->objects;
+	if (os.empty()) return false;
+
+	Node<Object> *k;
+	while ((k = os.pop())) {
+		game.player.bag.push(k);
+		char *name = objdesc[k->data.type].name;
+		const char *a_an = vowel(name[0]) ? "n" : "";
+		iprintf("You pick up a%s %s.\n", a_an, name);
+	}
+
+	game.cooldown = 4;
+	return true;
+}
+
 void new_player() {
 	game.player.obj = Node<Creature>::pool.request_node();
 	game.map.at(game.player.x, game.player.y)->creatures.push(game.player.obj);
@@ -127,6 +149,10 @@ void process_keys() {
 		scanKeys();
 		u32 keys = keysHeld();
 
+		if (keys & KEY_Y) {
+			if (get_items()) return;
+		}
+
 		DIRECTION dir = 0;
 		if (keys & KEY_RIGHT)
 			dir |= D_EAST;
@@ -137,9 +163,11 @@ void process_keys() {
 		else if (keys & KEY_UP)
 			dir |= D_NORTH;
 
-		if (!dir) return;
+		if (dir) {
+			move_player(dir);
+			return;
+		}
 
-		move_player(dir);
 	} else if (game.cooldown > 0)
 		game.cooldown--;
 }

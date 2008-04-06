@@ -27,7 +27,7 @@ class Object; class Creature;
 
 struct Cell {
 	CELL_TYPE type;
-	List<Object> objs;
+	List<Object> objects;
 	List<Creature> creatures;
 };
 

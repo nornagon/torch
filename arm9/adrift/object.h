@@ -9,6 +9,7 @@ enum OBJ_TYPE {
 
 struct ObjDesc {
 	u16 ch, col;
+	char *name;
 };
 
 extern ObjDesc objdesc[];
