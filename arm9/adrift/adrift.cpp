@@ -53,6 +53,14 @@ inline bool solid(s16 x, s16 y) {
 	return celldesc[cell->type].solid;
 }
 
+inline bool occupied(s16 x, s16 y) {
+	return !game.map.at(x,y)->creatures.empty();
+}
+
+inline bool walkable(s16 x, s16 y) {
+	return !(solid(x,y) || occupied(x,y));
+}
+
 void move_player(DIRECTION dir) {
 	s32 pX = game.player.x, pY = game.player.y;
 
@@ -64,14 +72,14 @@ void move_player(DIRECTION dir) {
 
 	Cell *cell;
 
-	if (solid(pX + dpX, pY + dpY)) {
+	if (!walkable(pX + dpX, pY + dpY)) {
 		// your path is blocked
 		if (dpX && dpY) {
 			// if we could just go left or right, do that. This results in 'sliding'
 			// along walls when moving diagonally
-			if (!solid(pX + dpX, pY))
+			if (walkable(pX + dpX, pY))
 				dpY = 0;
-			else if (!solid(pX, pY + dpY))
+			else if (walkable(pX, pY + dpY))
 				dpX = 0;
 			else
 				dpX = dpY = 0;

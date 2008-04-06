@@ -84,7 +84,7 @@ struct List {
 		if (k) // didn't hit the end
 			prev->next = k->next;
 	}
-	inline void push(T x) {
+	inline void push(T x) { // TODO: pass by reference?
 		Node<T>* n = Node<T>::pool.request_node();
 		n->data = x;
 		push(n);
@@ -105,6 +105,10 @@ struct List {
 		for (Node<T>* k = head; k; k = k->next)
 			len++;
 		return len;
+	}
+
+	bool empty() {
+		return !head;
 	}
 };
 
