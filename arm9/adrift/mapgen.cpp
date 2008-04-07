@@ -321,7 +321,7 @@ void haunted_grove(s16 cx, s16 cy) {
 
 void drop_rock(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
-	if (rand32() % 30 == 0 && l->type == T_GROUND) {
+	if (rand32() % 10 == 0 && l->type == T_GROUND) {
 		Node<Object> *on = Node<Object>::pool.request_node();
 		on->data.type = J_ROCK;
 		l->objects.push(on);
