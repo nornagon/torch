@@ -10,14 +10,16 @@ enum OBJ_TYPE {
 
 struct ObjDesc {
 	u16 ch, col;
+	bool stackable;
 	char *name;
 };
 
 extern ObjDesc objdesc[];
 
 struct Object {
-	Object(): type(0) {}
+	Object(): type(0), quantity(1) {}
 	u16 type;
+	u8 quantity;
 };
 
 #endif /* OBJECT_H */

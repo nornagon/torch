@@ -118,16 +118,41 @@ bool vowel(char c) {
 	return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u';
 }
 
+void stack_item_push(List<Object> &container, Node<Object>* obj) {
+	Node<Object> *contobj = container.head;
+	for (; contobj; contobj = contobj->next) {
+		if (contobj->data.type == obj->data.type && objdesc[obj->data.type].stackable)
+			break;
+	}
+	if (contobj) {
+		if ((int)contobj->data.quantity + (int)obj->data.quantity > 255) {
+			int overflow = (int)contobj->data.quantity + (int)obj->data.quantity - 255;
+			obj->data.quantity = overflow;
+			contobj->data.quantity = 255;
+		} else {
+			contobj->data.quantity += obj->data.quantity;
+			obj = NULL;
+		}
+	}
+	if (obj) container.push(obj);
+}
+
 bool get_items() {
 	List<Object> &os = game.map.at(game.player.x, game.player.y)->objects;
 	if (os.empty()) return false;
 
 	Node<Object> *k;
 	while ((k = os.pop())) {
-		game.player.bag.push(k);
 		char *name = objdesc[k->data.type].name;
-		const char *a_an = vowel(name[0]) ? "n" : "";
-		iprintf("You pick up a%s %s.\n", a_an, name);
+		if (k->data.quantity == 1) {
+			const char *a_an = vowel(name[0]) ? "n" : "";
+			iprintf("You pick up a%s %s.\n", a_an, name);
+		} else {
+			iprintf("You pick up %d %ss.\n", k->data.quantity, name);
+		}
+
+		// go through the bag to see if we can stack.
+		stack_item_push(game.player.bag, k);
 	}
 
 	game.cooldown = 4;
@@ -184,7 +209,10 @@ void inventory() {
 		for (i = 0; i < 19 && o; i++, o = o->next) {
 			const char *name = objdesc[o->data.type].name;
 			u16 color = selected == i+start ? RGB15(31,31,31) : RGB15(18,18,18);
-			tprintf(17, 12+i*9, color, "%s", name);
+			if (o->data.quantity == 1)
+				tprintf(17, 12+i*9, color, "%s", name);
+			else
+				tprintf(17, 12+i*9, color, "%d %ss", o->data.quantity, name);
 			if (i+start == selected)
 				tprintf(8, 12+i*9, color, "*");
 		}
@@ -198,10 +226,12 @@ void inventory() {
 		if (keys & KEY_UP) selected = max(0,selected-1);
 		else if (keys & KEY_DOWN) selected = min(length-1, selected+1);
 
-		if (selected < start+3)
-			start = max(0,start-1);
-		else if (selected > start+15)
-			start = min(length-19,start+1);
+		if (length > 19) {
+			if (selected < start+3)
+				start = max(0,start-1);
+			else if (selected > start+15)
+				start = min(length-19,start+1);
+		}
 	}
 
 	text_console_enable();
