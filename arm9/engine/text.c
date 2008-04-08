@@ -15,7 +15,9 @@ unsigned short bitmapwidth;
 
 /* state for renderer */
 #define TEXT_BUFFER_SIZE (100 * 40) /* ought to be about two screens worth */
+#define DEFAULT_COLOR 0xFFFF
 unsigned int xoffset, yoffset;
+u16 fgcolor;
 char text_buffer[TEXT_BUFFER_SIZE];
 int renderconsole, keepstate;
 
@@ -40,6 +42,8 @@ void text_init() {
 
 	renderconsole = 1;
 	keepstate = 1;
+
+	fgcolor = DEFAULT_COLOR;
 
 	/* hook ourselves up to stdout, for convenience */
 	devoptab_list[STD_OUT] = &dotab_textout;
@@ -115,12 +119,11 @@ void text_console_rerender() {
 	if (!s) return; /* no renderable data */
 
 	/* XXX: this doesn't account for scrolling */
-	/* XXX: this renders a whole bunch of lines needlessly */
 	keepstate = 0;
 	int newlines = 0;
 	int k;
 	for (k = strlen(s)-1; k > 0 && newlines < 20; k--) {
-		if (s[k] == '\n') newlines++;
+		if (s[k] == '\n' && s[k-2] != '\1' && s[k-1] != '\1') newlines++;
 	}
 	s = &s[k];
 	s = s + 1;
@@ -212,7 +215,6 @@ inline char calculateDisplayChar(char c) {
 
 void text_render_str(const char *text, int len) {
 	int i, xusage = xoffset, lastgoodlen = 0;
-	u16 fgcolor = 0xFFFF;
 
 	for (i = 0; i < len; i++) {
 		int c = calculateDisplayChar(text[i]);
@@ -230,6 +232,22 @@ void text_render_str(const char *text, int len) {
 
 			text = text + lastgoodlen + 3;
 			len -= lastgoodlen + 3;
+			lastgoodlen = 0;
+			i = -1;
+
+			xoffset = xusage;
+			continue;
+		}
+		if (text[i] == '\2') {
+			/* TODO: copy/pasted from above; should remove to a seperate function */
+			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
+			lastgoodlen = i;
+			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
+			if (keepstate) append_console_state(text, lastgoodlen + 1);
+			fgcolor = DEFAULT_COLOR;
+
+			text = text + lastgoodlen + 1;
+			len -= lastgoodlen + 1;
 			lastgoodlen = 0;
 			i = -1;
 
