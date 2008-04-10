@@ -189,6 +189,15 @@ void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, u1
 	}
 }
 
+void tprintf(int x, int y, u16 color, const char *format, ...) {
+	va_list ap;
+	char foo[100];
+	va_start(ap, format);
+	int len = vsnprintf(foo, 100, format, ap);
+	va_end(ap);
+	text_render_raw(x, y, foo, len, color | BIT(15));
+}
+
 void text_scroll() {
 	int i;
 	

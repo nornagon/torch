@@ -324,7 +324,7 @@ void drop_rock(s16 x, s16 y) {
 	if (rand32() % 10 == 0 && l->type == T_GROUND) {
 		Node<Object> *on = Node<Object>::pool.request_node();
 		on->data.type = J_ROCK;
-		l->objects.push(on);
+		stack_item_push(l->objects, on);
 	}
 }
 

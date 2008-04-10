@@ -2,6 +2,7 @@
 #define OBJECT_H 1
 
 #include <nds/jtypes.h>
+#include "list.h"
 
 enum OBJ_TYPE {
 	J_NONE,
@@ -21,5 +22,7 @@ struct Object {
 	u16 type;
 	u8 quantity;
 };
+
+void stack_item_push(List<Object> &container, Node<Object>* obj);
 
 #endif /* OBJECT_H */
