@@ -20,6 +20,7 @@ void text_render_raw(int xoffset, int yoffset, const char *text, int textlen, un
 void tprintf(int x, int y, u16 color, const char *format, ...);
 
 unsigned char widthof(int c);
+int textwidth(const char *str);
 
 #ifdef __cplusplus
 }

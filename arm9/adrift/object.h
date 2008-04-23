@@ -9,16 +9,31 @@ enum OBJ_TYPE {
 	J_ROCK,
 };
 
+#define ABIL_USE   0x01
+#define ABIL_EAT   0x02
+#define ABIL_EQUIP 0x04
+
+enum ACTION {
+	ACT_NONE,
+	ACT_DROP,
+	ACT_THROW,
+	ACT_EQUIP,
+	ACT_EAT,
+	ACT_USE,
+};
+
 struct ObjDesc {
 	u16 ch, col;
 	bool stackable;
 	char *name;
+	u16 abilities;
 };
 
 extern ObjDesc objdesc[];
 
 struct Object {
 	Object(): type(0), quantity(1) {}
+	const ObjDesc& desc() { return objdesc[type]; }
 	u16 type;
 	u8 quantity;
 };

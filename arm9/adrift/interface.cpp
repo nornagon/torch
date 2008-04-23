@@ -5,6 +5,8 @@
 #include "object.h"
 #include "adrift.h"
 #include "text.h"
+#include <stdarg.h>
+#include <stdio.h>
 
 inline void pixel(u16* surf, u8 x, u8 y, u16 color) {
 	surf[y*256+x] = color|BIT(15);
@@ -19,13 +21,79 @@ void vline(u16* surf, u8 x, u8 y1, u8 y2, u16 color) {
 		pixel(surf, x, y1, color);
 }
 
-void withitem(Node<Object>* obj) {
+
+u32 waitkey() {
+	u32 keys = 0;
+	while (!keys) {
+		swiWaitForVBlank();
+		scanKeys();
+		keys = keysDown();
+	}
+	return keys;
+}
+
+void printcenter(u16 y, u16 color, const char *fmt, ...) {
+	va_list ap;
+	char foo[100];
+	va_start(ap, fmt);
+	int len = vsnprintf(foo, 100, fmt, ap);
+	va_end(ap);
+	int width = textwidth(foo);
+	text_render_raw(128-width/2, y, foo, len, color | BIT(15));
+}
+
+struct menuitem {
+	const char *text;
+	u16 flag;
+	ACTION action;
+} itemmenu[] = {
+	{ "Use", ABIL_USE, ACT_USE },
+	{ "Eat", ABIL_EAT, ACT_EAT },
+	{ "Equip", ABIL_EQUIP, ACT_EQUIP },
+	{ "Throw", 0, ACT_THROW },
+	{ "Drop", 0, ACT_DROP },
+	{ 0 },
+};
+
+ACTION withitem(Node<Object>* obj) {
+	int sel = 0;
+	int maxi = 0;
+	text_display_clear();
+	if (obj->data.quantity == 1) {
+		printcenter(40, 0xffff, "%s", obj->data.desc().name);
+	} else {
+		printcenter(40, 0xffff, "%d %ss", obj->data.quantity, obj->data.desc().name);
+	}
+	while (1) {
+		int i = 0;
+		ACTION act = ACT_NONE;
+		for (menuitem* k = itemmenu; k->text; k++) {
+			if ((obj->data.desc().abilities & k->flag) == k->flag) {
+				if (sel == i) act = k->action;
+				printcenter(54 + i*9, sel == i ? 0xffff : RGB15(18,18,18), "%s", k->text);
+				i++;
+				if (i > maxi) maxi = i;
+			}
+		}
+		int keys = waitkey();
+		if (keys & KEY_DOWN) sel++;
+		if (keys & KEY_UP) sel--;
+		if (keys & KEY_B) return ACT_NONE;
+		if (keys & KEY_A) return act;
+		if (sel < 0) sel = 0;
+		if (sel >= maxi) sel = maxi - 1;
+	}
 }
 
 void inventory() {
 	int selected = 0;
 	int start = 0;
 	int length = game.player.bag.length();
+
+	ACTION act = ACT_NONE;
+	Node<Object> *sel = NULL;
+
+	lcdMainOnTop();
 
 	text_console_disable();
 
@@ -42,7 +110,6 @@ void inventory() {
 		tprintf(8,1, 0xffff, "Inventory");
 
 		Node<Object> *o = game.player.bag.head;
-		Node<Object> *sel = NULL;
 
 		// push o up to the start
 		int i = 0;
@@ -60,15 +127,11 @@ void inventory() {
 				tprintf(8, 12+i*9, color, "*");
 			}
 		}
-		u32 keys = 0;
-		while (!keys) {
-			swiWaitForVBlank();
-			scanKeys();
-			keys = keysDown();
-		}
+		u32 keys = waitkey();
 		if (keys & KEY_B) break;
-		if (keys & KEY_A) {
-			withitem(sel);
+		if (keys & KEY_A && sel) {
+			act = withitem(sel);
+			if (act != ACT_NONE) break;
 			continue;
 		}
 		if (keys & KEY_UP) selected = max(0,selected-1);
@@ -82,6 +145,25 @@ void inventory() {
 		}
 	}
 
+	lcdMainOnBottom();
+
 	text_console_enable();
+
+	switch (act) {
+		case ACT_DROP:
+			game.player.bag.remove(sel);
+			game.map.at(game.player.x, game.player.y)->objects.push(sel);
+			if (sel->data.quantity == 1)
+				iprintf("You drop a %s\n", sel->data.desc().name);
+			else
+				iprintf("You drop %d %ss\n", sel->data.quantity, sel->data.desc().name);
+			break;
+		case ACT_THROW:
+			break;
+		case ACT_USE:
+			break;
+		default:
+			break;
+	}
 }
 

@@ -36,6 +36,15 @@ unsigned char widthof(int c) {
 	return width[c];
 }
 
+int textwidth(const char *str) {
+	int totalwidth = 0;
+	while (*str) {
+		totalwidth += width[*str - ' '];
+		str++;
+	}
+	return totalwidth;
+}
+
 /* initialise the text renderer */
 void text_init() {
 	unsigned int i, k;
