@@ -141,6 +141,16 @@ bool get_items() {
 	return true;
 }
 
+// drops the object if it's in the player's bag
+void Player::drop(Node<Object>* obj) {
+	if (!game.player.bag.remove(obj)) return;
+	game.map.at(game.player.x, game.player.y)->objects.push(obj);
+	if (obj->data.quantity == 1)
+		iprintf("You drop a %s\n", obj->data.desc().name);
+	else
+		iprintf("You drop %d %ss\n", obj->data.quantity, obj->data.desc().name);
+}
+
 void new_player() {
 	game.player.obj = Node<Creature>::pool.request_node();
 	game.map.at(game.player.x, game.player.y)->creatures.push(game.player.obj);

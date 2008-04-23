@@ -60,9 +60,11 @@ struct List {
 
 	Node<T> *head;
 
-	void remove(Node<T> *node) {
-		if (head == 0) return;
-		if (node == head) { head = head->next; return; }
+	// returns true if the node is in the list (and thus was removed), false if
+	// it wasn't (and thus wasn't removed)
+	bool remove(Node<T> *node) {
+		if (head == 0) return false;
+		if (node == head) { head = head->next; return true; }
 		Node<T>* prev = head;
 		Node<T>* k = prev->next;
 		while (k && k != node) {
@@ -71,10 +73,11 @@ struct List {
 		}
 		if (k) // didn't hit the end
 			prev->next = k->next;
+		return !!k;
 	}
-	void remove(T x) {
-		if (head == 0) return;
-		if (x == head->data) { head = head->next; return; }
+	bool remove(T x) {
+		if (head == 0) return false;
+		if (x == head->data) { head = head->next; return true; }
 		Node<T>* prev = head;
 		Node<T>* k = prev->next;
 		while (k && k->data != x) {
@@ -83,6 +86,7 @@ struct List {
 		}
 		if (k) // didn't hit the end
 			prev->next = k->next;
+		return !!k;
 	}
 	inline void push(T x) { // TODO: pass by reference?
 		Node<T>* n = Node<T>::pool.request_node();

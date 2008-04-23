@@ -37,6 +37,8 @@ struct Player {
 	Node<Creature> *obj;
 	lightsource *light;
 
+	void drop(Node<Object>* obj);
+
 	s16 x, y;
 };
 

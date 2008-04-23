@@ -151,12 +151,7 @@ void inventory() {
 
 	switch (act) {
 		case ACT_DROP:
-			game.player.bag.remove(sel);
-			game.map.at(game.player.x, game.player.y)->objects.push(sel);
-			if (sel->data.quantity == 1)
-				iprintf("You drop a %s\n", sel->data.desc().name);
-			else
-				iprintf("You drop %d %ss\n", sel->data.quantity, sel->data.desc().name);
+			game.player.drop(sel);
 			break;
 		case ACT_THROW:
 			break;
