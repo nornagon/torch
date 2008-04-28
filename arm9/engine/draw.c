@@ -1,6 +1,7 @@
 #include "draw.h"
 #include <nds/arm9/video.h>
 #include "mem.h"
+#include <string.h>
 
 #include "font.h"
 
@@ -16,16 +17,17 @@ void swapbufs() {
 }
 
 void cls() {
-	memset32((void*)backbuf, 0, (256*192*2)/4);
+	memset((void*)backbuf, 0, (256*192*2));
 }
 void clss() {
-	memset32((void*)BG_BMP_RAM(0), 0, (256*192*4)/4);
+	memset((void*)BG_BMP_RAM(0), 0, (256*192*4));
 }
 
 void drawcq(u32 x, u32 y, u32 c, u32 color) {
 	drawch(backbuf, x, y, c, color);
 }
 
+__attribute__((noinline))
 void drawch(u16* mem, u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobbers)
 	asm (
 			"adr r7, 2f\n"

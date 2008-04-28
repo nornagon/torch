@@ -148,7 +148,7 @@ void text_console_render(const char *text) {
 /*** internal functions ***/
 
 void sub_clear() {
-	memset32((void*)subfrontbuf, 0, (256*192*2)/4);
+	memset((void*)subfrontbuf, 0, (256*192*2));
 }
 
 void append_console_state(const char *text, int len) {
