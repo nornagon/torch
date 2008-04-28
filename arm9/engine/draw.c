@@ -27,7 +27,6 @@ void drawcq(u32 x, u32 y, u32 c, u32 color) {
 	drawch(backbuf, x, y, c, color);
 }
 
-__attribute__((noinline))
 void drawch(u16* mem, u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobbers)
 	asm (
 			"adr r7, 2f\n"
@@ -43,7 +42,7 @@ void drawch(u16* mem, u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobb
 
 			"mov r9, #7\n"            // we want to draw 8 lines
 
-			"loop:\n"
+			"1:\n"
 			"ldmia r6!, {r4, r5}\n"   // grab 8 bytes from the font
 
 			"eor r0, r0, r0\n"
@@ -73,7 +72,7 @@ void drawch(u16* mem, u32 x, u32 y, u32 c, u32 color) { // OPAQUE version (clobb
 			"stm r7, {r0, r1, r2, r3}\n"
 			"add r7, r7, #512\n"
 			"subs r9, r9, #1\n"
-			"bpl loop\n"
+			"bpl 1b\n"
 
 			"adr r3, 3f + 1\n"
 			"bx r3\n"
