@@ -9,6 +9,7 @@
 #include "creature.h"
 #include "cell.h"
 #include "object.h"
+#include "player.h"
 
 class Map {
 	private:
@@ -30,16 +31,18 @@ class Map {
 		inline Cell *at(s16 x, s16 y) {
 			return &cells[y*w+x];
 		}
-};
 
-struct Player {
-	List<Object> bag;
-	Node<Creature> *obj;
-	lightsource *light;
+		inline bool solid(s16 x, s16 y) {
+			return celldesc[at(x,y)->type].solid;
+		}
 
-	void drop(Node<Object>* obj);
+		inline bool occupied(s16 x, s16 y) {
+			return !at(x,y)->creatures.empty();
+		}
 
-	s16 x, y;
+		inline bool walkable(s16 x, s16 y) {
+			return !(solid(x,y) || occupied(x,y));
+		}
 };
 
 struct Adrift {
@@ -53,5 +56,8 @@ struct Adrift {
 };
 
 extern Adrift game;
+
+void recalc_visible(s16 x, s16 y);
+void recalc_recall(s16 x, s16 y);
 
 #endif /* ADRIFT_H */

@@ -47,9 +47,9 @@ struct menuitem {
 	u16 flag;
 	ACTION action;
 } itemmenu[] = {
-	{ "Use", ABIL_USE, ACT_USE },
-	{ "Eat", ABIL_EAT, ACT_EAT },
-	{ "Equip", ABIL_EQUIP, ACT_EQUIP },
+	{ "Use", CAN_USE, ACT_USE },
+	{ "Eat", CAN_EAT, ACT_EAT },
+	{ "Equip", CAN_EQUIP, ACT_EQUIP },
 	{ "Throw", 0, ACT_THROW },
 	{ "Drop", 0, ACT_DROP },
 	{ 0 },
@@ -156,6 +156,7 @@ void inventory() {
 		case ACT_THROW:
 			break;
 		case ACT_USE:
+			game.player.use(sel);
 			break;
 		default:
 			break;

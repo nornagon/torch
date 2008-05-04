@@ -9,9 +9,9 @@ enum OBJ_TYPE {
 	J_ROCK,
 };
 
-#define ABIL_USE   0x01
-#define ABIL_EAT   0x02
-#define ABIL_EQUIP 0x04
+#define CAN_USE   0x01
+#define CAN_EAT   0x02
+#define CAN_EQUIP 0x04
 
 enum ACTION {
 	ACT_NONE,

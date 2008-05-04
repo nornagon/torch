@@ -55,67 +55,7 @@ void recalc_visible(s16 x, s16 y) {
 	} else recalc_recall(x,y);
 }
 
-inline bool solid(s16 x, s16 y) {
-	Cell *cell = game.map.at(x, y);
-	return celldesc[cell->type].solid;
-}
-
-inline bool occupied(s16 x, s16 y) {
-	return !game.map.at(x,y)->creatures.empty();
-}
-
-inline bool walkable(s16 x, s16 y) {
-	return !(solid(x,y) || occupied(x,y));
-}
-
-void move_player(DIRECTION dir) {
-	s32 pX = game.player.x, pY = game.player.y;
-
-	int dpX = D_DX[dir],
-	    dpY = D_DY[dir];
-
-	if (pX + dpX < 0 || pX + dpX >= torch.buf.getw()) { dpX = 0; }
-	if (pY + dpY < 0 || pY + dpY >= torch.buf.geth()) { dpY = 0; }
-
-	Cell *cell;
-
-	if (!walkable(pX + dpX, pY + dpY)) {
-		// your path is blocked
-		if (dpX && dpY) {
-			// if we could just go left or right, do that. This results in 'sliding'
-			// along walls when moving diagonally
-			if (walkable(pX + dpX, pY))
-				dpY = 0;
-			else if (walkable(pX, pY + dpY))
-				dpX = 0;
-			else
-				dpX = dpY = 0;
-		} else
-			dpX = dpY = 0;
-	}
-
-	if (dpX || dpY) {
-		// moving diagonally takes longer. 5*sqrt(2) ~= 7
-		if (dpX && dpY) game.cooldown = 7;
-		else game.cooldown = 5;
-
-		cell = game.map.at(pX + dpX, pY + dpY);
-
-		// move the player object
-		game.map.at(pX, pY)->creatures.remove(game.player.obj);
-		game.map.at(pX + dpX, pY + dpY)->creatures.push(game.player.obj);
-		// TODO: i assume these two squares are visible... correct?
-		recalc_visible(pX, pY);
-		recalc_visible(pX + dpX, pY + dpY);
-
-		pX += dpX; game.player.x = pX;
-		pY += dpY; game.player.y = pY;
-
-		torch.onscreen(pX,pY,8);
-	}
-}
-
-bool vowel(char c) {
+bool isvowel(char c) {
 	return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u';
 }
 
@@ -127,7 +67,7 @@ bool get_items() {
 	while ((k = os.pop())) {
 		char *name = objdesc[k->data.type].name;
 		if (k->data.quantity == 1) {
-			const char *a_an = vowel(name[0]) ? "n" : "";
+			const char *a_an = isvowel(name[0]) ? "n" : "";
 			iprintf("You pick up a%s %s.\n", a_an, name);
 		} else {
 			iprintf("You pick up %d %ss.\n", k->data.quantity, name);
@@ -139,30 +79,6 @@ bool get_items() {
 
 	game.cooldown = 4;
 	return true;
-}
-
-// drops the object if it's in the player's bag
-void Player::drop(Node<Object>* obj) {
-	if (!game.player.bag.remove(obj)) return;
-	game.map.at(game.player.x, game.player.y)->objects.push(obj);
-	if (obj->data.quantity == 1)
-		iprintf("You drop a %s\n", obj->data.desc().name);
-	else
-		iprintf("You drop %d %ss\n", obj->data.quantity, obj->data.desc().name);
-}
-
-void new_player() {
-	game.player.obj = Node<Creature>::pool.request_node();
-	game.map.at(game.player.x, game.player.y)->creatures.push(game.player.obj);
-	game.player.obj->data.type = C_PLAYER;
-	recalc_visible(game.player.x, game.player.y);
-	game.player.light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
-}
-
-void updaterecall(s16 x, s16 y) {
-	int32 v = torch.buf.luxat(x, y)->lval;
-	mapel *m = torch.buf.at(x, y);
-	m->recall = min(1<<12, max(v, m->recall));
 }
 
 void process_keys() {
@@ -190,7 +106,7 @@ void process_keys() {
 			dir |= D_NORTH;
 
 		if (dir) {
-			move_player(dir);
+			game.player.move(dir);
 			return;
 		}
 
@@ -211,7 +127,10 @@ void handler() {
 
 	for (int y = torch.buf.scroll.y; y < torch.buf.scroll.y + 24; y++)
 		for (int x = torch.buf.scroll.x; x < torch.buf.scroll.x + 32; x++) {
-			updaterecall(x, y);
+			int32 v = torch.buf.luxat(x, y)->lval;
+			mapel *m = torch.buf.at(x, y);
+			m->recall = min(1<<12, max(v, m->recall));
+
 			blockel *b = game.map.block.at(x, y);
 			if (b->visible && torch.buf.luxat(x,y)->lval > 0) {
 				recalc_visible(x,y);
@@ -233,7 +152,8 @@ void new_game() {
 
 	generate_terrarium();
 
-	new_player();
+	game.player.exist();
+	recalc_visible(game.player.x, game.player.y);
 
 	torch.buf.scroll.x = game.player.x - 16;
 	torch.buf.scroll.y = game.player.y - 12;

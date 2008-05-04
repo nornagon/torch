@@ -3,7 +3,7 @@
 
 ObjDesc objdesc[] = { /* stk  name      abilities*/
 	{ 'X', RGB15(31,31,0),  1, "unknown", 0 },
-	{ '8', RGB15(18,18,18), 1, "rock",    ABIL_EQUIP },
+	{ '8', RGB15(18,18,18), 1, "rock",    CAN_EQUIP|CAN_USE },
 };
 
 void stack_item_push(List<Object> &container, Node<Object>* obj) {
