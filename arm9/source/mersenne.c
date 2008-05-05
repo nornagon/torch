@@ -59,6 +59,8 @@
 
 static unsigned long DTCM_DATA mt[N]; /* the array for the state vector  */
 static int DTCM_DATA mti=N+1; /* mti==N+1 means mt[N] is not initialized */
+static long bits = 0;
+static int nbits = 0;
 
 /* initializes mt[N] with a seed */
 void ITCM_CODE init_genrand(unsigned long s)
@@ -162,12 +164,11 @@ unsigned long ITCM_CODE genrand_int32()
     return y;
 }
 
-static long bits = 0;
-static char nbits = 0;
-
 unsigned long ITCM_CODE genrand_int16() {
-	if (nbits < 16)
+	if (nbits < 16) {
 		bits = genrand_int32();
+		nbits = 32;
+	}
 
 	long ret = (bits & 0xffff);
 	bits >>= 16;
@@ -176,8 +177,10 @@ unsigned long ITCM_CODE genrand_int16() {
 }
 
 unsigned long ITCM_CODE genrand_int8() {
-	if (nbits < 8)
+	if (nbits < 8) {
 		bits = genrand_int32();
+		nbits = 32;
+	}
 
 	long ret = (bits & 0xff);
 	bits >>= 8;
@@ -186,8 +189,10 @@ unsigned long ITCM_CODE genrand_int8() {
 }
 
 unsigned long ITCM_CODE genrand_int4() {
-	if (nbits < 4)
+	if (nbits < 4) {
 		bits = genrand_int32();
+		nbits = 32;
+	}
 
 	long ret = (bits & 0xf);
 	bits >>= 4;

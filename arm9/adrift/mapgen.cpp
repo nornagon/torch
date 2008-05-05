@@ -285,13 +285,16 @@ void haunted_grove(s16 cx, s16 cy) {
 		}
 	}
 
-	unsigned int firepos = ((rand32() & 0x1ff) / 4) * 4;
 	for (unsigned int t = 0; t < 0x1ff; t += 4) {
 		int r = (rand8() & 3) + r0;
 		int x = COS[t], y = SIN[t];
 		if (t % 16 != 0)
 			bresenham(cx + ((x*r) >> 12), cy + ((y*r) >> 12),
 			               cx + ((x*(r+w0)) >> 12), cy + ((y*(r+w0)) >> 12), SET_TREE);
+	}
+	unsigned int firepos = ((rand32() & 0x1ff) / 4) * 4;
+	for (unsigned int t = 0; t < 0x1ff; t += 4) {
+		int x = COS[t], y = SIN[t];
 		if (t == firepos) {
 			int px = cx + ((x*(r0+w0+1)) >> 12),
 			    py = cy + ((y*(r0+w0+1)) >> 12);
@@ -357,12 +360,18 @@ void generate_terrarium() {
 
 	drop_rocks(cx, cy);
 
-	Cell *l = game.map.at(game.player.x+1, game.player.y);
+	s16 x = cx, y = cy;
+	Cell *l;
+	while ((l = game.map.at(x, y)) && l->type != T_GROUND)
+		randwalk(x, y);
 	Node<Creature> *cn = Node<Creature>::pool.request_node();
 	cn->data.type = 0;
 	l->creatures.push(cn);
 
-	l = game.map.at(game.player.x-1, game.player.y);
+	x = cx; y = cy;
+
+	while ((l = game.map.at(x, y)) && l->type != T_GROUND)
+		randwalk(x, y);
 	Node<Object> *on = Node<Object>::pool.request_node();
 	on->data.type = 0;
 	l->objects.push(on);
