@@ -85,10 +85,17 @@ void process_keys() {
 	if (game.cooldown <= 0) {
 		scanKeys();
 		u32 keys = keysHeld();
-
 		u32 down = keysDown();
+		touchPosition touch = touchReadXY();
+
 		if (down & KEY_X) {
 			inventory(); return;
+		}
+
+		if (down & KEY_TOUCH && game.player.projectile && touch.px != 0 && touch.py != 0) {
+			game.player.chuck(torch.buf.scroll.x + touch.px/8,
+			                  torch.buf.scroll.y + touch.py/8);
+			return;
 		}
 
 		if (keys & KEY_Y) {
@@ -114,6 +121,37 @@ void process_keys() {
 		game.cooldown--;
 }
 
+void draw_projectiles() {
+	Node<Projectile>* p = game.projectiles.head;
+	while (p) {
+		s16 x = p->data.st.posx();
+		s16 y = p->data.st.posy();
+
+		game.map.at(x,y)->objects.remove(p->data.obj);
+
+		s16 ox = x, oy = y;
+		s16 destx = p->data.st.destx();
+		s16 desty = p->data.st.desty();
+		while ((x-ox)*(x-ox)+(y-oy)*(y-oy) < 2*2) {
+			if (x == destx && y == desty) break;
+			p->data.st.step();
+			x = p->data.st.posx();
+			y = p->data.st.posy();
+		}
+
+		game.map.at(x,y)->objects.push(p->data.obj);
+
+		if (x == destx && y == desty) {
+			Node<Projectile> *next = p->next;
+			game.projectiles.remove(p);
+			p->free();
+			p = next;
+		} else {
+			p = p->next;
+		}
+	}
+}
+
 void process_sight() {
 	game.player.light->x = game.player.x << 12;
 	game.player.light->y = game.player.y << 12;
@@ -122,6 +160,7 @@ void process_sight() {
 
 void handler() {
 	process_keys();
+	draw_projectiles();
 	process_sight();
 	draw_lights(game.fov_light, &game.map.block, game.map.lights);
 

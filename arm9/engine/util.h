@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <nds.h>
 
+#ifndef abs
+#define abs(x) ((x) < 0 ? -(x) : (x))
+#endif
+
 //---------------------------------------------------------------------------
 // timers
 static inline void start_stopwatch() {

@@ -10,8 +10,6 @@
 #include <stdio.h>
 #include <nds.h>
 
-#define abs(x) ((x) < 0 ? -(x) : (x))
-
 void hline(s16 x0, s16 x1, s16 y, void (*func)(s16 x, s16 y)) {
 	torch.buf.bounded(x1, y);
 	if (x0 > x1) hline(x1, x0, y, func);

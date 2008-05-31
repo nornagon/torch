@@ -13,6 +13,8 @@ struct Player {
 	Node<Creature> *obj;
 	lightsource *light;
 
+	Node<Object> *projectile;
+
 	// project an existence into the world
 	void exist();
 
@@ -20,6 +22,8 @@ struct Player {
 	void drop(Node<Object>* obj);
 
 	void use(Node<Object>* item);
+	void setprojectile(Node<Object>* proj);
+	void chuck(s16 destx, s16 desty);
 
 	s16 x, y;
 };

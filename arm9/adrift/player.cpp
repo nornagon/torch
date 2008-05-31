@@ -18,6 +18,7 @@ void Player::exist() {
 	game.map.at(x, y)->creatures.push(obj);
 	obj->data.type = C_PLAYER;
 	light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
+	projectile = NULL;
 }
 
 void Player::move(DIRECTION dir) {
@@ -58,8 +59,8 @@ void Player::move(DIRECTION dir) {
 		recalc_visible(x, y);
 		recalc_visible(x + dpX, y + dpY);
 
-		x += dpX; game.player.x = x;
-		y += dpY; game.player.y = y;
+		x += dpX;
+		y += dpY;
 
 		torch.onscreen(x,y,8);
 	}
@@ -77,4 +78,31 @@ void Player::use(Node<Object> *item) {
 		default:
 			break;
 	}
+}
+
+void Player::setprojectile(Node<Object> *proj) {
+	projectile = proj;
+}
+
+void Player::chuck(s16 destx, s16 desty) {
+	// don't throw if there's nothing to throw, or if the player tries to throw
+	// at herself.
+	if (!projectile || (destx == x && desty == y)) return;
+
+	// split the stack
+	Node<Projectile>* thrown = Node<Projectile>::pool.request_node();
+	thrown->data.obj = Node<Object>::pool.request_node();
+	thrown->data.object()->quantity = 1;
+	thrown->data.object()->type = projectile->data.type;
+	thrown->data.st.reset(x,y,destx,desty);
+	game.map.at(x,y)->objects.push(thrown->data.obj);
+
+	projectile->data.quantity--;
+	if (projectile->data.quantity <= 0) { // ran out of stuff
+		bag.remove(projectile);
+		projectile = NULL;
+	}
+
+	game.projectiles.push(thrown);
+	game.cooldown += 6;
 }

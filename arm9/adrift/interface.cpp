@@ -42,9 +42,47 @@ void printcenter(u16 y, u16 color, const char *fmt, ...) {
 	text_render_raw(128-width/2, y, foo, len, color | BIT(15));
 }
 
-int withitem(Node<Object>* obj) {
+enum ACTION {
+	ACT_NONE,
+	ACT_DROP,
+	ACT_THROW,
+	ACT_EQUIP,
+	ACT_EAT,
+	ACT_USE,
+};
+
+void perform(Node<Object>* obj, ACTION act) {
+	switch (act) {
+		case ACT_DROP:
+			game.player.drop(obj);
+			break;
+		case ACT_USE:
+			game.player.use(obj);
+			break;
+		case ACT_THROW:
+			game.player.setprojectile(obj);
+			break;
+		default:
+			break;
+	}
+}
+
+struct menuitem {
+	const char *text;
+	ACTION action;
+} itemmenu[] = {
+	{ "Use", ACT_USE },
+	{ "Throw", ACT_THROW },
+	{ "Drop", ACT_DROP },
+	{ 0 }
+};
+
+bool canuse(Object *obj) {
+	return obj->type == J_ROCK;
+}
+
+bool withitem(Node<Object>* obj) {
 	int sel = 0;
-	int maxi = 0;
 	text_display_clear();
 	if (obj->data.quantity == 1) {
 		printcenter(40, 0xffff, "%s", obj->data.desc().name);
@@ -52,23 +90,32 @@ int withitem(Node<Object>* obj) {
 		printcenter(40, 0xffff, "%d %ss", obj->data.quantity, obj->data.desc().name);
 	}
 	while (1) {
-		//int i = 0;
-		/*ACTION act = ACT_NONE;
+		int i = 0;
+		ACTION act = ACT_NONE;
 		for (menuitem* k = itemmenu; k->text; k++) {
-			if ((obj->data.desc().abilities & k->flag) == k->flag) {
+			bool validaction = false;
+			switch (k->action) {
+				case ACT_USE:   validaction = canuse(&obj->data); break;
+				case ACT_DROP:  validaction = true; break;
+				case ACT_THROW: validaction = true; break;
+				default: validaction = false; break;
+			}
+			if (validaction) {
 				if (sel == i) act = k->action;
 				printcenter(54 + i*9, sel == i ? 0xffff : RGB15(18,18,18), "%s", k->text);
 				i++;
-				if (i > maxi) maxi = i;
 			}
-		}*/
+		}
 		int keys = waitkey();
 		if (keys & KEY_DOWN) sel++;
 		if (keys & KEY_UP) sel--;
-		if (keys & KEY_B) return 0;//ACT_NONE;
-		if (keys & KEY_A) return 0;//act;
+		if (keys & KEY_B) return false;
+		if (keys & KEY_A) {
+			perform(obj, act);
+			return true;
+		}
 		if (sel < 0) sel = 0;
-		if (sel >= maxi) sel = maxi - 1;
+		if (sel >= i) sel = i - 1;
 	}
 }
 
@@ -117,9 +164,8 @@ void inventory() {
 		u32 keys = waitkey();
 		if (keys & KEY_B) break;
 		if (keys & KEY_A && sel) {
-			/*act = */withitem(sel);
-			/*if (act != ACT_NONE)*/ break;
-			//continue;
+			if (withitem(sel)) break;
+			continue;
 		}
 		if (keys & KEY_UP) selected = max(0,selected-1);
 		else if (keys & KEY_DOWN) selected = min(length-1, selected+1);
