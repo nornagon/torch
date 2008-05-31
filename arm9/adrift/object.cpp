@@ -1,11 +1,24 @@
 #include "object.h"
 #include <nds/arm9/video.h>
 
-ObjDesc objdesc[] = { /* stk  name      abilities*/
-	{ 'X', RGB15(31,31,0),  1, "unknown", 0 },
-	{ '8', RGB15(18,18,18), 1, "rock",    CAN_EQUIP|CAN_USE },
+#ifdef ONLY_ONAMES
+#define OBJ(def,ch,col,stk,name) J_##def
+#else
+#define OBJ(def,ch,col,stk,name) { ch, col, stk, name }
+#endif
+
+#ifdef ONLY_ONAMES
+enum {
+#else
+ObjDesc objdesc[] = {          /* stk  name */
+#endif
+	OBJ( NONE, 'X', RGB15(31,31,0),  1, "unknown" ),
+	OBJ( ROCK, '8', RGB15(18,18,18), 1, "rock"    ),
 };
 
+#undef OBJ
+
+#ifndef ONLY_ONAMES
 void stack_item_push(List<Object> &container, Node<Object>* obj) {
 	Node<Object> *contobj = container.head;
 	for (; contobj; contobj = contobj->next) {
@@ -24,4 +37,4 @@ void stack_item_push(List<Object> &container, Node<Object>* obj) {
 	}
 	if (obj) container.push(obj);
 }
-
+#endif

@@ -42,20 +42,7 @@ void printcenter(u16 y, u16 color, const char *fmt, ...) {
 	text_render_raw(128-width/2, y, foo, len, color | BIT(15));
 }
 
-struct menuitem {
-	const char *text;
-	u16 flag;
-	ACTION action;
-} itemmenu[] = {
-	{ "Use", CAN_USE, ACT_USE },
-	{ "Eat", CAN_EAT, ACT_EAT },
-	{ "Equip", CAN_EQUIP, ACT_EQUIP },
-	{ "Throw", 0, ACT_THROW },
-	{ "Drop", 0, ACT_DROP },
-	{ 0 },
-};
-
-ACTION withitem(Node<Object>* obj) {
+int withitem(Node<Object>* obj) {
 	int sel = 0;
 	int maxi = 0;
 	text_display_clear();
@@ -65,8 +52,8 @@ ACTION withitem(Node<Object>* obj) {
 		printcenter(40, 0xffff, "%d %ss", obj->data.quantity, obj->data.desc().name);
 	}
 	while (1) {
-		int i = 0;
-		ACTION act = ACT_NONE;
+		//int i = 0;
+		/*ACTION act = ACT_NONE;
 		for (menuitem* k = itemmenu; k->text; k++) {
 			if ((obj->data.desc().abilities & k->flag) == k->flag) {
 				if (sel == i) act = k->action;
@@ -74,12 +61,12 @@ ACTION withitem(Node<Object>* obj) {
 				i++;
 				if (i > maxi) maxi = i;
 			}
-		}
+		}*/
 		int keys = waitkey();
 		if (keys & KEY_DOWN) sel++;
 		if (keys & KEY_UP) sel--;
-		if (keys & KEY_B) return ACT_NONE;
-		if (keys & KEY_A) return act;
+		if (keys & KEY_B) return 0;//ACT_NONE;
+		if (keys & KEY_A) return 0;//act;
 		if (sel < 0) sel = 0;
 		if (sel >= maxi) sel = maxi - 1;
 	}
@@ -90,7 +77,7 @@ void inventory() {
 	int start = 0;
 	int length = game.player.bag.length();
 
-	ACTION act = ACT_NONE;
+	//ACTION act = ACT_NONE;
 	Node<Object> *sel = NULL;
 
 	lcdMainOnTop();
@@ -130,9 +117,9 @@ void inventory() {
 		u32 keys = waitkey();
 		if (keys & KEY_B) break;
 		if (keys & KEY_A && sel) {
-			act = withitem(sel);
-			if (act != ACT_NONE) break;
-			continue;
+			/*act = */withitem(sel);
+			/*if (act != ACT_NONE)*/ break;
+			//continue;
 		}
 		if (keys & KEY_UP) selected = max(0,selected-1);
 		else if (keys & KEY_DOWN) selected = min(length-1, selected+1);
@@ -149,7 +136,7 @@ void inventory() {
 
 	text_console_enable();
 
-	switch (act) {
+	/*switch (act) {
 		case ACT_DROP:
 			game.player.drop(sel);
 			break;
@@ -160,6 +147,6 @@ void inventory() {
 			break;
 		default:
 			break;
-	}
+	}*/
 }
 

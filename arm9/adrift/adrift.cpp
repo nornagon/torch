@@ -65,7 +65,7 @@ bool get_items() {
 
 	Node<Object> *k;
 	while ((k = os.pop())) {
-		char *name = objdesc[k->data.type].name;
+		const char *name = objdesc[k->data.type].name;
 		if (k->data.quantity == 1) {
 			const char *a_an = isvowel(name[0]) ? "n" : "";
 			iprintf("You pick up a%s %s.\n", a_an, name);
