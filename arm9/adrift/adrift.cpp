@@ -132,21 +132,27 @@ void draw_projectiles() {
 		s16 ox = x, oy = y;
 		s16 destx = p->data.st.destx();
 		s16 desty = p->data.st.desty();
+		bool collided = false;
 		while ((x-ox)*(x-ox)+(y-oy)*(y-oy) < 2*2) {
 			if (x == destx && y == desty) break;
 			p->data.st.step();
+			// TODO use a real flag
+			if (celldesc[game.map.at(p->data.st.posx(),p->data.st.posy())->type].opaque) {
+				collided = true;
+				break;
+			}
 			x = p->data.st.posx();
 			y = p->data.st.posy();
 		}
 
-		game.map.at(x,y)->objects.push(p->data.obj);
-
-		if (x == destx && y == desty) {
+		if ((x == destx && y == desty) || collided) {
 			Node<Projectile> *next = p->next;
 			game.projectiles.remove(p);
+			stack_item_push(game.map.at(x,y)->objects, p->data.obj);
 			p->free();
 			p = next;
 		} else {
+			game.map.at(x,y)->objects.push(p->data.obj);
 			p = p->next;
 		}
 	}
