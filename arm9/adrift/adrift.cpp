@@ -77,7 +77,7 @@ bool get_items() {
 		stack_item_push(game.player.bag, k);
 	}
 
-	game.cooldown = 4;
+	game.cooldown += 4;
 	return true;
 }
 

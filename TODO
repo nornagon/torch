@@ -1,5 +1,3 @@
-* add a typedef for num2012 and make everything that wants 20.12 say so.
-* think about naming conventions
 * serialisation
 * sub-tile light origins (maybe prod puyo)
 * fix lighting algorithm so player doesn't change colour immediately on
@@ -8,3 +6,4 @@
 * move by touchscreen
 * pulsating lights
 * PC port
+* bring stuff to generic/
