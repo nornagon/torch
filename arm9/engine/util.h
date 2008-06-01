@@ -61,4 +61,10 @@ static inline bool adjacent(s32 x0, s32 y0, s32 x1, s32 y1) {
 	return abs(x0-x1) <= 1 && abs(y0-y1) <= 1;
 }
 
+// distance squared
+static inline unsigned int dist2(int x1, int y1, int x2, int y2) {
+	x1 = abs(x1-x2); y1 = abs(y1-y2);
+	return x1*x1+y1*y1;
+}
+
 #endif /* UTIL_H */

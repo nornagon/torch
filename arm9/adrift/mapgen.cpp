@@ -364,6 +364,7 @@ void generate_terrarium() {
 		randwalk(x, y);
 	Node<Creature> *cn = Node<Creature>::pool.request_node();
 	cn->data.type = 0;
+	cn->data.setPos(x,y);
 	l->creatures.push(cn);
 
 	x = cx; y = cy;

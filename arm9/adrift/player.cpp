@@ -17,6 +17,7 @@ void Player::exist() {
 	obj = Node<Creature>::pool.request_node();
 	game.map.at(x, y)->creatures.push(obj);
 	obj->data.type = C_PLAYER;
+	obj->data.setPos(x,y);
 	light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 	projectile = NULL;
 }
@@ -53,14 +54,16 @@ void Player::move(DIRECTION dir) {
 		cell = game.map.at(x + dpX, y + dpY);
 
 		// move the player object
-		game.map.at(x, y)->creatures.remove(game.player.obj);
-		game.map.at(x + dpX, y + dpY)->creatures.push(game.player.obj);
+		game.map.at(x, y)->creatures.remove(obj);
+		game.map.at(x + dpX, y + dpY)->creatures.push(obj);
 		// TODO: i assume these two squares are visible... correct?
 		recalc_visible(x, y);
 		recalc_visible(x + dpX, y + dpY);
 
 		x += dpX;
 		y += dpY;
+
+		obj->data.setPos(x,y);
 
 		torch.onscreen(x,y,8);
 	}

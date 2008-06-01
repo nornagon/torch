@@ -11,6 +11,7 @@
 struct Player {
 	List<Object> bag;
 	Node<Creature> *obj;
+	Node<Creature> *target;
 	lightsource *light;
 
 	Node<Object> *projectile;

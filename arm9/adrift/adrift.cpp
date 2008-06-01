@@ -117,6 +117,43 @@ void process_keys() {
 			return;
 		}
 
+		if (keys & KEY_A) {
+			if (!game.player.target) {
+				u16 mindist = 16;
+				Node<Creature> *candidate = NULL;
+				for (int y = game.player.y-4; y < game.player.y+4; y++)
+					for (int x = game.player.x-4; x < game.player.x+4; x++)
+						if (!game.map.at(x,y)->creatures.empty() &&
+								!(x == game.player.x && y == game.player.y) &&
+								game.map.block.at(x,y)->visible &&
+								dist2(x,y,game.player.x,game.player.y) < mindist)
+								candidate = game.map.at(x,y)->creatures.head;
+				if (candidate) game.player.target = candidate;
+			}
+			if (game.player.target) {
+				s16 targx = game.player.target->data.x, targy = game.player.target->data.y;
+				if (dist2(game.player.x,game.player.y,targx,targy) > 16) {
+					game.player.target = NULL; return;
+				}
+				if (game.map.block.at(targx,targy)->visible) {
+					iprintf("I can see it!\n");
+				} else {
+					game.player.target = NULL; return;
+				}
+				if (adjacent(targx,targy,game.player.x,game.player.y)) {
+					iprintf("smack!\n");
+					game.cooldown += 5;
+					return;
+				} else {
+					bresenstate st(game.player.x, game.player.y, targx, targy);
+					st.step();
+					game.player.move(direction(st.posx(), st.posy(), game.player.x, game.player.y));
+				}
+			} else {
+				iprintf("no target\n");
+			}
+		}
+
 	} else if (game.cooldown > 0)
 		game.cooldown--;
 }
@@ -166,6 +203,11 @@ void process_sight() {
 
 void handler() {
 	process_keys();
+	// go 1 over the boundaries to be sure we mark everything properly, even if
+	// we scrolled just now...
+	for (int y = torch.buf.scroll.y-1; y < torch.buf.scroll.y + 24 + 1; y++)
+		for (int x = torch.buf.scroll.x-1; x < torch.buf.scroll.x + 32 + 1; x++)
+			game.map.block.at(x, y)->visible = false;
 	draw_projectiles();
 	process_sight();
 	draw_lights(game.fov_light, &game.map.block, game.map.lights);
@@ -182,7 +224,6 @@ void handler() {
 			} else if (torch.buf.cacheat(x,y)->was_visible) {
 				recalc_recall(x,y);
 			}
-			b->visible = false;
 		}
 }
 
