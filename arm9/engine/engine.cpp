@@ -188,8 +188,6 @@ void engine::draw() {
 			luxel *l = buf.luxat(x+buf.scroll.x, y+buf.scroll.y);
 
 			if (l->lval > 0) {
-				//m->recall = min(1<<12, max(l->lval, m->recall));
-
 				if (l->lval > max_luminance) max_luminance = l->lval;
 				if (l->lval < low_luminance) {
 					l->lval = 0;
@@ -224,9 +222,8 @@ void engine::draw() {
 					l->last_lval = l->lval >> 8;
 					c->last_col = col;
 					c->last_ch = ch;
-					// fade out to the recalled colour (or 0 for ground)
-					int32 minval = 0;
-					/*if (!cell->forgettable)*/ minval = (m->recall>>2);
+					// fade out to the recalled colour
+					int32 minval = (m->recall>>2);
 					int32 val = max(minval, l->lval);
 					int32 maxcol = max(rval,max(bval,gval));
 					// scale [rgb]val by the luminance, and keep the ratio between the

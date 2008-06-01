@@ -63,6 +63,9 @@ void Player::move(DIRECTION dir) {
 		x += dpX;
 		y += dpY;
 
+		game.map.block.pX = x;
+		game.map.block.pY = y;
+
 		obj->data.setPos(x,y);
 
 		torch.onscreen(x,y,8);

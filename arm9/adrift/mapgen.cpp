@@ -375,5 +375,18 @@ void generate_terrarium() {
 	on->data.type = 0;
 	l->objects.push(on);
 
+	SET_FIRE(cx+40, cy);
+	lightsource *li = new_light(8<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
+	li->x = (cx+40)<<12; li->y = cy<<12;
+	game.map.lights.push(li);
+	SET_FIRE(cx+30, cy);
+	li = new_light(8<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
+	li->x = (cx+30)<<12; li->y = cy<<12;
+	game.map.lights.push(li);
+	SET_FIRE(cx+35, cy-7);
+	li = new_light(8<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
+	li->x = (cx+35)<<12; li->y = (cy-7)<<12;
+	game.map.lights.push(li);
+
 	game.map.block.refresh();
 }
