@@ -51,14 +51,15 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 	if (!b->visible) return;
 
 	lightsource *l = (lightsource*)src;
-	int32 dx = (l->x - (x << 12)) >> 2, // shifting is for accuracy reasons
-	      dy = (l->y - (y << 12)) >> 2,
+	int32 dx = ((l->x>>4) - (x << 8)),
+	      dy = ((l->y>>4) - (y << 8)),
 	      dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
-	int32 rad = l->radius,
-	      rad2 = (rad * rad) >> 12;
+	int32 rad = l->radius >> 4,
+	      rad2 = (rad * rad) >> 8;
 
 	if (dist2 < rad2) {
-		div_32_32_raw(dist2<<8, rad2>>4);
+		//div_32_32_raw(dist2<<8, rad2>>4);
+		div_32_32_raw(rad2<<8,rad2+(((9<<8)*dist2)>>8));
 
 		DIRECTION d = D_NONE;
 		if (b->opaque)
@@ -66,7 +67,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 		luxel *e = torch.buf.luxat(x, y);
 
 		while (DIV_CR & DIV_BUSY);
-		int32 intensity = (1<<12) - DIV_RESULT32;
+		int32 intensity = DIV_RESULT32 << 4;
 
 		if (d & D_BOTH || b->seen_from & D_BOTH) {
 			intensity >>= 1;

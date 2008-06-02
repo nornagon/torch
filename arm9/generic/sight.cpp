@@ -42,26 +42,25 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 		d = seen_from(direction(map->pX, map->pY, x, y), b);
 	b->seen_from = d;
 
-	// the funny bit-twiddling here is to preserve a few more bits in dx/dy
-	// during multiplication. mulf32 is a software multiply, and thus slow.
-	int32 dx = (l->x - (x << 12)) >> 2,
-				dy = (l->y - (y << 12)) >> 2,
-				dist2 = ((dx * dx) >> 8) + ((dy * dy) >> 8);
-	int32 rad = l->radius,
-				rad2 = (rad * rad) >> 12;
+	// shift through 24.8
+	int32 dx = ((l->x >> 4) - (x << 8)),
+				dy = ((l->y >> 4) - (y << 8)),
+				dist2 = ((dx * dx)>>8) + ((dy * dy)>>8);
+	int32 rad = l->radius >> 4,
+				rad2 = (rad * rad) >> 8;
 
 	if (dist2 < rad2) {
-		div_32_32_raw(dist2<<8, rad2>>4);
-		//Cache *cache = map->cache_at(x, y); // load the cache while waiting for the division
+		//div_32_32_raw(dist2<<8, rad2>>4);
+		div_32_32_raw(rad2<<8,(rad2+(((9<<8)*dist2)>>8)));
 		luxel *e = torch.buf.luxat(x,y);
 		while (DIV_CR & DIV_BUSY);
-		int32 intensity = (1<<12) - DIV_RESULT32;
+		int32 intensity = DIV_RESULT32 << 4;
 
 		e->lval = intensity;
 
-		e->lr = l->r;
-		e->lg = l->g;
-		e->lb = l->b;
+		e->lr = (l->r * intensity) >> 12;
+		e->lg = (l->g * intensity) >> 12;
+		e->lb = (l->b * intensity) >> 12;
 	}
 	b->visible = true;
 }

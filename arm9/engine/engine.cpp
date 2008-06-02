@@ -228,9 +228,9 @@ void engine::draw() {
 					int32 maxcol = max(rval,max(bval,gval));
 					// scale [rgb]val by the luminance, and keep the ratio between the
 					// colours the same
-					rval = (div_32_32(rval,maxcol) * val) >> 12;
-					gval = (div_32_32(gval,maxcol) * val) >> 12;
-					bval = (div_32_32(bval,maxcol) * val) >> 12;
+					rval = div_32_32((rval * val) >> 12,maxcol);
+					gval = div_32_32((gval * val) >> 12,maxcol);
+					bval = div_32_32((bval * val) >> 12,maxcol);
 					rval = max(rval, minval);
 					gval = max(gval, minval);
 					bval = max(bval, minval);
