@@ -304,7 +304,15 @@ void engine::draw() {
 		m += buf.getw() - 32; // the next row down
 	}
 
-	low_luminance += max(adjust*2, -low_luminance); // adjust to fit at twice the difference
+	// if we always adjust the luminances, the HDR algo will tend to flicker
+	// between two states. It isn't really visually noticeable, but it'll cause
+	// extra work to happen that really doesn't need to be done. So we only
+	// bother adjusting low_luminance if we have to.
+	// This is probably a pretty bad metric for whether or not we have to, but it
+	// seems to work.
+	if (adjust > 4) {
+		low_luminance += max(adjust*2, -low_luminance); // adjust to fit at twice the difference
+	}
 	// drift towards having luminance values on-screen placed at maximum brightness.
 	if (low_luminance > 0 && max_luminance < low_luminance + (1<<12))
 		low_luminance -= min(40,low_luminance);
