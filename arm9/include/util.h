@@ -24,6 +24,8 @@ static inline u16 read_stopwatch() {
 //---------------------------------------------------------------------------
 // numbers
 // TODO: are min/max defined in the stdlib somewhere?
+// (nornagon, later): I think they're in <algorithm>... eugh. Template overhead
+// worth it?
 static inline int min(int a, int b) {
 	if (a < b) return a;
 	return b;
