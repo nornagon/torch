@@ -18,7 +18,7 @@ void Player::exist() {
 	game.map.at(x, y)->creatures.push(obj);
 	obj->data.type = C_PLAYER;
 	obj->data.setPos(x,y);
-	light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
+	light = new_light(8<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 	projectile = NULL;
 }
 

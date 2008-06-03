@@ -220,7 +220,10 @@ void handler() {
 		for (int x = torch.buf.scroll.x; x < torch.buf.scroll.x + 32; x++) {
 			int32 v = torch.buf.luxat(x, y)->lval;
 			mapel *m = torch.buf.at(x, y);
-			m->recall = min(1<<12, max(v, m->recall));
+			if (celldesc[game.map.at(x,y)->type].forgettable && game.map.at(x,y)->objects.empty())
+				m->recall = 0;
+			else
+				m->recall = min(1<<12, max(v, m->recall));
 
 			blockel *b = game.map.block.at(x, y);
 			if (b->visible && torch.buf.luxat(x,y)->lval > 0) {

@@ -29,11 +29,11 @@ bool sight_opaque(void *map_, int x, int y) {
 void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 	blockmap *map = (blockmap*)map_;
 	if (map->is_outside(x,y)) return;
-	lightsource *l = (lightsource*)src;
-
 	// don't bother calculating if we're outside the edge of the screen
 	s32 scrollX = torch.buf.scroll.x, scrollY = torch.buf.scroll.y;
 	if (x < scrollX || y < scrollY || x >= scrollX + 32 || y >= scrollY + 24) return;
+
+	lightsource *l = (lightsource*)src;
 
 	blockel *b = map->at(x, y);
 

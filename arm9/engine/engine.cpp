@@ -138,6 +138,8 @@ void engine::scroll(int dsX, int dsY) {
 		DIRECTION dir = direction(dsX, dsY, 0, 0);
 		move_port(dir);
 		just_scrolled = dir;
+
+		// XXX pretty sure this is flawed
 		for (int y = (dir&D_NORTH ? 1 : 0); y < (dir&D_SOUTH ? 23 : 24); y++)
 			for (int x = (dir&D_WEST ? 1 : 0); x < (dir&D_EAST ? 31 : 32); x++)
 				*(buf.luxat_s(x,y)) = *(buf.luxat_s(x+D_DX[dir], y+D_DY[dir]));
@@ -213,9 +215,9 @@ void engine::draw() {
 						ch != c->last_ch;
 
 				// if the values have changed significantly from last time (by 7 bits
-				// or more, i guess) we'll recalculate the colour. Otherwise, we won't
-				// bother.
-				if (changed) {
+				// or more, i guess), or the cache says we should, we'll recalculate
+				// the colour. Otherwise, we'll use the values we have stored.
+				if (changed || c->dirty > 0 || dirty > 0) {
 					l->last_lr = l->lr >> 8;
 					l->last_lg = l->lg >> 8;
 					l->last_lb = l->lb >> 8;
@@ -227,7 +229,7 @@ void engine::draw() {
 					int32 val = max(minval, l->lval);
 					int32 maxcol = max(rval,max(bval,gval));
 					// scale [rgb]val by the luminance, and keep the ratio between the
-					// colours the same
+					// colours the same TODO correct?
 					rval = div_32_32((rval * val) >> 12,maxcol);
 					gval = div_32_32((gval * val) >> 12,maxcol);
 					bval = div_32_32((bval * val) >> 12,maxcol);
@@ -245,21 +247,11 @@ void engine::draw() {
 					u16 col_to_draw = RGB15(r,g,b);
 					u16 last_col_final = c->last_col_final;
 					if (col_to_draw != last_col_final) {
-						//iprintf("\1%c%c%c", *((u8*)(&col_to_draw)), *((u8*)(&col_to_draw)+1), ch);
 						drawcq(x*8, y*8, ch, col_to_draw);
 						c->last_col_final = col_to_draw;
 						c->dirty = 2;
 					} else if (c->dirty > 0 || dirty > 0) {
-						// TODO: does this ever get called?
 						drawcq(x*8, y*8, ch, col_to_draw);
-						if (c->dirty > 0)
-							c->dirty--;
-					}
-				} else {
-					if (c->dirty > 0 || dirty > 0) {
-						drawcq(x*8, y*8, ch, c->last_col_final);
-						if (c->dirty > 0)
-							c->dirty--;
 					}
 				}
 				l->lval = 0;
@@ -302,9 +294,9 @@ void engine::draw() {
 					c->was_visible = false;
 					c->dirty = 2;
 				}
-				if (c->dirty > 0)
-					c->dirty--;
 			}
+			if (c->dirty > 0)
+				c->dirty--;
 			//cell->visible = 0;
 
 			m++; // takes into account the size of the structure, apparently
