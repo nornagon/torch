@@ -9,7 +9,7 @@
 #define MESSAGES (sizeof messages / sizeof (char*))
 
 
-static char* messages[] =
+static const char* messages[] =
 {
   "\"I pity the fool who mistakes me for kitten!\", sez Mr. T.",
   "That's just an old tin can.",
