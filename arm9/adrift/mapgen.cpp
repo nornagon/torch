@@ -347,8 +347,8 @@ void generate_terrarium() {
 	torch.buf.reset();
 	torch.buf.cache.reset();
 
-	for (int y = 0; y < torch.buf.getw(); y++)
-		for (int x = 0; x < torch.buf.geth(); x++)
+	for (int y = 0; y < torch.buf.geth(); y++)
+		for (int x = 0; x < torch.buf.getw(); x++)
 			SET_NONE(x,y);
 
 	filledCircle(cx, cy, 60, SET_GROUND);
