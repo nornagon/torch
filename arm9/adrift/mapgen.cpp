@@ -318,6 +318,20 @@ void haunted_grove(s16 cx, s16 cy) {
 	x = COS[k]; y = SIN[k];
 	bresenham(cx + ((x*r1) >> 12), cy + ((y*r1) >> 12),
 	               cx + ((x*(r1+w1)) >> 12), cy + ((y*(r1+w1)) >> 12), SET_GROUND);
+
+	int nTraps = 4 + (rand16() % 10);
+	for (int i = 0; i < nTraps; i++) {
+		int x, y;
+		do {
+			int theta = rand16() & 0x1ff;
+			int r = r0 + w0 + (rand16() % 6);
+			x = cx + ((COS[theta]*r) >> 12), y = cy + ((SIN[theta]*r) >> 12);
+		} while (!(game.map.at(x,y)->type == T_GROUND && game.map.at(x,y)->creatures.empty()));
+		Node<Creature> *trap = Node<Creature>::pool.request_node();
+		trap->data.type = C_FLYTRAP;
+		trap->data.setPos(x,y);
+		game.map.at(x,y)->creatures.push(trap);
+	}
 }
 
 void drop_rock(s16 x, s16 y) {
