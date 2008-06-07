@@ -23,13 +23,15 @@ class Map {
 		List<lightsource*> lights;
 
 		Map() { cells = 0; w = h = 0; }
-		Map(s16 w, s16 h) { resize(w,h); }
+		Map(s16 w_, s16 h_) { resize(w_,h_); }
 
 		void resize(s16 _w, s16 _h) {
 			if (cells) delete [] cells;
 			w = _w; h = _h;
 			cells = new Cell[w*h];
 		}
+		void reset();
+
 		inline Cell *at(s16 x, s16 y) {
 			return &cells[y*w+x];
 		}

@@ -360,10 +360,7 @@ void generate_terrarium() {
 
 	torch.buf.reset();
 	torch.buf.cache.reset();
-
-	for (int y = 0; y < torch.buf.geth(); y++)
-		for (int x = 0; x < torch.buf.getw(); x++)
-			SET_NONE(x,y);
+	game.map.reset();
 
 	filledCircle(cx, cy, 60, SET_GROUND);
 	hollowCircle(cx, cy, 60, SET_GLASS);

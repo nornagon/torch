@@ -22,6 +22,11 @@ Adrift::Adrift() {
 	fov_light = build_fov_settings(opacity_test, apply_light, FOV_SHAPE_OCTAGON);
 	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
 }
+void Map::reset() {
+	for (s16 y = 0; y < h; y++)
+		for (s16 x = 0; x < w; x++)
+			at(x,y)->reset();
+}
 
 /* this bit's annoying. These recalc functions update the representation of one
  * cell. I have two of them, one for when the cell in question is actually in

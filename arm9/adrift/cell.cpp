@@ -1,5 +1,6 @@
 #include "cell.h"
 #include <nds/arm9/video.h>
+#include "object.h"
 
 CellDesc celldesc[] = {/* s  o  f */
 	{ ' ', RGB15(31,31,31), 1, 0, 1 },
@@ -9,3 +10,10 @@ CellDesc celldesc[] = {/* s  o  f */
 	{ '~', RGB15(5,14,23),  1, 0, 0 },
 	{ 'w', RGB15(28,17,7),  1, 0, 0 },
 };
+
+void Cell::reset() {
+	type = T_NONE;
+	while (objects.head)
+		delete objects.pop();
+	creature = NULL;
+}
