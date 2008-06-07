@@ -15,10 +15,10 @@ void Player::drop(Node<Object>* obj) {
 
 void Player::exist() {
 	obj = new Node<Creature>;
-	game.map.at(x, y)->creatures.push(obj);
 	obj->data.type = C_PLAYER;
 	obj->data.setPos(x,y);
-	light = new_light(8<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
+	game.map.at(x,y)->creature = obj;
+	light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 	projectile = NULL;
 }
 
@@ -54,8 +54,8 @@ void Player::move(DIRECTION dir) {
 		cell = game.map.at(x + dpX, y + dpY);
 
 		// move the player object
-		game.map.at(x, y)->creatures.remove(obj);
-		game.map.at(x + dpX, y + dpY)->creatures.push(obj);
+		game.map.at(x, y)->creature = NULL;
+		game.map.at(x + dpX, y + dpY)->creature = obj;
 		// TODO: i assume these two squares are visible... correct?
 		recalc_visible(x, y);
 		recalc_visible(x + dpX, y + dpY);

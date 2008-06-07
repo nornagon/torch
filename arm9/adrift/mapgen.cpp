@@ -326,11 +326,11 @@ void haunted_grove(s16 cx, s16 cy) {
 			int theta = rand16() & 0x1ff;
 			int r = r0 + w0 + (rand16() % 6);
 			x = cx + ((COS[theta]*r) >> 12), y = cy + ((SIN[theta]*r) >> 12);
-		} while (!(game.map.at(x,y)->type == T_GROUND && game.map.at(x,y)->creatures.empty()));
+		} while (!(game.map.at(x,y)->type == T_GROUND && !game.map.occupied(x,y)));
 		Node<Creature> *trap = new Node<Creature>;
 		trap->data.type = C_FLYTRAP;
 		trap->data.setPos(x,y);
-		game.map.at(x,y)->creatures.push(trap);
+		game.map.at(x,y)->creature = trap;
 	}
 }
 
@@ -379,7 +379,7 @@ void generate_terrarium() {
 	Node<Creature> *cn = new Node<Creature>;
 	cn->data.type = 0;
 	cn->data.setPos(x,y);
-	l->creatures.push(cn);
+	l->creature = cn;
 
 	x = cx; y = cy;
 

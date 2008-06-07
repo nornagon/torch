@@ -39,7 +39,7 @@ class Map {
 		}
 
 		inline bool occupied(s16 x, s16 y) {
-			return !at(x,y)->creatures.empty();
+			return at(x,y)->creature;
 		}
 
 		inline bool walkable(s16 x, s16 y) {

@@ -48,10 +48,10 @@ void recalc_recall(s16 x, s16 y) {
 
 void recalc_visible(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
-	if (l->creatures.head) {
+	if (l->creature) {
 		mapel *m = torch.buf.at(x,y);
-		m->ch = creaturedesc[l->creatures.head->data.type].ch;
-		m->col = creaturedesc[l->creatures.head->data.type].col;
+		m->ch = creaturedesc[l->creature->data.type].ch;
+		m->col = creaturedesc[l->creature->data.type].col;
 	} else recalc_recall(x,y);
 }
 
@@ -87,11 +87,11 @@ void seek_and_destroy() {
 		Node<Creature> *candidate = NULL;
 		for (int y = game.player.y-4; y < game.player.y+4; y++)
 			for (int x = game.player.x-4; x < game.player.x+4; x++)
-				if (!game.map.at(x,y)->creatures.empty() &&
+				if (game.map.occupied(x,y) &&
 				    !(x == game.player.x && y == game.player.y) &&
 				    game.map.block.at(x,y)->visible &&
 				    dist2(x,y,game.player.x,game.player.y) < mindist)
-						candidate = game.map.at(x,y)->creatures.head;
+						candidate = game.map.at(x,y)->creature;
 		if (candidate) game.player.target = candidate;
 	}
 	if (game.player.target) {
