@@ -327,7 +327,7 @@ void haunted_grove(s16 cx, s16 cy) {
 			int r = r0 + w0 + (rand16() % 6);
 			x = cx + ((COS[theta]*r) >> 12), y = cy + ((SIN[theta]*r) >> 12);
 		} while (!(game.map.at(x,y)->type == T_GROUND && game.map.at(x,y)->creatures.empty()));
-		Node<Creature> *trap = Node<Creature>::pool.request_node();
+		Node<Creature> *trap = new Node<Creature>;
 		trap->data.type = C_FLYTRAP;
 		trap->data.setPos(x,y);
 		game.map.at(x,y)->creatures.push(trap);
@@ -337,7 +337,7 @@ void haunted_grove(s16 cx, s16 cy) {
 void drop_rock(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
 	if (rand32() % 10 == 0 && l->type == T_GROUND) {
-		Node<Object> *on = Node<Object>::pool.request_node();
+		Node<Object> *on = new Node<Object>;
 		on->data.type = J_ROCK;
 		stack_item_push(l->objects, on);
 	}
@@ -376,7 +376,7 @@ void generate_terrarium() {
 	Cell *l;
 	while ((l = game.map.at(x, y)) && l->type != T_GROUND)
 		randwalk(x, y);
-	Node<Creature> *cn = Node<Creature>::pool.request_node();
+	Node<Creature> *cn = new Node<Creature>;
 	cn->data.type = 0;
 	cn->data.setPos(x,y);
 	l->creatures.push(cn);
@@ -385,7 +385,7 @@ void generate_terrarium() {
 
 	while ((l = game.map.at(x, y)) && l->type != T_GROUND)
 		randwalk(x, y);
-	Node<Object> *on = Node<Object>::pool.request_node();
+	Node<Object> *on = new Node<Object>;
 	on->data.type = 0;
 	l->objects.push(on);
 

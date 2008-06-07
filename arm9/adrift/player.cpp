@@ -14,7 +14,7 @@ void Player::drop(Node<Object>* obj) {
 }
 
 void Player::exist() {
-	obj = Node<Creature>::pool.request_node();
+	obj = new Node<Creature>;
 	game.map.at(x, y)->creatures.push(obj);
 	obj->data.type = C_PLAYER;
 	obj->data.setPos(x,y);
@@ -96,8 +96,8 @@ void Player::chuck(s16 destx, s16 desty) {
 	if (!projectile || (destx == x && desty == y)) return;
 
 	// split the stack
-	Node<Projectile>* thrown = Node<Projectile>::pool.request_node();
-	thrown->data.obj = Node<Object>::pool.request_node();
+	Node<Projectile>* thrown = new Node<Projectile>;
+	thrown->data.obj = new Node<Object>;
 	thrown->data.object()->quantity = 1;
 	thrown->data.object()->type = projectile->data.type;
 	thrown->data.st.reset(x,y,destx,desty);

@@ -190,7 +190,7 @@ void draw_projectiles() {
 			Node<Projectile> *next = p->next;
 			game.projectiles.remove(p);
 			stack_item_push(game.map.at(x,y)->objects, p->data.obj);
-			p->free();
+			delete p;
 			p = next;
 		} else {
 			game.map.at(x,y)->objects.push(p->data.obj);

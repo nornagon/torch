@@ -27,6 +27,9 @@
 // flush_free will walk the free list and free() each node (and its data with
 // it.)
 
+#include <cstddef> // for size_t
+#include <cstdlib>
+
 template <class T> struct Node;
 template <class T> struct List;
 
@@ -51,6 +54,8 @@ struct Node {
 		pool.free_nodes.push(this);
 	}
 	operator T* () { return &data; }
+	void* operator new (size_t sz) { return (void*) Node<T>::pool.request_node(); }
+	void operator delete (void* thing) { ((Node<T>*)thing)->free(); }
 };
 template <class T> Pool<T> Node<T>::pool = Pool<T>();
 
@@ -89,7 +94,7 @@ struct List {
 		return !!k;
 	}
 	inline void push(T x) { // TODO: pass by reference?
-		Node<T>* n = Node<T>::pool.request_node();
+		Node<T>* n = new Node<T>;
 		n->data = x;
 		push(n);
 	}
@@ -118,7 +123,7 @@ struct List {
 
 template <class T> void Pool<T>::alloc_space(unsigned int n) {
 	for (; n > 0; n--) {
-		Node<T> *node = new Node<T>;
+		Node<T> *node = (Node<T>*)malloc(sizeof(Node<T>));
 		free_nodes.push(node);
 	}
 }
@@ -126,7 +131,7 @@ template <class T> void Pool<T>::alloc_space(unsigned int n) {
 template <class T> void Pool<T>::flush_free() {
 	while (free_nodes.head) {
 		Node<T> *next = free_nodes.head->next;
-		delete free_nodes.head;
+		free(free_nodes.head);
 		free_nodes.head = next;
 	}
 }
