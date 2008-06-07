@@ -329,6 +329,7 @@ void haunted_grove(s16 cx, s16 cy) {
 		} while (!(game.map.at(x,y)->type == T_GROUND && !game.map.occupied(x,y)));
 		Node<Creature> *trap = new Node<Creature>;
 		trap->data.type = C_FLYTRAP;
+		trap->data.hp = creaturedesc[trap->data.type].maxhp;
 		trap->data.setPos(x,y);
 		game.map.at(x,y)->creature = trap;
 	}

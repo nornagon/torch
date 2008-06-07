@@ -105,12 +105,21 @@ void seek_and_destroy() {
 			game.player.target = NULL; return;
 		}
 		if (game.map.block.at(targx,targy)->visible) {
-			iprintf("I can see it!\n");
+			//iprintf("I can see it!\n");
 		} else {
 			game.player.target = NULL; return;
 		}
 		if (adjacent(targx,targy,game.player.x,game.player.y)) {
-			iprintf("smack!\n");
+			s16 damage = 1 + (rand32() % 8);
+			const char *name = creaturedesc[game.player.target->data.type].name;
+			iprintf("Smack! You hit the %s for %d points of damage.\n", name, damage);
+			game.player.target->data.hp -= damage;
+			if (game.player.target->data.hp <= 0) {
+				iprintf("The %s dies.\n", name);
+				delete game.player.target;
+				game.player.target = NULL;
+				game.map.at(targx,targy)->creature = NULL;
+			}
 			game.cooldown += 5;
 			return;
 		} else {
