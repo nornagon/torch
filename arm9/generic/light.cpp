@@ -5,9 +5,9 @@
 #include <stdio.h>
 
 void draw_lights(fov_settings_type *settings, blockmap *map, List<lightsource*> lights) {
-	Node<lightsource*> *k = lights.head;
-	for (; k; k = k->next)
-		draw_light(settings, map, k->data);
+	Node<lightsource*> k = lights.top();
+	for (; k; k = k.next())
+		draw_light(settings, map, *k);
 }
 
 void draw_light(fov_settings_type *settings, blockmap *map, lightsource *l) {

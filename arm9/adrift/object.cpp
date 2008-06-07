@@ -19,19 +19,19 @@ ObjDesc objdesc[] = {          /* stk  name */
 #undef OBJ
 
 #ifndef ONLY_ONAMES
-void stack_item_push(List<Object> &container, Node<Object>* obj) {
-	Node<Object> *contobj = container.head;
-	for (; contobj; contobj = contobj->next) {
-		if (contobj->data.type == obj->data.type && objdesc[obj->data.type].stackable)
+void stack_item_push(List<Object> &container, Node<Object> obj) {
+	Node<Object> contobj = container.top();
+	for (; contobj; contobj = contobj.next()) {
+		if (contobj->type == obj->type && objdesc[obj->type].stackable)
 			break;
 	}
 	if (contobj) {
-		if ((int)contobj->data.quantity + (int)obj->data.quantity > 255) {
-			int overflow = (int)contobj->data.quantity + (int)obj->data.quantity - 255;
-			obj->data.quantity = overflow;
-			contobj->data.quantity = 255;
+		if ((int)contobj->quantity + (int)obj->quantity > 255) {
+			int overflow = (int)contobj->quantity + (int)obj->quantity - 255;
+			obj->quantity = overflow;
+			contobj->quantity = 255;
 		} else {
-			contobj->data.quantity += obj->data.quantity;
+			contobj->quantity += obj->quantity;
 			obj = 0;
 		}
 	}

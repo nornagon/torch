@@ -13,7 +13,7 @@ CellDesc celldesc[] = {/* s  o  f */
 
 void Cell::reset() {
 	type = T_NONE;
-	while (objects.head)
+	while (objects.top())
 		delete objects.pop();
 	creature = NULL;
 }

@@ -28,7 +28,7 @@ class Object; class Creature;
 struct Cell {
 	CELL_TYPE type;
 	List<Object> objects;
-	Node<Creature> *creature;
+	Node<Creature> creature;
 
 	void reset();
 };

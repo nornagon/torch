@@ -50,8 +50,7 @@ class Map {
 };
 
 struct Projectile {
-	Node<Object> *obj;
-	Object *object() { return &obj->data; }
+	Node<Object> obj;
 	bresenstate st;
 };
 

@@ -39,9 +39,9 @@ void Map::reset() {
 void recalc_recall(s16 x, s16 y) {
 	u16 ch, col;
 	Cell *l = game.map.at(x,y);
-	if (l->objects.head) {
-		ch = objdesc[l->objects.head->data.type].ch;
-		col = objdesc[l->objects.head->data.type].col;
+	if (l->objects.top()) {
+		ch = objdesc[l->objects.top()->type].ch;
+		col = objdesc[l->objects.top()->type].col;
 	} else if ((game.map.block.at(x,y)->visible && torch.buf.luxat(x,y)->lval > 0) || !celldesc[l->type].forgettable) {
 		ch = celldesc[l->type].ch;
 		col = celldesc[l->type].col;
@@ -55,8 +55,8 @@ void recalc_visible(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
 	if (l->creature) {
 		mapel *m = torch.buf.at(x,y);
-		m->ch = creaturedesc[l->creature->data.type].ch;
-		m->col = creaturedesc[l->creature->data.type].col;
+		m->ch = creaturedesc[l->creature->type].ch;
+		m->col = creaturedesc[l->creature->type].col;
 	} else recalc_recall(x,y);
 }
 
@@ -68,14 +68,14 @@ bool get_items() {
 	List<Object> &os = game.map.at(game.player.x, game.player.y)->objects;
 	if (os.empty()) return false;
 
-	Node<Object> *k;
+	Node<Object> k;
 	while ((k = os.pop())) {
-		const char *name = objdesc[k->data.type].name;
-		if (k->data.quantity == 1) {
+		const char *name = objdesc[k->type].name;
+		if (k->quantity == 1) {
 			const char *a_an = isvowel(name[0]) ? "n" : "";
 			iprintf("You pick up a%s %s.\n", a_an, name);
 		} else {
-			iprintf("You pick up %d %ss.\n", k->data.quantity, name);
+			iprintf("You pick up %d %ss.\n", k->quantity, name);
 		}
 
 		// go through the bag to see if we can stack.
@@ -89,7 +89,7 @@ bool get_items() {
 void seek_and_destroy() {
 	if (!game.player.target) {
 		u16 mindist = 16;
-		Node<Creature> *candidate = NULL;
+		Node<Creature> candidate;
 		for (int y = game.player.y-4; y < game.player.y+4; y++)
 			for (int x = game.player.x-4; x < game.player.x+4; x++)
 				if (game.map.occupied(x,y) &&
@@ -100,7 +100,7 @@ void seek_and_destroy() {
 		if (candidate) game.player.target = candidate;
 	}
 	if (game.player.target) {
-		s16 targx = game.player.target->data.x, targy = game.player.target->data.y;
+		s16 targx = game.player.target->x, targy = game.player.target->y;
 		if (dist2(game.player.x,game.player.y,targx,targy) > 16) {
 			game.player.target = NULL; return;
 		}
@@ -111,10 +111,10 @@ void seek_and_destroy() {
 		}
 		if (adjacent(targx,targy,game.player.x,game.player.y)) {
 			s16 damage = 1 + (rand32() % 8);
-			const char *name = creaturedesc[game.player.target->data.type].name;
+			const char *name = creaturedesc[game.player.target->type].name;
 			iprintf("Smack! You hit the %s for %d points of damage.\n", name, damage);
-			game.player.target->data.hp -= damage;
-			if (game.player.target->data.hp <= 0) {
+			game.player.target->hp -= damage;
+			if (game.player.target->hp <= 0) {
 				iprintf("The %s dies.\n", name);
 				delete game.player.target;
 				game.player.target = NULL;
@@ -177,38 +177,38 @@ void process_keys() {
 }
 
 void draw_projectiles() {
-	Node<Projectile>* p = game.projectiles.head;
+	Node<Projectile> p = game.projectiles.top();
 	while (p) {
-		s16 x = p->data.st.posx();
-		s16 y = p->data.st.posy();
+		s16 x = p->st.posx();
+		s16 y = p->st.posy();
 
-		game.map.at(x,y)->objects.remove(p->data.obj);
+		game.map.at(x,y)->objects.remove(p->obj);
 
 		s16 ox = x, oy = y;
-		s16 destx = p->data.st.destx();
-		s16 desty = p->data.st.desty();
+		s16 destx = p->st.destx();
+		s16 desty = p->st.desty();
 		bool collided = false;
 		while ((x-ox)*(x-ox)+(y-oy)*(y-oy) < 2*2) {
 			if (x == destx && y == desty) break;
-			p->data.st.step();
+			p->st.step();
 			// TODO use a real flag
-			if (celldesc[game.map.at(p->data.st.posx(),p->data.st.posy())->type].opaque) {
+			if (celldesc[game.map.at(p->st.posx(),p->st.posy())->type].opaque) {
 				collided = true;
 				break;
 			}
-			x = p->data.st.posx();
-			y = p->data.st.posy();
+			x = p->st.posx();
+			y = p->st.posy();
 		}
 
 		if ((x == destx && y == desty) || collided) {
-			Node<Projectile> *next = p->next;
+			Node<Projectile> next = p.next();
 			game.projectiles.remove(p);
-			stack_item_push(game.map.at(x,y)->objects, p->data.obj);
+			stack_item_push(game.map.at(x,y)->objects, p->obj);
 			delete p;
 			p = next;
 		} else {
-			game.map.at(x,y)->objects.push(p->data.obj);
-			p = p->next;
+			game.map.at(x,y)->objects.push(p->obj);
+			p = p.next();
 		}
 	}
 }

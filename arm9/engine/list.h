@@ -30,7 +30,7 @@
 #include <cstddef> // for size_t
 #include <cstdlib>
 
-template <class T> struct Node;
+template <class T> struct NodeV;
 template <class T> struct List;
 
 template <class T>
@@ -41,96 +41,124 @@ struct Pool {
 
 	void alloc_space(unsigned int n);
 	void flush_free();
-	Node<T> *request_node();
+	NodeV<T> *request_node();
 };
 
 template <class T>
-struct Node {
-	Node(): next(0) {}
-	Node<T> *next;
+class Node {
+	protected:
+		NodeV<T> *v;
+
+	public:
+		Node<T>(NodeV<T>* v_): v(v_) {}
+		Node<T>(): v(0) {}
+
+		T* operator->() {
+			return &v->data;
+		}
+
+		operator NodeV<T>*() { return v; }
+		//operator T*() { return &v->data; }
+		T operator*() { return v->data; }
+		operator bool() { return !!v; }
+		Node<T> next() { return v->next; }
+		void operator delete (void* thing) { ((Node<T>*)thing)->v->free(); }
+};
+
+template <class T>
+struct NodeV {
+	NodeV(): next(0) {}
+	NodeV<T> *next;
 	T data;
 	static Pool<T> pool;
 	void free() {
 		pool.free_nodes.push(this);
 	}
 	operator T* () { return &data; }
-	void* operator new (size_t sz) { return (void*) Node<T>::pool.request_node(); }
-	void operator delete (void* thing) { ((Node<T>*)thing)->free(); }
+	void* operator new (size_t sz) { return (void*) NodeV<T>::pool.request_node(); }
+	void operator delete (void* thing) { ((NodeV<T>*)thing)->free(); }
+	operator Node<T>() { return Node<T>(this); }
 };
-template <class T> Pool<T> Node<T>::pool = Pool<T>();
+template <class T> Pool<T> NodeV<T>::pool = Pool<T>();
 
 template <class T>
 struct List {
-	List(): head(0) {}
+	protected:
+		NodeV<T> *head;
 
-	Node<T> *head;
+	public:
+		List(): head(0) {}
 
-	// returns true if the node is in the list (and thus was removed), false if
-	// it wasn't (and thus wasn't removed)
-	bool remove(Node<T> *node) {
-		if (head == 0) return false;
-		if (node == head) { head = head->next; return true; }
-		Node<T>* prev = head;
-		Node<T>* k = prev->next;
-		while (k && k != node) {
-			prev = k;
-			k = k->next;
+		Node<T> top() {
+			return Node<T>(head);
 		}
-		if (k) // didn't hit the end
-			prev->next = k->next;
-		return !!k;
-	}
-	bool remove(T x) {
-		if (head == 0) return false;
-		if (x == head->data) { head = head->next; return true; }
-		Node<T>* prev = head;
-		Node<T>* k = prev->next;
-		while (k && k->data != x) {
-			prev = k;
-			k = k->next;
+
+		// returns true if the node is in the list (and thus was removed), false if
+		// it wasn't (and thus wasn't removed)
+		bool remove(NodeV<T> *node) {
+			if (head == 0) return false;
+			if (node == head) { head = head->next; return true; }
+			NodeV<T>* prev = head;
+			NodeV<T>* k = prev->next;
+			while (k && k != node) {
+				prev = k;
+				k = k->next;
+			}
+			if (k) // didn't hit the end
+				prev->next = k->next;
+			return !!k;
 		}
-		if (k) // didn't hit the end
-			prev->next = k->next;
-		return !!k;
-	}
-	inline void push(T x) { // TODO: pass by reference?
-		Node<T>* n = new Node<T>;
-		n->data = x;
-		push(n);
-	}
-	void push(Node<T> *node) {
-		node->next = head;
-		head = node;
-	}
-	Node<T> *pop() {
-		if (head == 0) return 0;
-		Node<T> *ret = head;
-		head = head->next;
-		return ret;
-	}
+		/*bool remove(T x) {
+			if (head == 0) return false;
+			if (x == head->data) { head = head->next; return true; }
+			NodeV<T>* prev = head;
+			NodeV<T>* k = prev->next;
+			while (k && k->data != x) {
+				prev = k;
+				k = k->next;
+			}
+			if (k) // didn't hit the end
+				prev->next = k->next;
+			return !!k;
+		}*/
+		inline void push(T x) { // TODO: pass by reference?
+			NodeV<T>* n = new NodeV<T>;
+			n->data = x;
+			push(n);
+		}
+		void push(NodeV<T> *node) {
+			node->next = head;
+			head = node;
+		}
+		NodeV<T> *pop() {
+			if (head == 0) return 0;
+			NodeV<T> *ret = head;
+			head = head->next;
+			return ret;
+		}
 
-	unsigned int length() {
-		unsigned int len = 0;
-		for (Node<T>* k = head; k; k = k->next)
-			len++;
-		return len;
-	}
+		unsigned int length() {
+			unsigned int len = 0;
+			for (NodeV<T>* k = head; k; k = k->next)
+				len++;
+			return len;
+		}
 
-	bool empty() {
-		return !head;
-	}
+		bool empty() {
+			return !head;
+		}
 };
 
 template <class T> void Pool<T>::alloc_space(unsigned int n) {
 	for (; n > 0; n--) {
-		Node<T> *node = (Node<T>*)malloc(sizeof(Node<T>));
+		NodeV<T> *node = (NodeV<T>*)malloc(sizeof(NodeV<T>));
 		free_nodes.push(node);
 	}
 }
 
 template <class T> void Pool<T>::flush_free() {
 	while (free_nodes.head) {
-		Node<T> *next = free_nodes.head->next;
+		NodeV<T> *next = free_nodes.head->next;
 		free(free_nodes.head);
 		free_nodes.head = next;
 	}
@@ -138,8 +166,8 @@ template <class T> void Pool<T>::flush_free() {
 
 // request a node from the pool. will alloc more space if there is none.
 template <class T>
-Node<T>* Pool<T>::request_node() {
-	if (!free_nodes.head)
+NodeV<T>* Pool<T>::request_node() {
+	if (!free_nodes.top())
 		alloc_space(32); // TODO: allow customisation
 	return free_nodes.pop();
 }

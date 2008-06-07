@@ -10,20 +10,20 @@
 
 struct Player {
 	List<Object> bag;
-	Node<Creature> *obj;
-	Node<Creature> *target;
+	Node<Creature> obj;
+	Node<Creature> target;
 	lightsource *light;
 
-	Node<Object> *projectile;
+	Node<Object> projectile;
 
 	// project an existence into the world
 	void exist();
 
 	void move(DIRECTION dir);
-	void drop(Node<Object>* obj);
+	void drop(Node<Object> obj);
 
-	void use(Node<Object>* item);
-	void setprojectile(Node<Object>* proj);
+	void use(Node<Object> item);
+	void setprojectile(Node<Object> proj);
 	void chuck(s16 destx, s16 desty);
 
 	s16 x, y;

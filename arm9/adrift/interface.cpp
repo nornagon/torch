@@ -51,7 +51,7 @@ enum ACTION {
 	ACT_USE,
 };
 
-void perform(Node<Object>* obj, ACTION act) {
+void perform(Node<Object> obj, ACTION act) {
 	switch (act) {
 		case ACT_DROP:
 			game.player.drop(obj);
@@ -77,17 +77,17 @@ struct menuitem {
 	{ 0 }
 };
 
-bool canuse(Object *obj) {
+bool canuse(Node<Object> obj) {
 	return obj->type == J_ROCK;
 }
 
-bool withitem(Node<Object>* obj) {
+bool withitem(Node<Object> obj) {
 	int sel = 0;
 	text_display_clear();
-	if (obj->data.quantity == 1) {
-		printcenter(40, 0xffff, "%s", obj->data.desc().name);
+	if (obj->quantity == 1) {
+		printcenter(40, 0xffff, "%s", obj->desc().name);
 	} else {
-		printcenter(40, 0xffff, "%d %ss", obj->data.quantity, obj->data.desc().name);
+		printcenter(40, 0xffff, "%d %ss", obj->quantity, obj->desc().name);
 	}
 	while (1) {
 		int i = 0;
@@ -95,7 +95,7 @@ bool withitem(Node<Object>* obj) {
 		for (menuitem* k = itemmenu; k->text; k++) {
 			bool validaction = false;
 			switch (k->action) {
-				case ACT_USE:   validaction = canuse(&obj->data); break;
+				case ACT_USE:   validaction = canuse(obj); break;
 				case ACT_DROP:  validaction = true; break;
 				case ACT_THROW: validaction = true; break;
 				default: validaction = false; break;
@@ -124,8 +124,7 @@ void inventory() {
 	int start = 0;
 	int length = game.player.bag.length();
 
-	//ACTION act = ACT_NONE;
-	Node<Object> *sel = NULL;
+	Node<Object> sel;
 
 	lcdMainOnTop();
 
@@ -143,19 +142,19 @@ void inventory() {
 		vline(subscr, 255-5, 4, 191-5, RGB15(31,31,31));
 		tprintf(8,1, 0xffff, "Inventory");
 
-		Node<Object> *o = game.player.bag.head;
+		Node<Object> o = game.player.bag.top();
 
 		// push o up to the start
 		int i = 0;
-		for (; i < start; i++) o = o->next;
+		for (; i < start; i++) o = o.next();
 
-		for (i = 0; i < 19 && o; i++, o = o->next) {
-			const char *name = objdesc[o->data.type].name;
+		for (i = 0; i < 19 && o; i++, o = o.next()) {
+			const char *name = objdesc[o->type].name;
 			u16 color = selected == i+start ? RGB15(31,31,31) : RGB15(18,18,18);
-			if (o->data.quantity == 1)
+			if (o->quantity == 1)
 				tprintf(17, 12+i*9, color, "%s", name);
 			else
-				tprintf(17, 12+i*9, color, "%d %ss", o->data.quantity, name);
+				tprintf(17, 12+i*9, color, "%d %ss", o->quantity, name);
 			if (i+start == selected) {
 				sel = o;
 				tprintf(8, 12+i*9, color, "*");

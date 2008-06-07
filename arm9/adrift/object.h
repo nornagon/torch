@@ -19,7 +19,7 @@ struct Object {
 	u8 quantity;
 };
 
-void stack_item_push(List<Object> &container, Node<Object>* obj);
+void stack_item_push(List<Object> &container, Node<Object> obj);
 
 // enum { ... };
 #define ONLY_ONAMES 1
