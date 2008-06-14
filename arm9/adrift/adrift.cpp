@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "recalc.h"
+
 Adrift game;
 
 Adrift::Adrift() {
@@ -26,38 +28,6 @@ void Map::reset() {
 	for (s16 y = 0; y < h; y++)
 		for (s16 x = 0; x < w; x++)
 			at(x,y)->reset();
-}
-
-/* this bit's annoying. These recalc functions update the representation of one
- * cell. I have two of them, one for when the cell in question is actually in
- * view, and one for when it's just gone out of sight. The reason they're
- * different is so I can make the map forget monsters that are out of FOV, but
- * remember items. The latter are far less likely to move, you see.
- *
- * I don't think this is easily genericable.
- */
-void recalc_recall(s16 x, s16 y) {
-	u16 ch, col;
-	Cell *l = game.map.at(x,y);
-	if (l->objects.top()) {
-		ch = objdesc[l->objects.top()->type].ch;
-		col = objdesc[l->objects.top()->type].col;
-	} else if ((game.map.block.at(x,y)->visible && torch.buf.luxat(x,y)->lval > 0) || !celldesc[l->type].forgettable) {
-		ch = celldesc[l->type].ch;
-		col = celldesc[l->type].col;
-	} else { ch = ' '; col = RGB15(0,0,0); }
-	mapel *m = torch.buf.at(x,y);
-	m->ch = ch;
-	m->col = col;
-}
-
-void recalc_visible(s16 x, s16 y) {
-	Cell *l = game.map.at(x,y);
-	if (l->creature) {
-		mapel *m = torch.buf.at(x,y);
-		m->ch = creaturedesc[l->creature->type].ch;
-		m->col = creaturedesc[l->creature->type].col;
-	} else recalc_recall(x,y);
 }
 
 bool isvowel(char c) {
@@ -214,6 +184,11 @@ void draw_projectiles() {
 }
 
 void process_sight() {
+	// go 1 over the boundaries to be sure we mark everything properly, even if
+	// we scrolled just now...
+	for (int y = torch.buf.scroll.y-1; y < torch.buf.scroll.y + 24 + 1; y++)
+		for (int x = torch.buf.scroll.x-1; x < torch.buf.scroll.x + 32 + 1; x++)
+			game.map.block.at(x, y)->visible = false;
 	game.player.light->x = game.player.x << 12;
 	game.player.light->y = game.player.y << 12;
 	cast_sight(game.fov_sight, &game.map.block, game.player.light);
@@ -221,31 +196,12 @@ void process_sight() {
 
 void handler() {
 	process_keys();
-	// go 1 over the boundaries to be sure we mark everything properly, even if
-	// we scrolled just now...
-	for (int y = torch.buf.scroll.y-1; y < torch.buf.scroll.y + 24 + 1; y++)
-		for (int x = torch.buf.scroll.x-1; x < torch.buf.scroll.x + 32 + 1; x++)
-			game.map.block.at(x, y)->visible = false;
 	draw_projectiles();
+
 	process_sight();
 	draw_lights(game.fov_light, &game.map.block, game.map.lights);
 
-	for (int y = torch.buf.scroll.y; y < torch.buf.scroll.y + 24; y++)
-		for (int x = torch.buf.scroll.x; x < torch.buf.scroll.x + 32; x++) {
-			int32 v = torch.buf.luxat(x, y)->lval;
-			mapel *m = torch.buf.at(x, y);
-			if (celldesc[game.map.at(x,y)->type].forgettable && game.map.at(x,y)->objects.empty())
-				m->recall = 0;
-			else
-				m->recall = min(1<<12, max(v, m->recall));
-
-			blockel *b = game.map.block.at(x, y);
-			if (b->visible && torch.buf.luxat(x,y)->lval > 0) {
-				recalc_visible(x,y);
-			} else if (torch.buf.cacheat(x,y)->was_visible) {
-				recalc_recall(x,y);
-			}
-		}
+	refresh(&game.map.block);
 }
 
 void new_game() {
@@ -260,7 +216,7 @@ void new_game() {
 	generate_terrarium();
 
 	game.player.exist();
-	recalc_visible(game.player.x, game.player.y);
+	recalc(&game.map.block, game.player.x, game.player.y);
 
 	torch.buf.scroll.x = game.player.x - 16;
 	torch.buf.scroll.y = game.player.y - 12;

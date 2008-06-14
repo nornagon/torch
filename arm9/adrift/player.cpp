@@ -1,6 +1,7 @@
 #include "player.h"
 #include "torch.h"
 #include "adrift.h"
+#include "recalc.h"
 #include <stdio.h>
 
 // drops the object if it's in the player's bag
@@ -57,9 +58,8 @@ void Player::move(DIRECTION dir) {
 		// move the player object
 		game.map.at(x, y)->creature = NULL;
 		game.map.at(x + dpX, y + dpY)->creature = obj;
-		// TODO: i assume these two squares are visible... correct?
-		recalc_visible(x, y);
-		recalc_visible(x + dpX, y + dpY);
+		recalc(&game.map.block, x, y);
+		recalc(&game.map.block, x + dpX, y + dpY);
 
 		x += dpX;
 		y += dpY;
