@@ -24,7 +24,7 @@ void blockmap::reset() {
 			at(x,y)->reset();
 }
 
-void blockmap::refresh() {
+void blockmap::refresh_blocked_from() {
 	// each cell needs to know which cells around them are opaque for purposes of
 	// direction-aware lighting.
 

@@ -400,5 +400,5 @@ void generate_terrarium() {
 	li->x = (cx+35)<<12; li->y = (cy-7)<<12;
 	game.map.lights.push(li);
 
-	game.map.block.refresh();
+	game.map.block.refresh_blocked_from();
 }

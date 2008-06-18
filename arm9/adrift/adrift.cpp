@@ -209,6 +209,7 @@ void new_game() {
 	game.map.block.resize(128,128);
 	torch.buf.resize(128,128);
 
+	// TODO: replace with gettimeofday() or similar
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds +
 				IPC->time.rtc.minutes*60 + IPC->time.rtc.hours*60*60 +
 				IPC->time.rtc.weekday*7*24*60*60));

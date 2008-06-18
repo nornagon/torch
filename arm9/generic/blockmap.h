@@ -37,7 +37,7 @@ class blockmap {
 			return &els[y*w+x];
 		}
 
-		void refresh();
+		void refresh_blocked_from();
 };
 
 #endif /* BLOCKMAP_H */
