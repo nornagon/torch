@@ -1,9 +1,7 @@
 * serialisation
 * sub-tile light origins (maybe prod puyo)
-* fix lighting algorithm so player doesn't change colour immediately on
-  entering radius of coloured light
-* generalise scroll_screen
-* move by touchscreen
-* pulsating lights
+* move by touchscreen?
 * PC port
 * bring stuff to generic/
+* equipment
+* AI

@@ -332,6 +332,7 @@ void haunted_grove(s16 cx, s16 cy) {
 		trap->hp = creaturedesc[trap->type].maxhp;
 		trap->setPos(x,y);
 		game.map.at(x,y)->creature = trap;
+		game.monsters.push(trap);
 	}
 }
 

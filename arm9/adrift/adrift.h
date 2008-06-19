@@ -59,6 +59,7 @@ struct Adrift {
 	Player player;
 	Map map;
 
+	List<Creature> monsters;
 	List<Projectile> projectiles;
 
 	fov_settings_type *fov_light, *fov_sight;

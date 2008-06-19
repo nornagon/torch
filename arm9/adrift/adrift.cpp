@@ -146,7 +146,7 @@ void process_keys() {
 		game.cooldown--;
 }
 
-void draw_projectiles() {
+void update_projectiles() {
 	Node<Projectile> p = game.projectiles.top();
 	while (p) {
 		s16 x = p->st.posx();
@@ -196,7 +196,7 @@ void process_sight() {
 
 void handler() {
 	process_keys();
-	draw_projectiles();
+	update_projectiles();
 
 	process_sight();
 	draw_lights(game.fov_light, &game.map.block, game.map.lights);
