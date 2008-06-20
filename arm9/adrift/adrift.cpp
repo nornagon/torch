@@ -5,6 +5,7 @@
 #include "text.h"
 #include "interface.h"
 #include "combat.h"
+#include "behaviour.h"
 
 #include <stdarg.h>
 
@@ -83,6 +84,7 @@ void seek_and_destroy() {
 		if (adjacent(targx,targy,game.player.x,game.player.y)) {
 			if (you_hit_monster(game.player.target))
 				game.player.target = NULL;
+			game.cooldown += 5;
 			return;
 		} else {
 			bresenstate st(game.player.x, game.player.y, targx, targy);
@@ -186,9 +188,16 @@ void process_sight() {
 	cast_sight(game.fov_sight, &game.map.block, game.player.light);
 }
 
+void step_monsters() {
+	for (Node<Creature> m = game.monsters.top(); m; m = m.next()) {
+		step_creature(m);
+	}
+}
+
 void handler() {
 	process_keys();
 	update_projectiles();
+	step_monsters();
 
 	process_sight();
 	draw_lights(game.fov_light, &game.map.block, game.map.lights);

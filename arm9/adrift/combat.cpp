@@ -16,6 +16,9 @@ bool you_hit_monster(Node<Creature> target) {
 		died = true;
 		game.map.at(target->x,target->y)->creature = NULL;
 	}
-	game.cooldown += 5;
 	return died;
+}
+
+void monster_hit_you(Node<Creature> monster) {
+	iprintf("The %s hits you.\n", creaturedesc[monster->type].name);
 }

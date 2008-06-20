@@ -91,6 +91,7 @@ void haunted_grove(s16 cx, s16 cy) {
 		Node<Creature> trap(new NodeV<Creature>);
 		trap->type = C_FLYTRAP;
 		trap->hp = creaturedesc[trap->type].maxhp;
+		trap->cooldown = 0;
 		trap->setPos(x,y);
 		game.map.at(x,y)->creature = trap;
 		game.monsters.push(trap);
@@ -138,6 +139,7 @@ void generate_terrarium() {
 		randwalk(x, y);
 	Node<Creature> cn(new NodeV<Creature>);
 	cn->type = 0;
+	cn->cooldown = 0;
 	cn->setPos(x,y);
 	l->creature = cn;
 
