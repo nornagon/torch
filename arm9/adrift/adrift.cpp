@@ -4,6 +4,7 @@
 #include "sight.h"
 #include "text.h"
 #include "interface.h"
+#include "combat.h"
 
 #include <stdarg.h>
 
@@ -80,17 +81,8 @@ void seek_and_destroy() {
 			game.player.target = NULL; return;
 		}
 		if (adjacent(targx,targy,game.player.x,game.player.y)) {
-			s16 damage = 1 + (rand32() % 8);
-			const char *name = creaturedesc[game.player.target->type].name;
-			iprintf("Smack! You hit the %s for %d points of damage.\n", name, damage);
-			game.player.target->hp -= damage;
-			if (game.player.target->hp <= 0) {
-				iprintf("The %s dies.\n", name);
-				delete game.player.target;
+			if (you_hit_monster(game.player.target))
 				game.player.target = NULL;
-				game.map.at(targx,targy)->creature = NULL;
-			}
-			game.cooldown += 5;
 			return;
 		} else {
 			bresenstate st(game.player.x, game.player.y, targx, targy);
