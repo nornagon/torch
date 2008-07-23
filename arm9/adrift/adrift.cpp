@@ -91,8 +91,6 @@ void seek_and_destroy() {
 			st.step();
 			game.player.move(direction(st.posx(), st.posy(), game.player.x, game.player.y));
 		}
-	} else {
-		iprintf("no target\n");
 	}
 }
 
