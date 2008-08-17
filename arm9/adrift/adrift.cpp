@@ -19,6 +19,8 @@
 
 #include "recalc.h"
 
+#include "entities/terrain.h"
+
 Adrift game;
 
 Adrift::Adrift() {
@@ -154,7 +156,7 @@ void update_projectiles() {
 			if (x == destx && y == desty) break;
 			p->st.step();
 			// TODO use a real flag
-			if (celldesc[game.map.at(p->st.posx(),p->st.posy())->type].opaque) {
+			if (terraindesc[game.map.at(p->st.posx(),p->st.posy())->type].opaque) {
 				collided = true;
 				break;
 			}

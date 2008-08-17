@@ -1,9 +1,11 @@
 #include "appearance_generic.h"
 #include "adrift.h"
 
+#include "entities/terrain.h"
+
 bool isforgettable(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
-	if (!celldesc[l->type].forgettable) return false;
+	if (!terraindesc[l->type].forgettable) return false;
 	if (l->objects.top()) return false;
 	return true;
 }
@@ -17,8 +19,8 @@ void visible_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 		*ch = objdesc[l->objects.top()->type].ch,
 		*col = objdesc[l->objects.top()->type].col;
 	else
-		*ch = celldesc[l->type].ch,
-		*col = celldesc[l->type].col;
+		*ch = terraindesc[l->type].ch,
+		*col = terraindesc[l->type].color;
 }
 
 void recalled_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
@@ -26,9 +28,9 @@ void recalled_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 	if (l->objects.top())
 		*ch = objdesc[l->objects.top()->type].ch,
 		*col = objdesc[l->objects.top()->type].col;
-	else if (!celldesc[l->type].forgettable)
-		*ch = celldesc[l->type].ch,
-		*col = celldesc[l->type].col;
+	else if (!terraindesc[l->type].forgettable)
+		*ch = terraindesc[l->type].ch,
+		*col = terraindesc[l->type].color;
 	else
 		*ch = ' ',
 		*col = 0;

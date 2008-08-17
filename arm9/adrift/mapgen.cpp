@@ -14,15 +14,15 @@
 
 #define DEF(type_) \
 	static inline void SET_##type_(s16 x, s16 y) { \
-		game.map.at(x,y)->type = T_##type_; \
+		game.map.at(x,y)->type = type_; \
 		mapel *m = torch.buf.at(x,y); \
-		m->recall = 0; m->col = celldesc[T_##type_].col; m->ch = celldesc[T_##type_].ch; \
+		m->recall = 0; m->col = terraindesc[type_].color; m->ch = terraindesc[type_].ch; \
 		blockel *b = game.map.block.at(x,y); \
-		b->opaque = celldesc[T_##type_].opaque; \
+		b->opaque = terraindesc[type_].opaque; \
 	}
 DEF(TREE);
 DEF(GROUND);
-DEF(NONE);
+DEF(TERRAIN_NONE);
 DEF(GLASS);
 DEF(WATER);
 DEF(FIRE);
@@ -87,7 +87,7 @@ void haunted_grove(s16 cx, s16 cy) {
 			int theta = rand16() & 0x1ff;
 			int r = r0 + w0 + (rand16() % 6);
 			x = cx + ((COS[theta]*r) >> 12), y = cy + ((SIN[theta]*r) >> 12);
-		} while (!(game.map.at(x,y)->type == T_GROUND && !game.map.occupied(x,y)));
+		} while (!(game.map.at(x,y)->type == GROUND && !game.map.occupied(x,y)));
 		Node<Creature> trap(new NodeV<Creature>);
 		trap->type = C_FLYTRAP;
 		trap->hp = creaturedesc[trap->type].maxhp;
@@ -100,7 +100,7 @@ void haunted_grove(s16 cx, s16 cy) {
 
 void drop_rock(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
-	if (rand32() % 10 == 0 && l->type == T_GROUND) {
+	if (rand32() % 10 == 0 && l->type == GROUND) {
 		Node<Object> on(new NodeV<Object>);
 		on->type = J_ROCK;
 		stack_item_push(l->objects, on);
@@ -135,7 +135,7 @@ void generate_terrarium() {
 
 	s16 x = cx, y = cy;
 	Cell *l;
-	while ((l = game.map.at(x, y)) && l->type != T_GROUND)
+	while ((l = game.map.at(x, y)) && l->type != GROUND)
 		randwalk(x, y);
 	Node<Creature> cn(new NodeV<Creature>);
 	cn->type = 0;
@@ -145,7 +145,7 @@ void generate_terrarium() {
 
 	x = cx; y = cy;
 
-	while ((l = game.map.at(x, y)) && l->type != T_GROUND)
+	while ((l = game.map.at(x, y)) && l->type != GROUND)
 		randwalk(x, y);
 	Node<Object> on(new NodeV<Object>);
 	on->type = 0;

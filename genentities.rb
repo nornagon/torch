@@ -118,6 +118,36 @@ def toCVal v
   end
 end
 
+def printValue io, flds, name, vals
+  io.print "\t{ "
+  io.print name.inspect
+  io.print ", "
+  io.print(flds.map { |k,ty|
+    if !vals.has_key? k
+      # gotta use a default
+      if $defaults[k]
+        # if there's a default for this field, use that.
+        vals[k] = $defaults[k]
+      else
+        # otherwise use the default for that type.
+        case ty.to_s.to_sym
+        when :Fixnum: vals[k] = 0
+        when :String: vals[k] = nil
+        when :TrueClass: vals[k] = false
+        else
+          vals[k] = nil
+        end
+      end
+    end
+    if $handlers[k]
+      $handlers[k][1][vals[k]]
+    else
+      toCVal vals[k]
+    end
+  }.join(', '))
+  io.print "},\n"
+end
+
 if $0 == __FILE__
   require 'fileutils'
 
@@ -164,7 +194,11 @@ if $0 == __FILE__
       io.puts "extern #{kind.capitalize}Desc #{kind}desc[];"
       io.puts
       io.puts "enum {"
+      if defns.has_key? nil
+        io.puts "\t#{kind.upcase}_NONE = 0,"
+      end
       defns.each do |name,vals|
+        if name.nil? then next end
         io.puts "\t#{name.upcase},"
       end
       io.puts "};"
@@ -176,34 +210,12 @@ if $0 == __FILE__
       io.puts "#include <nds/arm9/video.h>"
       io.puts
       io.puts "#{kind.capitalize}Desc #{kind}desc[] = {"
+      if defns.has_key? nil
+        printValue io, flds, "nil", defns[nil]
+      end
       defns.each do |name,vals|
-        io.print "\t{ "
-        io.print name.inspect
-        io.print ", "
-        io.print(flds.map { |k,ty|
-          if !vals.has_key? k
-            # gotta use a default
-            if $defaults[k]
-              # if there's a default for this field, use that.
-              vals[k] = $defaults[k]
-            else
-              # otherwise use the default for that type.
-              case ty.to_s.to_sym
-              when :Fixnum: vals[k] = 0
-              when :String: vals[k] = nil
-              when :TrueClass: vals[k] = false
-              else
-                vals[k] = nil
-              end
-            end
-          end
-          if $handlers[k]
-            $handlers[k][1][vals[k]]
-          else
-            toCVal vals[k]
-          end
-        }.join(', '))
-        io.print "},\n"
+        if name.nil? then next end
+        printValue io, flds, name, vals
       end
       io.puts "};"
     end

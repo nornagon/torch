@@ -19,4 +19,4 @@ def defEntity kind
   end
 end
 
-%w(creature object).each { |e| defEntity e }
+%w(creature object terrain).each { |e| defEntity e }

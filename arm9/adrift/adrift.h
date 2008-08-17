@@ -13,6 +13,8 @@
 #include "util.h"
 #include "bresenstate.h"
 
+#include "entities/terrain.h"
+
 class Map {
 	private:
 		Cell *cells;
@@ -37,7 +39,7 @@ class Map {
 		}
 
 		inline bool solid(s16 x, s16 y) {
-			return celldesc[at(x,y)->type].solid;
+			return terraindesc[at(x,y)->type].solid;
 		}
 
 		inline bool occupied(s16 x, s16 y) {
