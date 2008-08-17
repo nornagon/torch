@@ -1,17 +1,9 @@
 require 'descdsl'
 
-class Array
-  # remove one layer of arrays: [[a],[[b]]] -> [a,[b]]
-  def flatten1
-    newa = []
-    each { |a|
-      if a.kind_of? Array
-        newa += a
-      else
-        newa << a
-      end
-    }
-    newa
+class String
+  # better than upcase for converting to a C identifier...
+  def to_c
+    upcase.gsub(/[^A-Z0-9]+/,'_')
   end
 end
 
@@ -175,8 +167,8 @@ if $0 == __FILE__
       ty.to_s == "TrueClass" ? 1 : 0
     end
     File.open "#{kind}.h", "w" do |io|
-      io.puts "#ifndef ENTITY_#{kind.upcase}_H"
-      io.puts "#define ENTITY_#{kind.upcase}_H"
+      io.puts "#ifndef ENTITY_#{kind.to_c}_H"
+      io.puts "#define ENTITY_#{kind.to_c}_H"
       io.puts
       io.puts "#include <nds/jtypes.h>"
       io.puts
@@ -195,11 +187,11 @@ if $0 == __FILE__
       io.puts
       io.puts "enum {"
       if defns.has_key? nil
-        io.puts "\t#{kind.upcase}_NONE = 0,"
+        io.puts "\t#{kind.to_c}_NONE = 0,"
       end
       defns.each do |name,vals|
         if name.nil? then next end
-        io.puts "\t#{name.upcase},"
+        io.puts "\t#{name.to_c},"
       end
       io.puts "};"
       io.puts
