@@ -75,7 +75,7 @@ void Player::move(DIRECTION dir) {
 
 void Player::use(Node<Object> item) {
 	switch (item->type) {
-		case J_ROCK:
+		case ROCK:
 			if (item->quantity > 1) {
 				iprintf("You bang the rocks together, but nothing seems to happen.\n");
 			} else {

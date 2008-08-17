@@ -78,7 +78,7 @@ struct menuitem {
 };
 
 bool canuse(Node<Object> obj) {
-	return obj->type == J_ROCK;
+	return obj->type == ROCK;
 }
 
 bool withitem(Node<Object> obj) {
@@ -149,7 +149,7 @@ void inventory() {
 		for (; i < start; i++) o = o.next();
 
 		for (i = 0; i < 19 && o; i++, o = o.next()) {
-			const char *name = objdesc[o->type].name;
+			const char *name = objectdesc[o->type].name;
 			u16 color = selected == i+start ? RGB15(31,31,31) : RGB15(18,18,18);
 			if (o->quantity == 1)
 				tprintf(17, 12+i*9, color, "%s", name);

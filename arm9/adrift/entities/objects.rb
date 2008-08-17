@@ -12,5 +12,4 @@ end
 object 'rain stick' do
   char '/'
   color 18,18,0
-  stackable
 end

@@ -102,7 +102,7 @@ void drop_rock(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
 	if (rand32() % 10 == 0 && l->type == GROUND) {
 		Node<Object> on(new NodeV<Object>);
-		on->type = J_ROCK;
+		on->type = ROCK;
 		stack_item_push(l->objects, on);
 	}
 }

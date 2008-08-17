@@ -16,8 +16,8 @@ void visible_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 		*ch = creaturedesc[l->creature->type].ch,
 		*col = creaturedesc[l->creature->type].col;
 	else if (l->objects.top())
-		*ch = objdesc[l->objects.top()->type].ch,
-		*col = objdesc[l->objects.top()->type].col;
+		*ch = objectdesc[l->objects.top()->type].ch,
+		*col = objectdesc[l->objects.top()->type].color;
 	else
 		*ch = terraindesc[l->type].ch,
 		*col = terraindesc[l->type].color;
@@ -26,8 +26,8 @@ void visible_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 void recalled_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 	Cell *l = game.map.at(x,y);
 	if (l->objects.top())
-		*ch = objdesc[l->objects.top()->type].ch,
-		*col = objdesc[l->objects.top()->type].col;
+		*ch = objectdesc[l->objects.top()->type].ch,
+		*col = objectdesc[l->objects.top()->type].color;
 	else if (!terraindesc[l->type].forgettable)
 		*ch = terraindesc[l->type].ch,
 		*col = terraindesc[l->type].color;

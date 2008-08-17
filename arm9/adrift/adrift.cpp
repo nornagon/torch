@@ -20,6 +20,7 @@
 #include "recalc.h"
 
 #include "entities/terrain.h"
+#include "entities/object.h"
 
 Adrift game;
 
@@ -44,7 +45,7 @@ bool get_items() {
 
 	Node<Object> k;
 	while ((k = os.pop())) {
-		const char *name = objdesc[k->type].name;
+		const char *name = objectdesc[k->type].name;
 		if (k->quantity == 1) {
 			const char *a_an = isvowel(name[0]) ? "n" : "";
 			iprintf("You pick up a%s %s.\n", a_an, name);
