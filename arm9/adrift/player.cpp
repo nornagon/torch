@@ -4,6 +4,8 @@
 #include "recalc.h"
 #include <stdio.h>
 
+#include "entities/creature.h"
+
 // drops the object if it's in the player's bag
 void Player::drop(Node<Object> obj) {
 	if (!game.player.bag.remove(obj)) return;
@@ -16,7 +18,7 @@ void Player::drop(Node<Object> obj) {
 
 void Player::exist() {
 	obj = Node<Creature>(new NodeV<Creature>);
-	obj->type = C_PLAYER;
+	obj->type = PLAYER;
 	obj->setPos(x,y);
 	obj->hp = 20;
 	game.map.at(x,y)->creature = obj;

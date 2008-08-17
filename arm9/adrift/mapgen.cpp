@@ -12,6 +12,8 @@
 
 #include "gfxPrimitives.h"
 
+#include "entities/creature.h"
+
 #define DEF(type_) \
 	static inline void SET_##type_(s16 x, s16 y) { \
 		game.map.at(x,y)->type = type_; \
@@ -89,8 +91,8 @@ void haunted_grove(s16 cx, s16 cy) {
 			x = cx + ((COS[theta]*r) >> 12), y = cy + ((SIN[theta]*r) >> 12);
 		} while (!(game.map.at(x,y)->type == GROUND && !game.map.occupied(x,y)));
 		Node<Creature> trap(new NodeV<Creature>);
-		trap->type = C_FLYTRAP;
-		trap->hp = creaturedesc[trap->type].maxhp;
+		trap->type = VENUS_FLY_TRAP;
+		trap->hp = creaturedesc[trap->type].max_hp;
 		trap->cooldown = 0;
 		trap->setPos(x,y);
 		game.map.at(x,y)->creature = trap;

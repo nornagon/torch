@@ -11,17 +11,4 @@ struct Creature {
 	void setPos(s16 x0, s16 y0) { x = x0; y = y0; }
 };
 
-struct CreatureDesc {
-	u16 ch, col;
-	s16 maxhp;
-	const char *name;
-};
-
-extern CreatureDesc creaturedesc[];
-
-// enum { ... }
-#define ONLY_CNAMES 1
-#include "creature.cpp"
-#undef ONLY_CNAMES
-
 #endif /* CREATURE_H */

@@ -2,6 +2,7 @@
 #include "adrift.h"
 
 #include "entities/terrain.h"
+#include "entities/creature.h"
 
 bool isforgettable(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
@@ -14,7 +15,7 @@ void visible_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 	Cell *l = game.map.at(x,y);
 	if (l->creature)
 		*ch = creaturedesc[l->creature->type].ch,
-		*col = creaturedesc[l->creature->type].col;
+		*col = creaturedesc[l->creature->type].color;
 	else if (l->objects.top())
 		*ch = objectdesc[l->objects.top()->type].ch,
 		*col = objectdesc[l->objects.top()->type].color;

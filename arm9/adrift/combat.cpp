@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include "mersenne.h"
 
+#include "entities/creature.h"
+
 bool you_hit_monster(Node<Creature> target) {
 	bool died = false;
 	s16 damage = 1 + (rand32() % 8);
