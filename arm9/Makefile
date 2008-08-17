@@ -113,8 +113,10 @@ clean:
 	@echo clean ...
 	@rm -fr $(BUILD) *.elf *.nds* *.bin 
 
-entities: $(wildcard $(CURDIR)/$(WORLD)/entities/*.rb)
+entities: $(WORLD)/.entities-stamp
+$(WORLD)/.entities-stamp: $(wildcard $(ENTDIR)/*.rb)
 	ruby -I$(TOPDIR) $(TOPDIR)/genentities.rb $(CURDIR)/$(WORLD)/entities
+	touch $(WORLD)/.entities-stamp
 
 #---------------------------------------------------------------------------------
 else
