@@ -14,21 +14,14 @@
 
 #include "entities/creature.h"
 
-#define DEF(type_) \
-	static inline void SET_##type_(s16 x, s16 y) { \
-		game.map.at(x,y)->type = type_; \
-		mapel *m = torch.buf.at(x,y); \
-		m->recall = 0; m->col = terraindesc[type_].color; m->ch = terraindesc[type_].ch; \
-		blockel *b = game.map.block.at(x,y); \
-		b->opaque = terraindesc[type_].opaque; \
-	}
-DEF(TREE);
-DEF(GROUND);
-DEF(TERRAIN_NONE);
-DEF(GLASS);
-DEF(WATER);
-DEF(FIRE);
-#undef DEF
+static inline void set_tile(s16 x, s16 y, void *info) {
+	int type_ = (int)info;
+	game.map.at(x,y)->type = type_;
+	mapel *m = torch.buf.at(x,y);
+	m->recall = 0; m->col = terraindesc[type_].color; m->ch = terraindesc[type_].ch;
+	blockel *b = game.map.block.at(x,y);
+	b->opaque = terraindesc[type_].opaque;
+}
 
 void haunted_grove(s16 cx, s16 cy) {
 	int r0 = 7, r1 = 15;
@@ -38,7 +31,7 @@ void haunted_grove(s16 cx, s16 cy) {
 	for (unsigned int t = 0; t < 0x1ff; t += 8) {
 		int r = rand32() % 5;
 		int x = COS[t], y = SIN[t];
-		bresenham(cx, cy, cx + ((x*r) >> 12), cy + ((y*r) >> 12), SET_WATER);
+		bresenham(cx, cy, cx + ((x*r) >> 12), cy + ((y*r) >> 12), set_tile, (void*)WATER);
 		if (t == playerpos) {
 			unsigned int extra = rand8() % 3;
 			game.player.x = cx + ((x*(5+extra)) >> 12);
@@ -51,7 +44,7 @@ void haunted_grove(s16 cx, s16 cy) {
 		int x = COS[t], y = SIN[t];
 		if (t % 16 != 0)
 			bresenham(cx + ((x*r) >> 12), cy + ((y*r) >> 12),
-			               cx + ((x*(r+w0)) >> 12), cy + ((y*(r+w0)) >> 12), SET_TREE);
+			               cx + ((x*(r+w0)) >> 12), cy + ((y*(r+w0)) >> 12), set_tile, (void*)TREE);
 	}
 	unsigned int firepos = ((rand32() & 0x1ff) / 4) * 4;
 	for (unsigned int t = 0; t < 0x1ff; t += 4) {
@@ -59,7 +52,7 @@ void haunted_grove(s16 cx, s16 cy) {
 		if (t == firepos) {
 			int px = cx + ((x*(r0+w0+1)) >> 12),
 			    py = cy + ((y*(r0+w0+1)) >> 12);
-			SET_FIRE(px, py);
+			set_tile(px, py, (void*)FIRE);
 			lightsource *l = new_light(8<<12, (int)(0.9*(1<<12)), (int)(0.3*(1<<12)), (int)(0.1*(1<<12)));
 			l->x = px<<12; l->y = py<<12;
 			game.map.lights.push(l);
@@ -71,16 +64,16 @@ void haunted_grove(s16 cx, s16 cy) {
 		int x = COS[t], y = SIN[t];
 		if (t % 16 > (a & 3))
 			bresenham(cx + ((x*r) >> 12), cy + ((y*r) >> 12),
-			               cx + ((x*(r+w1)) >> 12), cy + ((y*(r+w1)) >> 12), SET_TREE);
+			               cx + ((x*(r+w1)) >> 12), cy + ((y*(r+w1)) >> 12), set_tile, (void*)TREE);
 	}
 	u16 k = rand16() & 0x1ff;
 	int x = COS[k], y = SIN[k];
 	bresenham(cx + ((x*r0) >> 12), cy + ((y*r0) >> 12),
-	               cx + ((x*(r0+w0)) >> 12), cy + ((y*(r0+w0)) >> 12), SET_GROUND);
+	               cx + ((x*(r0+w0)) >> 12), cy + ((y*(r0+w0)) >> 12), set_tile, (void*)GROUND);
 	k = rand16() & 0x1ff;
 	x = COS[k]; y = SIN[k];
 	bresenham(cx + ((x*r1) >> 12), cy + ((y*r1) >> 12),
-	               cx + ((x*(r1+w1)) >> 12), cy + ((y*(r1+w1)) >> 12), SET_GROUND);
+	               cx + ((x*(r1+w1)) >> 12), cy + ((y*(r1+w1)) >> 12), set_tile, (void*)GROUND);
 
 	int nTraps = 4 + (rand16() % 10);
 	for (int i = 0; i < nTraps; i++) {
@@ -100,7 +93,7 @@ void haunted_grove(s16 cx, s16 cy) {
 	}
 }
 
-void drop_rock(s16 x, s16 y) {
+void drop_rock(s16 x, s16 y, void *info) {
 	Cell *l = game.map.at(x,y);
 	if (rand32() % 10 == 0 && l->type == GROUND) {
 		Node<Object> on(new NodeV<Object>);
@@ -115,7 +108,7 @@ void drop_rocks(s16 ax, s16 ay) {
 		int x = COS[t], y = SIN[t];
 		if (t % 16 != 0)
 			bresenham(ax + ((x*r) >> 12), ay + ((y*r) >> 12),
-			               ax + ((x*(r+4)) >> 12), ay + ((y*(r+4)) >> 12), drop_rock);
+			               ax + ((x*(r+4)) >> 12), ay + ((y*(r+4)) >> 12), drop_rock, NULL);
 	}
 }
 
@@ -128,8 +121,8 @@ void generate_terrarium() {
 	torch.buf.cache.reset();
 	game.map.reset();
 
-	filledCircle(cx, cy, 60, SET_GROUND);
-	hollowCircle(cx, cy, 60, SET_GLASS);
+	filledCircle(cx, cy, 60, set_tile, (void*)GROUND);
+	hollowCircle(cx, cy, 60, set_tile, (void*)GLASS);
 
 	haunted_grove(cx, cy);
 
@@ -153,15 +146,15 @@ void generate_terrarium() {
 	on->type = 0;
 	l->objects.push(on);
 
-	SET_FIRE(cx+40, cy);
+	set_tile(cx+40, cy, (void*)FIRE);
 	lightsource *li = new_light(12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+40)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
-	SET_FIRE(cx+30, cy);
+	set_tile(cx+30, cy, (void*)FIRE);
 	li = new_light(12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+30)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
-	SET_FIRE(cx+35, cy-7);
+	set_tile(cx+35, cy-7, (void*)FIRE);
 	li = new_light(12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
 	li->x = (cx+35)<<12; li->y = (cy-7)<<12;
 	game.map.lights.push(li);

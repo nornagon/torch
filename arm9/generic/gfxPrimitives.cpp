@@ -2,11 +2,11 @@
 #include "mersenne.h"
 #include "torch.h"
 
-void hline(s16 x0, s16 x1, s16 y, void (*func)(s16 x, s16 y)) {
+void hline(s16 x0, s16 x1, s16 y, void (*func)(s16 x, s16 y, void *info), void *info) {
 	torch.buf.bounded(x1, y);
-	if (x0 > x1) hline(x1, x0, y, func);
+	if (x0 > x1) hline(x1, x0, y, func, info);
 	for (; x0 <= x1; x0++)
-		func(x0, y);
+		func(x0, y, info);
 }
 
 void randwalk(s16 &x, s16 &y) {
@@ -19,7 +19,7 @@ void randwalk(s16 &x, s16 &y) {
 	}
 }
 
-void hollowCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
+void hollowCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y, void *info), void *info) {
 	s16 left, right, top, bottom;
 	s16 x1, y1, x2, y2;
 	s16 cx = 0;
@@ -42,7 +42,7 @@ void hollowCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
 	 * Special case for r=0 - draw a point
 	 */
 	if (r == 0) {
-		func(x,y);
+		func(x,y, info);
 		return;
 	}
 
@@ -76,13 +76,13 @@ void hollowCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
 			if (cy > 0) {
 				ypcy = y + cy;
 				ymcy = y - cy;
-				func(xmcx,ypcy);
-				func(xpcx,ypcy);
-				func(xmcx,ymcy);
-				func(xpcx,ymcy);
+				func(xmcx,ypcy, info);
+				func(xpcx,ypcy, info);
+				func(xmcx,ymcy, info);
+				func(xpcx,ymcy, info);
 			} else {
-				func(xmcx,y);
-				func(xpcx,y);
+				func(xmcx,y, info);
+				func(xpcx,y, info);
 			}
 			ocy = cy;
 			xpcy = x + cy;
@@ -90,13 +90,13 @@ void hollowCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
 			if (cx > 0) {
 				ypcx = y + cx;
 				ymcx = y - cx;
-				func(xmcy,ypcx);
-				func(xpcy,ypcx);
-				func(xmcy,ymcx);
-				func(xpcy,ymcx);
+				func(xmcy,ypcx, info);
+				func(xpcy,ypcx, info);
+				func(xmcy,ymcx, info);
+				func(xpcy,ymcx, info);
 			} else {
-				func(xmcy,y);
-				func(xpcy,y);
+				func(xmcy,y, info);
+				func(xpcy,y, info);
 			}
 			ocx = cx;
 		}
@@ -118,7 +118,7 @@ void hollowCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
 }
 
 // stolen from SDL_gfxPrimitives
-void filledCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
+void filledCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y, void *info), void *info) {
 	s16 left, right, top, bottom;
 	int result;
 	s16 x1, y1, x2, y2;
@@ -142,7 +142,7 @@ void filledCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
 	 * Special case for r=0 - draw a point
 	 */
 	if (r == 0) {
-		func(x, y);
+		func(x, y, info);
 		return;
 	}
 
@@ -179,10 +179,10 @@ void filledCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
 			if (cy > 0) {
 				ypcy = y + cy;
 				ymcy = y - cy;
-				hline(xmcx, xpcx, ypcy, func);
-				hline(xmcx, xpcx, ymcy, func);
+				hline(xmcx, xpcx, ypcy, func, info);
+				hline(xmcx, xpcx, ymcy, func, info);
 			} else {
-				hline(xmcx, xpcx, y, func);
+				hline(xmcx, xpcx, y, func, info);
 			}
 			ocy = cy;
 		}
@@ -191,10 +191,10 @@ void filledCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
 				if (cx > 0) {
 					ypcx = y + cx;
 					ymcx = y - cx;
-					hline(xmcy, xpcy, ymcx, func);
-					hline(xmcy, xpcy, ypcx, func);
+					hline(xmcy, xpcy, ymcx, func, info);
+					hline(xmcy, xpcy, ypcx, func, info);
 				} else {
-					hline(xmcy, xpcy, y, func);
+					hline(xmcy, xpcy, y, func, info);
 				}
 			}
 			ocx = cx;
@@ -216,7 +216,7 @@ void filledCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y)) {
 	} while (cx <= cy);
 }
 
-void bresenham(s16 x0, s16 y0, s16 x1, s16 y1, void (*func)(s16 x, s16 y)) {
+void bresenham(s16 x0, s16 y0, s16 x1, s16 y1, void (*func)(s16 x, s16 y, void *info), void *info) {
 	bool steep = abs(y1 - y0) > abs(x1 - x0);
 	if (steep) {
 		s16 tmp = x0; x0 = y0; y0 = tmp;
@@ -232,8 +232,8 @@ void bresenham(s16 x0, s16 y0, s16 x1, s16 y1, void (*func)(s16 x, s16 y)) {
 	s16 ystep = y0 < y1 ? 1 : -1;
 	s16 y = y0;
 	for (int x = x0; x < x1; x++) {
-		if (steep) func(y, x);
-		else func(x, y);
+		if (steep) func(y, x, info);
+		else func(x, y, info);
 		error += deltay;
 		if (error >= 0) {
 			y += ystep;
