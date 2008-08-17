@@ -98,11 +98,13 @@ export INCLUDE := $(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
                   -I$(CURDIR)/$(BUILD)
  
 export LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
+
+export ENTDIR := $(CURDIR)/$(WORLD)/entities
  
-.PHONY: $(BUILD) clean
+.PHONY: $(BUILD) clean entities
  
 #---------------------------------------------------------------------------------
-$(BUILD):
+$(BUILD): entities
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile REALBUILD=1
  
@@ -110,11 +112,16 @@ $(BUILD):
 clean:
 	@echo clean ...
 	@rm -fr $(BUILD) *.elf *.nds* *.bin 
- 
- 
+
+entities: $(wildcard $(CURDIR)/$(WORLD)/entities/*.rb)
+	ruby -I$(TOPDIR) $(TOPDIR)/genentities.rb $(CURDIR)/$(WORLD)/entities
+
 #---------------------------------------------------------------------------------
 else
  
+ENTFILES := $(notdir $(wildcard $(ENTDIR)/*.cpp))
+OFILES += $(ENTFILES:.cpp=.entity.o)
+
 DEPENDS := $(OFILES:.o=.d)
  
 #---------------------------------------------------------------------------------
@@ -123,6 +130,7 @@ DEPENDS := $(OFILES:.o=.d)
 $(ARM9BIN) : $(ARM9ELF)
 	@$(OBJCOPY) -O binary $< $@
 	@echo built ... $(notdir $@)
+	@echo $(ENTFILES)
 
 $(ARM9ELF) : $(OFILES)
 	@echo linking $(notdir $@)
@@ -136,10 +144,12 @@ $(ARM9ELF) : $(OFILES)
 	@echo $(notdir $<)
 	@$(bin2o)
 
+%.entity.o : entities/%.cpp
+	@echo $(notdir $<)
+	$(CXX) -MMD -MP -MF $(DEPSDIR)/$*.entity.d $(CXXFLAGS) -c $< -o $@
 
 %.s %.h : %.png %.grit
 	grit $< -fts -o$*
-
 
 -include $(DEPENDS)
  
