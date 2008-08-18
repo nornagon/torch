@@ -1,6 +1,7 @@
 terrain nil do
   char ' '
   color 0, 0, 0
+  solid
 end
 
 terrain 'tree' do

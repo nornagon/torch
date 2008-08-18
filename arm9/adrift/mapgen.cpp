@@ -6,6 +6,7 @@
 
 #include "lightsource.h"
 #include <malloc.h>
+#include <string.h>
 
 #include <stdio.h>
 #include <nds.h>
@@ -23,7 +24,7 @@ static inline void set_tile(s16 x, s16 y, void *info) {
 	b->opaque = terraindesc[type_].opaque;
 }
 
-void haunted_grove(s16 cx, s16 cy) {
+/*void haunted_grove(s16 cx, s16 cy) {
 	int r0 = 7, r1 = 15;
 	int w0 = 3, w1 = 4;
 
@@ -91,7 +92,7 @@ void haunted_grove(s16 cx, s16 cy) {
 		game.map.at(x,y)->creature = trap;
 		game.monsters.push(trap);
 	}
-}
+}*/
 
 void drop_rock(s16 x, s16 y, void *info) {
 	Cell *l = game.map.at(x,y);
@@ -112,6 +113,64 @@ void drop_rocks(s16 ax, s16 ay) {
 	}
 }
 
+/*void killTrees() {
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			Cell *l = game.map.at(x,y);
+			if (l->type == TREE && rand32() % 64 == 0) {
+				set_tile(x,y, (void*)GROUND);
+			}
+		}
+	}
+}
+
+void growTrees() {
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			if (game.map.at(x,y)->type == GROUND && countTrees(x,y) > 3 && rand32() % 32 == 0)
+				set_tile(x,y, (void*)TREE);
+		}
+	}
+}
+*/
+
+int countTrees(s16 x, s16 y) {
+	int count = 0;
+	for (int dx = -1; dx <= 1; dx++)
+		for (int dy = -1; dy <= 1; dy++)
+			if (game.map.at(x+dx,y+dy)->type == TREE)
+				count++;
+	return count;
+}
+
+void CATrees() {
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			if (game.map.at(x,y)->type == GROUND && (rand4() < 8)) set_tile(x,y, (void*)TREE);
+		}
+	}
+	bool *next = new bool[torch.buf.geth()*torch.buf.getw()];
+	for (int i = 0; i < 5; i++) {
+		memset(next, 0, torch.buf.geth()*torch.buf.getw()*sizeof(bool));
+		for (int y = 0; y < torch.buf.geth(); y++) {
+			for (int x = 0; x < torch.buf.getw(); x++) {
+				if (countTrees(x,y) >= 5) next[y*torch.buf.getw()+x] = true;
+				else next[y*torch.buf.getw()+x] = false;
+			}
+		}
+		for (int y = 0; y < torch.buf.geth(); y++) {
+			for (int x = 0; x < torch.buf.getw(); x++) {
+				if (game.map.at(x,y)->type == GROUND || game.map.at(x,y)->type == TREE) {
+					if (next[y*torch.buf.getw()+x])
+						set_tile(x,y, (void*)TREE);
+					else
+						set_tile(x,y, (void*)GROUND);
+				}
+			}
+		}
+	}
+}
+
 #include "assert.h"
 
 void generate_terrarium() {
@@ -121,15 +180,34 @@ void generate_terrarium() {
 	torch.buf.cache.reset();
 	game.map.reset();
 
+	// glass on the rim
 	filledCircle(cx, cy, 60, set_tile, (void*)GROUND);
 	hollowCircle(cx, cy, 60, set_tile, (void*)GLASS);
+	CATrees();
 
-	haunted_grove(cx, cy);
+	//haunted_grove(cx, cy);
+	/*hollowCircle(cx, cy, 30, set_tile, (void*)TREE);
+	hollowCircle(cx+1, cy, 30, set_tile, (void*)TREE);
+	hollowCircle(cx, cy+1, 30, set_tile, (void*)TREE);
+	hollowCircle(cx-1, cy, 30, set_tile, (void*)TREE);
+	hollowCircle(cx, cy-1, 30, set_tile, (void*)TREE);*/
+
+	/*for (int i = 0; i < 5; i++) {
+		killTrees();
+		growTrees();
+	}*/
+
+	/*bresenham(cx,cy,cx+(((40)*COS[30]) >> 12),cy+(((40)*SIN[30]) >> 12),set_tile,(void*)GROUND);*/
+	Cell *l;
+	s16 x = cx, y = cy;
+	while (game.map.at(x, y)->type != GROUND)
+		randwalk(x, y);
+	game.player.x = x;
+	game.player.y = y;
 
 	drop_rocks(cx, cy);
 
-	s16 x = cx, y = cy;
-	Cell *l;
+	x = cx, y = cy;
 	while ((l = game.map.at(x, y)) && l->type != GROUND)
 		randwalk(x, y);
 	Node<Creature> cn(new NodeV<Creature>);

@@ -15,3 +15,11 @@ creature 'venus fly trap' do
   color 12, 29, 5
   max_hp 20
 end
+
+creature 'blowfly' do
+  char 'x'
+  color 5,5,5
+  max_hp 1
+  wanders
+  peaceful
+end
