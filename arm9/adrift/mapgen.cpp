@@ -276,6 +276,20 @@ void generate_terrarium() {
 	} else {
 		printf("\1\x1f\x01unconnected\1\xff\xff\n");
 	}
+	printf("adding creatures...");
+	for (int i = 0; i < 60; i++) {
+		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
+		if (!game.map.at(x,y)->desc()->solid) {
+			Node<Creature> fly(new NodeV<Creature>);
+			fly->type = BLOWFLY;
+			fly->hp = creaturedesc[fly->type].max_hp;
+			fly->cooldown = 0;
+			fly->setPos(x,y);
+			game.map.at(x,y)->creature = fly;
+			game.monsters.push(fly);
+		}
+	}
+	printf("done\n");
 
 	//haunted_grove(cx, cy);
 	/*hollowCircle(cx, cy, 30, set_tile, (void*)TREE);
