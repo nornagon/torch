@@ -157,10 +157,9 @@ template <class T> void Pool<T>::alloc_space(unsigned int n) {
 }
 
 template <class T> void Pool<T>::flush_free() {
-	while (free_nodes.head) {
-		NodeV<T> *next = free_nodes.head->next;
-		free(free_nodes.head);
-		free_nodes.head = next;
+	NodeV<T> *p;
+	while ((p = free_nodes.pop())) {
+		free(p);
 	}
 }
 

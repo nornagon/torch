@@ -15,6 +15,8 @@
 
 #include "entities/creature.h"
 
+#include "assert.h"
+
 static inline void set_tile(s16 x, s16 y, void *info) {
 	int type_ = (int)info;
 	game.map.at(x,y)->type = type_;
@@ -96,7 +98,7 @@ static inline void set_tile(s16 x, s16 y, void *info) {
 
 void drop_rock(s16 x, s16 y, void *info) {
 	Cell *l = game.map.at(x,y);
-	if (rand32() % 10 == 0 && l->type == GROUND) {
+	if (rand32() % 10 == 0 && !l->desc()->solid) {
 		Node<Object> on(new NodeV<Object>);
 		on->type = ROCK;
 		stack_item_push(l->objects, on);
@@ -134,6 +136,62 @@ void growTrees() {
 }
 */
 
+struct Point { int x, y; };
+
+bool checkConnected() {
+	int x = 0, y = 0;
+	int w = torch.buf.getw(), h = torch.buf.geth();
+	bool done = false;
+
+	for (y = 0; y < h; y++) {
+		for (x = 0; x < w; x++) {
+			if (!game.map.at(x,y)->desc()->solid) { done = true; break; }
+		}
+		if (done) break;
+	}
+	assert(x < w && y < h);
+
+	bool *marks = new bool[w*h];
+	memset(marks, 0, w*h*sizeof(bool));
+
+	List<Point> queue;
+	queue.push((Point){ x, y });
+
+	while (!queue.empty()) {
+		NodeV<Point>* Np = queue.pop();
+		Point p = Np->data;
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dy = -1; dy <= 1; dy++) {
+				if (!marks[(p.y+dy)*w+p.x+dx] && !game.map.at(p.x+dx,p.y+dy)->desc()->solid) {
+					marks[p.x + dx + w*(p.y+dy)] = true;
+					Point pp = { p.x+dx, p.y+dy };
+					queue.push(pp);
+				}
+			}
+		}
+		Np->free();
+	}
+
+	NodeV<Point>::pool.flush_free();
+
+	done = false;
+	for (y = 0; y < h; y++) {
+		for (x = 0; x < w; x++) {
+			if (!game.map.at(x,y)->desc()->solid && !marks[y*w+x]) {
+				done = true; break;
+			}
+		}
+		if (done) break;
+	}
+
+	delete [] marks;
+
+	if (x < w && y < h) {
+		return false;
+	} else
+		return true;
+}
+
 int countTrees(s16 x, s16 y) {
 	int count = 0;
 	for (int dx = -1; dx <= 1; dx++)
@@ -143,14 +201,42 @@ int countTrees(s16 x, s16 y) {
 	return count;
 }
 
+int countTrees2(s16 x, s16 y) {
+	int count = 0;
+	for (int dx = -2; dx <= 2; dx++)
+		for (int dy = -2; dy <= 2; dy++)
+			if (game.map.at(x+dx,y+dy)->type == TREE)
+				count++;
+	return count;
+}
+
 void CATrees() {
 	for (int y = 0; y < torch.buf.geth(); y++) {
 		for (int x = 0; x < torch.buf.getw(); x++) {
-			if (game.map.at(x,y)->type == GROUND && (rand4() < 8)) set_tile(x,y, (void*)TREE);
+			if (!game.map.at(x,y)->desc()->solid && (rand4() < 6)) set_tile(x,y, (void*)TREE);
 		}
 	}
 	bool *next = new bool[torch.buf.geth()*torch.buf.getw()];
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 4; i++) {
+		memset(next, 0, torch.buf.geth()*torch.buf.getw()*sizeof(bool));
+		for (int y = 0; y < torch.buf.geth(); y++) {
+			for (int x = 0; x < torch.buf.getw(); x++) {
+				if (countTrees2(x,y) <= 3 || countTrees(x,y) >= 5) next[y*torch.buf.getw()+x] = true;
+				else next[y*torch.buf.getw()+x] = false;
+			}
+		}
+		for (int y = 0; y < torch.buf.geth(); y++) {
+			for (int x = 0; x < torch.buf.getw(); x++) {
+				if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == TREE) {
+					if (next[y*torch.buf.getw()+x])
+						set_tile(x,y, (void*)TREE);
+					else
+						set_tile(x,y, (void*)GROUND);
+				}
+			}
+		}
+	}
+	for (int i = 0; i < 3; i++) {
 		memset(next, 0, torch.buf.geth()*torch.buf.getw()*sizeof(bool));
 		for (int y = 0; y < torch.buf.geth(); y++) {
 			for (int x = 0; x < torch.buf.getw(); x++) {
@@ -160,7 +246,7 @@ void CATrees() {
 		}
 		for (int y = 0; y < torch.buf.geth(); y++) {
 			for (int x = 0; x < torch.buf.getw(); x++) {
-				if (game.map.at(x,y)->type == GROUND || game.map.at(x,y)->type == TREE) {
+				if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == TREE) {
 					if (next[y*torch.buf.getw()+x])
 						set_tile(x,y, (void*)TREE);
 					else
@@ -170,8 +256,6 @@ void CATrees() {
 		}
 	}
 }
-
-#include "assert.h"
 
 void generate_terrarium() {
 	s16 cx = torch.buf.getw()/2, cy = torch.buf.geth()/2;
@@ -183,7 +267,15 @@ void generate_terrarium() {
 	// glass on the rim
 	filledCircle(cx, cy, 60, set_tile, (void*)GROUND);
 	hollowCircle(cx, cy, 60, set_tile, (void*)GLASS);
+	printf("generating map...");
 	CATrees();
+	printf("done\n");
+	printf("checking connectivity...");
+	if (checkConnected()) {
+		printf("connected\n");
+	} else {
+		printf("\1\x1f\x01unconnected\1\xff\xff\n");
+	}
 
 	//haunted_grove(cx, cy);
 	/*hollowCircle(cx, cy, 30, set_tile, (void*)TREE);
@@ -200,7 +292,7 @@ void generate_terrarium() {
 	/*bresenham(cx,cy,cx+(((40)*COS[30]) >> 12),cy+(((40)*SIN[30]) >> 12),set_tile,(void*)GROUND);*/
 	Cell *l;
 	s16 x = cx, y = cy;
-	while (game.map.at(x, y)->type != GROUND)
+	while (game.map.at(x, y)->desc()->solid)
 		randwalk(x, y);
 	game.player.x = x;
 	game.player.y = y;
@@ -208,7 +300,7 @@ void generate_terrarium() {
 	drop_rocks(cx, cy);
 
 	x = cx, y = cy;
-	while ((l = game.map.at(x, y)) && l->type != GROUND)
+	while ((l = game.map.at(x, y)) && l->desc()->solid)
 		randwalk(x, y);
 	Node<Creature> cn(new NodeV<Creature>);
 	cn->type = 0;
@@ -218,7 +310,7 @@ void generate_terrarium() {
 
 	x = cx; y = cy;
 
-	while ((l = game.map.at(x, y)) && l->type != GROUND)
+	while ((l = game.map.at(x, y)) && l->desc()->solid)
 		randwalk(x, y);
 	Node<Object> on(new NodeV<Object>);
 	on->type = 0;
