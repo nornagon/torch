@@ -26,7 +26,7 @@ void Player::exist() {
 	projectile = NULL;
 }
 
-void Player::move(DIRECTION dir) {
+void Player::move(DIRECTION dir, bool run) {
 	int dpX = D_DX[dir],
 	    dpY = D_DY[dir];
 
@@ -52,8 +52,13 @@ void Player::move(DIRECTION dir) {
 
 	if (dpX || dpY) {
 		// moving diagonally takes longer. 5*sqrt(2) ~= 7
-		if (dpX && dpY) game.cooldown = 3;
-		else game.cooldown = 2;
+		if (run) {
+			if (dpX && dpY) game.cooldown = 3;
+			else game.cooldown = 2;
+		} else {
+			if (dpX && dpY) game.cooldown = 7;
+			else game.cooldown = 5;
+		}
 
 		cell = game.map.at(x + dpX, y + dpY);
 

@@ -196,7 +196,6 @@ void inventory() {
 }
 
 void overview() {
-	lcdMainOnTop();
 	text_console_disable();
 
 	u16* subscr = (u16*)BG_BMP_RAM_SUB(0);
@@ -229,20 +228,17 @@ void overview() {
 
 	int playerfade = 0;
 	while (1) {
-		u32 keys = 0;
-		while (!keys) {
-			swiWaitForVBlank();
-			scanKeys();
-			keys = keysDown();
-			int32 k = (COS[playerfade] >> 1) + (1<<11);
-			u16 color = RGB15((31 * k) >> 12, (31 * k) >> 12, (31 * k) >> 12);
-			pixel(subscr, game.player.x - torch.buf.getw() / 2 + 256/2,
-			              game.player.y - torch.buf.geth() / 2 + 192/2,
-			              color);
-			playerfade = (playerfade + 8) % 0x1ff;
-		}
-		if (keys & KEY_B) break;
+		u32 held = 0;
+		scanKeys();
+		held = keysHeld();
+		int32 k = (COS[playerfade] >> 1) + (1<<11);
+		u16 color = RGB15((31 * k) >> 12, (31 * k) >> 12, (31 * k) >> 12);
+		pixel(subscr, game.player.x - torch.buf.getw() / 2 + 256/2,
+									game.player.y - torch.buf.geth() / 2 + 192/2,
+									color);
+		playerfade = (playerfade + 8) % 0x1ff;
+		if (!(held & KEY_L)) break;
+		swiWaitForVBlank();
 	}
-	lcdMainOnBottom();
 	text_console_enable();
 }

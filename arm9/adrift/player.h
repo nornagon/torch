@@ -19,7 +19,7 @@ struct Player {
 	// project an existence into the world
 	void exist();
 
-	void move(DIRECTION dir);
+	void move(DIRECTION dir, bool run);
 	void drop(Node<Object> obj);
 
 	void use(Node<Object> item);
