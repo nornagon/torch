@@ -256,7 +256,7 @@ void text_render_str(const char *text, int len) {
 			xoffset = xusage;
 			continue;
 		}
-		if (text[i] == '\2') {
+		if (text[i] == '\2') { // return to default colour
 			/* TODO: copy/pasted from above; should remove to a seperate function */
 			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
 			lastgoodlen = i;

@@ -320,18 +320,22 @@ void generate_terrarium() {
 	// glass on the rim
 	filledCircle(cx, cy, 60, set_tile, (void*)GROUND);
 	hollowCircle(cx, cy, 60, set_tile, (void*)GLASS);
+
 	printf("Growing trees... ");
 	CATrees();
-	printf("done\n");
+	printf("done.\n");
+
 	printf("Filling lakes... ");
 	CALakes();
-	printf("done\n");
+	printf("done.\n");
+
 	printf("Checking connectivity... ");
 	if (checkConnected()) {
 		printf("connected.\n");
 	} else {
-		printf("\1\x1f\x01unconnected\1\xff\xff\n");
+		printf("\1\x1f\x01unconnected\2.\n");
 	}
+
 	printf("Spawning creatures... ");
 	for (int i = 0; i < 60; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
@@ -345,7 +349,8 @@ void generate_terrarium() {
 			game.monsters.push(fly);
 		} else i--;
 	}
-	printf("done\n");
+	printf("done.\n");
+
 	printf("Dropping items... ");
 	for (int i = 0; i < 60; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
@@ -355,7 +360,7 @@ void generate_terrarium() {
 			stack_item_push(game.map.at(x,y)->objects, on);
 		} else i--;
 	}
-	printf("done\n");
+	printf("done.\n");
 
 	Cell *l;
 	s16 x = cx, y = cy;
