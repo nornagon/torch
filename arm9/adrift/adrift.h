@@ -49,6 +49,10 @@ class Map {
 		inline bool walkable(s16 x, s16 y) {
 			return !(solid(x,y) || occupied(x,y));
 		}
+
+		inline bool contains(s16 x, s16 y) {
+			return x >= 0 && x < w && y >= 0 && y < h;
+		}
 };
 
 struct Projectile {

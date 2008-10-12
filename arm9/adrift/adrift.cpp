@@ -107,6 +107,9 @@ void process_keys() {
 		if (down & KEY_X) {
 			inventory(); return;
 		}
+		if (down & KEY_L) {
+			overview(); return;
+		}
 
 		if (down & KEY_TOUCH && game.player.projectile && touch.px != 0 && touch.py != 0) {
 			game.player.chuck(torch.buf.scroll.x + touch.px/8,

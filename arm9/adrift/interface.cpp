@@ -195,3 +195,54 @@ void inventory() {
 	}*/
 }
 
+void overview() {
+	lcdMainOnTop();
+	text_console_disable();
+
+	u16* subscr = (u16*)BG_BMP_RAM_SUB(0);
+	text_display_clear();
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			if (game.map.contains(x,y)) {
+				u16 color = game.map.at(x,y)->desc()->color;
+				if (x == game.player.x && y == game.player.y)
+					color = RGB15(31,31,31);
+				else if (game.map.at(x,y)->desc()->forgettable)
+					color = 0;
+				else {
+					u32 r = color & 0x001f,
+							g = (color & 0x03e0) >> 5,
+							b = (color & 0x7c00) >> 10;
+					int32 recall = torch.buf.at(x,y)->recall;
+					r = (r * recall) >> 12;
+					g = (g * recall) >> 12;
+					b = (b * recall) >> 12;
+					color = RGB15(r,g,b);
+				}
+				pixel(subscr,
+				      x - torch.buf.getw() / 2 + 256/2,
+				      y - torch.buf.geth() / 2 + 192/2,
+				      color);
+			}
+		}
+	}
+
+	int playerfade = 0;
+	while (1) {
+		u32 keys = 0;
+		while (!keys) {
+			swiWaitForVBlank();
+			scanKeys();
+			keys = keysDown();
+			int32 k = (COS[playerfade] >> 1) + (1<<11);
+			u16 color = RGB15((31 * k) >> 12, (31 * k) >> 12, (31 * k) >> 12);
+			pixel(subscr, game.player.x - torch.buf.getw() / 2 + 256/2,
+			              game.player.y - torch.buf.geth() / 2 + 192/2,
+			              color);
+			playerfade = (playerfade + 8) % 0x1ff;
+		}
+		if (keys & KEY_B) break;
+	}
+	lcdMainOnBottom();
+	text_console_enable();
+}
