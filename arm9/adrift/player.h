@@ -27,6 +27,8 @@ struct Player {
 	void chuck(s16 destx, s16 desty);
 
 	s16 x, y;
+
+	s32 strength_xp, agility_xp, aim_xp, melee_xp;
 };
 
 #endif /* PLAYER_H */

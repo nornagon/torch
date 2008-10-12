@@ -341,9 +341,7 @@ void generate_terrarium() {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (!game.map.at(x,y)->desc()->solid) {
 			Node<Creature> fly(new NodeV<Creature>);
-			fly->type = BLOWFLY;
-			fly->hp = creaturedesc[fly->type].max_hp;
-			fly->cooldown = 0;
+			fly->init(BLOWFLY);
 			fly->setPos(x,y);
 			game.map.at(x,y)->creature = fly;
 			game.monsters.push(fly);

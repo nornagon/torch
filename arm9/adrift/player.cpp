@@ -18,7 +18,7 @@ void Player::drop(Node<Object> obj) {
 
 void Player::exist() {
 	obj = Node<Creature>(new NodeV<Creature>);
-	obj->type = PLAYER;
+	obj->init(PLAYER);
 	obj->setPos(x,y);
 	obj->hp = 20;
 	game.map.at(x,y)->creature = obj;
