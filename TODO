@@ -5,3 +5,13 @@
 * bring stuff to generic/
 * equipment
 * AI
+
+actual stuff
+- add map overview
+- make blowflies (bats?) attack player
+- lake detail
+	- reeds
+	- willowisp
+- ground detail
+	- grass/shrubs
+- fix \x00 bug in text engine

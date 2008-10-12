@@ -17,6 +17,7 @@
 
 #include "assert.h"
 
+// helper function for passing to the gfxPrimitives generics
 static inline void set_tile(s16 x, s16 y, void *info) {
 	int type_ = (int)info;
 	game.map.at(x,y)->type = type_;
@@ -26,6 +27,10 @@ static inline void set_tile(s16 x, s16 y, void *info) {
 	b->opaque = terraindesc[type_].opaque;
 }
 
+// The algorithm here is to start at a middle point and throw out radial lines
+// of random length. I think some Angband variant used it to draw lakes; this
+// function uses it to draw two circles of trees (with some hacks for ensuring
+// it's possible to get in and out of them).
 /*void haunted_grove(s16 cx, s16 cy) {
 	int r0 = 7, r1 = 15;
 	int w0 = 3, w1 = 4;
@@ -105,9 +110,9 @@ void drop_rock(s16 x, s16 y, void *info) {
 	}
 }
 
-void drop_rocks(s16 ax, s16 ay) {
+// drop rocks in the vicinity around a specified point
+void drop_rocks(s16 ax, s16 ay, int r) {
 	for (unsigned int t = 0; t < 0x1ff; t += 4) {
-		int r = 4;
 		int x = COS[t], y = SIN[t];
 		if (t % 16 != 0)
 			bresenham(ax + ((x*r) >> 12), ay + ((y*r) >> 12),
@@ -115,29 +120,13 @@ void drop_rocks(s16 ax, s16 ay) {
 	}
 }
 
-/*void killTrees() {
-	for (int y = 0; y < torch.buf.geth(); y++) {
-		for (int x = 0; x < torch.buf.getw(); x++) {
-			Cell *l = game.map.at(x,y);
-			if (l->type == TREE && rand32() % 64 == 0) {
-				set_tile(x,y, (void*)GROUND);
-			}
-		}
-	}
-}
-
-void growTrees() {
-	for (int y = 0; y < torch.buf.geth(); y++) {
-		for (int x = 0; x < torch.buf.getw(); x++) {
-			if (game.map.at(x,y)->type == GROUND && countTrees(x,y) > 3 && rand32() % 32 == 0)
-				set_tile(x,y, (void*)TREE);
-		}
-	}
-}
-*/
-
 struct Point { int x, y; };
 
+// true if there's a path of non-solid tiles from any point on the map to every
+// other point on the map.
+// TODO: write a checkPath function that takes two specific points and checks
+// connectivity between just those points. Useful for, eg, checking whether
+// it's possible for the player to reach the stairs.
 bool checkConnected() {
 	int x = 0, y = 0;
 	int w = torch.buf.getw(), h = torch.buf.geth();
@@ -192,22 +181,30 @@ bool checkConnected() {
 		return true;
 }
 
-int countTrees(s16 x, s16 y) {
+
+
+// These next few functions are for a very flexible cellular automata
+// generation method described by
+// http://roguebasin.roguelikedevelopment.org/index.php?title=Cellular_Automata_Method_for_Generating_Random_Cave-Like_Levels
+// and http://pixelenvy.ca/wa/ca_cave.html
+// Essentially, you run one or more cycles in each of which you add or remove
+// some kind of tile according to some rule involving the nearby tiles. An
+// example would be the 4-5 rule, which means that tiles with < 4 nearby
+// similar tiles 'die' and become ground tiles, and tiles with > 5 friends
+// become that type. If the tile has 4 or 5 similar neighbours, leave it as is.
+
+// count tiles of type ty in the (square) vicinity
+int countFoo(s16 x, s16 y, s16 r, int ty) {
 	int count = 0;
-	for (int dx = -1; dx <= 1; dx++)
-		for (int dy = -1; dy <= 1; dy++)
-			if (game.map.at(x+dx,y+dy)->type == TREE)
+	for (int dx = -r; dx <= r; dx++)
+		for (int dy = -r; dy <= r; dy++)
+			if (game.map.at(x+dx,y+dy)->type == ty)
 				count++;
 	return count;
 }
 
-int countTrees2(s16 x, s16 y) {
-	int count = 0;
-	for (int dx = -2; dx <= 2; dx++)
-		for (int dy = -2; dy <= 2; dy++)
-			if (game.map.at(x+dx,y+dy)->type == TREE)
-				count++;
-	return count;
+int countTrees(s16 x, s16 y, s16 r) {
+	return countFoo(x, y, r, TREE);
 }
 
 void CATrees() {
@@ -221,7 +218,7 @@ void CATrees() {
 		memset(next, 0, torch.buf.geth()*torch.buf.getw()*sizeof(bool));
 		for (int y = 0; y < torch.buf.geth(); y++) {
 			for (int x = 0; x < torch.buf.getw(); x++) {
-				if (countTrees2(x,y) <= 3 || countTrees(x,y) >= 5) next[y*torch.buf.getw()+x] = true;
+				if (countTrees(x,y,2) <= 3 || countTrees(x,y,1) >= 5) next[y*torch.buf.getw()+x] = true;
 				else next[y*torch.buf.getw()+x] = false;
 			}
 		}
@@ -240,7 +237,7 @@ void CATrees() {
 		memset(next, 0, torch.buf.geth()*torch.buf.getw()*sizeof(bool));
 		for (int y = 0; y < torch.buf.geth(); y++) {
 			for (int x = 0; x < torch.buf.getw(); x++) {
-				if (countTrees(x,y) >= 5) next[y*torch.buf.getw()+x] = true;
+				if (countTrees(x,y,1) >= 5) next[y*torch.buf.getw()+x] = true;
 				else next[y*torch.buf.getw()+x] = false;
 			}
 		}
@@ -257,6 +254,62 @@ void CATrees() {
 	}
 }
 
+void CALakes() {
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			if (!game.map.at(x,y)->desc()->solid && (rand8() < 23) && countFoo(x,y,6,GLASS)) set_tile(x,y, (void*)WATER);
+		}
+	}
+	bool *next = new bool[torch.buf.geth()*torch.buf.getw()];
+	for (int i = 0; i < 4; i++) {
+		memset(next, 0, torch.buf.geth()*torch.buf.getw()*sizeof(bool));
+		for (int y = 0; y < torch.buf.geth(); y++) {
+			for (int x = 0; x < torch.buf.getw(); x++) {
+				if (countFoo(x,y,1,WATER) >= 2) next[y*torch.buf.getw()+x] = true;
+				else next[y*torch.buf.getw()+x] = false;
+			}
+		}
+		for (int y = 0; y < torch.buf.geth(); y++) {
+			for (int x = 0; x < torch.buf.getw(); x++) {
+				//if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == WATER) {
+				if (game.map.at(x,y)->type != GLASS && game.map.at(x,y)->type != 0) {
+					if (next[y*torch.buf.getw()+x])
+						set_tile(x,y, (void*)WATER);
+					else if (game.map.at(x,y)->type == WATER)
+						set_tile(x,y, (void*)GROUND);
+				}
+			}
+		}
+	}
+	for (int i = 0; i < 3; i++) {
+		memset(next, 0, torch.buf.geth()*torch.buf.getw()*sizeof(bool));
+		for (int y = 0; y < torch.buf.geth(); y++) {
+			for (int x = 0; x < torch.buf.getw(); x++) {
+				if (countFoo(x,y,1,WATER) >= 4 - countFoo(x,y,1,GLASS) &&
+						countFoo(x,y,2,WATER) >= 16 - countFoo(x,y,2,GLASS)) next[y*torch.buf.getw()+x] = true;
+				else next[y*torch.buf.getw()+x] = false;
+			}
+		}
+		for (int y = 0; y < torch.buf.geth(); y++) {
+			for (int x = 0; x < torch.buf.getw(); x++) {
+				if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == WATER) {
+					if (next[y*torch.buf.getw()+x])
+						set_tile(x,y, (void*)WATER);
+					else
+						set_tile(x,y, (void*)GROUND);
+				}
+			}
+		}
+	}
+	int w = 0;
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			if (game.map.at(x,y)->type == WATER) w++;
+		}
+	}
+	printf("%d water cells. ", w);
+}
+
 void generate_terrarium() {
 	s16 cx = torch.buf.getw()/2, cy = torch.buf.geth()/2;
 
@@ -267,16 +320,19 @@ void generate_terrarium() {
 	// glass on the rim
 	filledCircle(cx, cy, 60, set_tile, (void*)GROUND);
 	hollowCircle(cx, cy, 60, set_tile, (void*)GLASS);
-	printf("generating map...");
+	printf("Growing trees... ");
 	CATrees();
 	printf("done\n");
-	printf("checking connectivity...");
+	printf("Filling lakes... ");
+	CALakes();
+	printf("done\n");
+	printf("Checking connectivity... ");
 	if (checkConnected()) {
-		printf("connected\n");
+		printf("connected.\n");
 	} else {
 		printf("\1\x1f\x01unconnected\1\xff\xff\n");
 	}
-	printf("adding creatures...");
+	printf("Spawning creatures... ");
 	for (int i = 0; i < 60; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (!game.map.at(x,y)->desc()->solid) {
@@ -287,31 +343,26 @@ void generate_terrarium() {
 			fly->setPos(x,y);
 			game.map.at(x,y)->creature = fly;
 			game.monsters.push(fly);
-		}
+		} else i--;
+	}
+	printf("done\n");
+	printf("Dropping items... ");
+	for (int i = 0; i < 60; i++) {
+		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
+		if (!game.map.at(x,y)->desc()->solid) {
+			Node<Object> on(new NodeV<Object>);
+			on->type = ROCK;
+			stack_item_push(game.map.at(x,y)->objects, on);
+		} else i--;
 	}
 	printf("done\n");
 
-	//haunted_grove(cx, cy);
-	/*hollowCircle(cx, cy, 30, set_tile, (void*)TREE);
-	hollowCircle(cx+1, cy, 30, set_tile, (void*)TREE);
-	hollowCircle(cx, cy+1, 30, set_tile, (void*)TREE);
-	hollowCircle(cx-1, cy, 30, set_tile, (void*)TREE);
-	hollowCircle(cx, cy-1, 30, set_tile, (void*)TREE);*/
-
-	/*for (int i = 0; i < 5; i++) {
-		killTrees();
-		growTrees();
-	}*/
-
-	/*bresenham(cx,cy,cx+(((40)*COS[30]) >> 12),cy+(((40)*SIN[30]) >> 12),set_tile,(void*)GROUND);*/
 	Cell *l;
 	s16 x = cx, y = cy;
 	while (game.map.at(x, y)->desc()->solid)
 		randwalk(x, y);
 	game.player.x = x;
 	game.player.y = y;
-
-	drop_rocks(cx, cy);
 
 	x = cx, y = cy;
 	while ((l = game.map.at(x, y)) && l->desc()->solid)
