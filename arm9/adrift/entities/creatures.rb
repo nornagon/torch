@@ -20,7 +20,7 @@ creature 'venus fly trap' do
   aim 1
   melee 5
 
-  cooldown 8
+  cooldown 15
 end
 
 creature 'blowfly' do

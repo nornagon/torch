@@ -337,7 +337,7 @@ void generate_terrarium() {
 	}
 
 	printf("Spawning creatures... ");
-	for (int i = 0; i < 60; i++) {
+	for (int i = 0, n = 40 + (rand8() % 32); i < n; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (!game.map.at(x,y)->desc()->solid) {
 			Node<Creature> fly(new NodeV<Creature>);
@@ -345,6 +345,17 @@ void generate_terrarium() {
 			fly->setPos(x,y);
 			game.map.at(x,y)->creature = fly;
 			game.monsters.push(fly);
+		} else i--;
+	}
+	for (int i = 0, n = 20 + rand4(); i < n; i++) {
+		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
+		if (game.map.at(x,y)->type == TREE && countFoo(x,y,1,GROUND) >= 1) {
+			Node<Creature> trap(new NodeV<Creature>);
+			trap->init(VENUS_FLY_TRAP);
+			trap->setPos(x,y);
+			set_tile(x,y, (void*)GROUND);
+			game.map.at(x,y)->creature = trap;
+			game.monsters.push(trap);
 		} else i--;
 	}
 	printf("done.\n");
