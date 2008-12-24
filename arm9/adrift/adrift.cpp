@@ -16,6 +16,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "recalc.h"
 
@@ -29,6 +30,15 @@ Adrift::Adrift() {
 	fov_light = build_fov_settings(opacity_test, apply_light, FOV_SHAPE_OCTAGON);
 	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
 }
+
+void Adrift::spawn(u16 type, s16 x, s16 y) {
+	Node<Creature> c(new NodeV<Creature>);
+	c->init(type);
+	c->setPos(x,y);
+	map.at(x,y)->creature = c;
+	monsters.push(c);
+}
+
 void Map::reset() {
 	for (s16 y = 0; y < h; y++)
 		for (s16 x = 0; x < w; x++)
@@ -36,6 +46,7 @@ void Map::reset() {
 }
 
 bool isvowel(char c) {
+	c = tolower(c);
 	return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u';
 }
 
@@ -66,12 +77,20 @@ void seek_and_destroy() {
 		u16 mindist = 16;
 		Node<Creature> candidate;
 		for (int y = game.player.y-4; y < game.player.y+4; y++)
-			for (int x = game.player.x-4; x < game.player.x+4; x++)
-				if (game.map.occupied(x,y) &&
+			for (int x = game.player.x-4; x < game.player.x+4; x++) {
+				u16 dist = dist2(x,y,game.player.x,game.player.y);
+				if (dist <= 16 && game.map.occupied(x,y) &&
 				    !(x == game.player.x && y == game.player.y) &&
-				    game.map.block.at(x,y)->visible &&
-				    dist2(x,y,game.player.x,game.player.y) < mindist)
-						candidate = game.map.at(x,y)->creature;
+				    game.map.block.at(x,y)->visible) {
+				  // try to select aggressive creatures over peaceful ones
+				  Node<Creature> considered = game.map.at(x,y)->creature;
+				  if (!candidate) candidate = considered;
+					else if ((candidate->desc()->peaceful && !considered->desc()->peaceful) || dist < mindist) {
+				  	candidate = considered;
+				  	mindist = dist;
+					}
+				}
+			}
 		if (candidate) game.player.target = candidate;
 	}
 	if (game.player.target) {
@@ -79,9 +98,7 @@ void seek_and_destroy() {
 		if (dist2(game.player.x,game.player.y,targx,targy) > 16) {
 			game.player.target = NULL; return;
 		}
-		if (game.map.block.at(targx,targy)->visible) {
-			//iprintf("I can see it!\n");
-		} else {
+		if (!game.map.block.at(targx,targy)->visible) {
 			game.player.target = NULL; return;
 		}
 		if (adjacent(targx,targy,game.player.x,game.player.y)) {

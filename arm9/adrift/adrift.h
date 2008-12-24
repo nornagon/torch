@@ -70,6 +70,8 @@ struct Adrift {
 
 	fov_settings_type *fov_light, *fov_sight;
 
+	void spawn(u16 type, s16 x, s16 y);
+
 	int cooldown;
 };
 

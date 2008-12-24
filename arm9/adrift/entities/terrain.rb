@@ -16,6 +16,12 @@ terrain 'ground' do
   forgettable
 end
 
+terrain 'grass' do
+  char ','
+  color 7, 25, 5
+  forgettable
+end
+
 terrain 'glass' do
   char '/'
   color 4, 12, 30

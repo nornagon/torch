@@ -310,6 +310,47 @@ void CALakes() {
 	printf("%d water cells. ", w);
 }
 
+void AddGrass() {
+	for (int i = 0; i < 4; i++) {
+		for (int y = 0; y < torch.buf.geth(); y++) {
+			for (int x = 0; x < torch.buf.getw(); x++) {
+				if (game.map.at(x,y)->type != GROUND) continue;
+				unsigned int nWater1 = countFoo(x,y,1,WATER),
+				             nWater2 = countFoo(x,y,2,WATER),
+				             nGrass1 = countFoo(x,y,1,GRASS),
+				             nGrass2 = countFoo(x,y,2,GRASS);
+				if (rand4() < nWater1 || (rand8() & 0x1f) < nWater2 ||
+				    rand4() < nGrass1/2 || (rand8() & 0x1f) < nGrass2/2 ) {
+					set_tile(x,y, (void*)GRASS);
+				}
+			}
+		}
+	}
+}
+
+void SpawnCreatures() {
+	for (int i = 0, n = 40 + (rand8() % 32); i < n; i++) {
+		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
+		if (!game.map.at(x,y)->desc()->solid) {
+			game.spawn(BLOWFLY, x, y);
+		} else i--;
+	}
+	for (int i = 0, n = 20 + rand4(); i < n; i++) {
+		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
+		if (game.map.at(x,y)->type == TREE && countFoo(x,y,1,GROUND) >= 1) {
+			game.spawn(VENUS_FLY_TRAP, x, y);
+			set_tile(x,y, (void*)GROUND);
+		} else i--;
+	}
+
+	for (int i = 0, n = 15 + rand4(); i < n; i++) {
+		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
+		if (!game.map.at(x,y)->desc()->solid) {
+			game.spawn(LABRADOR, x, y);
+		} else i--;
+	}
+}
+
 void generate_terrarium() {
 	s16 cx = torch.buf.getw()/2, cy = torch.buf.geth()/2;
 
@@ -329,6 +370,10 @@ void generate_terrarium() {
 	CALakes();
 	printf("done.\n");
 
+	printf("Buying shrubberies... ");
+	AddGrass();
+	printf("done.\n");
+
 	printf("Checking connectivity... ");
 	if (checkConnected()) {
 		printf("connected.\n");
@@ -337,27 +382,7 @@ void generate_terrarium() {
 	}
 
 	printf("Spawning creatures... ");
-	for (int i = 0, n = 40 + (rand8() % 32); i < n; i++) {
-		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
-		if (!game.map.at(x,y)->desc()->solid) {
-			Node<Creature> fly(new NodeV<Creature>);
-			fly->init(BLOWFLY);
-			fly->setPos(x,y);
-			game.map.at(x,y)->creature = fly;
-			game.monsters.push(fly);
-		} else i--;
-	}
-	for (int i = 0, n = 20 + rand4(); i < n; i++) {
-		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
-		if (game.map.at(x,y)->type == TREE && countFoo(x,y,1,GROUND) >= 1) {
-			Node<Creature> trap(new NodeV<Creature>);
-			trap->init(VENUS_FLY_TRAP);
-			trap->setPos(x,y);
-			set_tile(x,y, (void*)GROUND);
-			game.map.at(x,y)->creature = trap;
-			game.monsters.push(trap);
-		} else i--;
-	}
+	SpawnCreatures();
 	printf("done.\n");
 
 	printf("Dropping items... ");

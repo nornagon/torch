@@ -21,6 +21,7 @@ creature 'venus fly trap' do
   melee 5
 
   cooldown 15
+  stationary
 end
 
 creature 'blowfly' do
@@ -32,4 +33,15 @@ creature 'blowfly' do
   melee 1
   cooldown 5
   wanders; peaceful
+end
+
+creature 'labrador' do
+  char 'd'
+  color 28, 23, 0
+  strength 5
+  agility 2
+  aim 4
+  melee 4
+  cooldown 10
+  wanders; hungry
 end

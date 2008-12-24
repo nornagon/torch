@@ -9,7 +9,8 @@
 * make the X menu draw over the main window, and 'dim' the background
 
 actual stuff
-- make blowflies (bats?) attack player
+- make combat less spammy
+- add A* to seek_and_destroy to avoid annoying wall situations
 - lake detail
 	- reeds
 	- willowisp

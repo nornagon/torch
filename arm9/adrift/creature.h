@@ -21,6 +21,10 @@ struct Creature {
 		melee = desc()->melee;
 		hp = max_hp();
 	}
+	void acted() {
+		cooldown += desc()->cooldown;
+	}
+	void move(s16 xp, s16 yp);
 	CreatureDesc *desc() { return &creaturedesc[type]; }
 };
 
