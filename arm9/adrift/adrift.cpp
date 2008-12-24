@@ -7,6 +7,8 @@
 #include "combat.h"
 #include "behaviour.h"
 
+#include "assert.h"
+
 #include <stdarg.h>
 
 #include "torch.h"
@@ -198,6 +200,27 @@ void update_projectiles() {
 	}
 }
 
+void update_animations() {
+	Node<Animation> ani = game.animations.top();
+	while (ani) {
+		assert(ani->obj->desc().animation);
+		if (ani->frame >= 0) {
+			if (ani->x >= torch.buf.scroll.x && ani->x < torch.buf.scroll.x+32 &&
+			    ani->y >= torch.buf.scroll.y && ani->y < torch.buf.scroll.y+24)
+				torch.buf.cacheat(ani->x, ani->y)->dirty = 1;
+			ani->obj->quantity = ani->frame/16; // whee, hacks
+			int len = strlen(ani->obj->desc().animation);
+			if (ani->obj->quantity >= len) {
+				ani->obj->quantity = 0;
+				ani->frame = 0;
+			}
+		}
+		ani->frame++;
+
+		ani = ani.next();
+	}
+}
+
 void process_sight() {
 	// go 1 over the boundaries to be sure we mark everything properly, even if
 	// we scrolled just now...
@@ -218,6 +241,7 @@ void step_monsters() {
 void handler() {
 	process_keys();
 	update_projectiles();
+	update_animations();
 	step_monsters();
 
 	process_sight();

@@ -207,6 +207,32 @@ int countTrees(s16 x, s16 y, s16 r) {
 	return countFoo(x, y, r, TREE);
 }
 
+void AddStars() {
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			if (game.map.at(x,y)->type == TERRAIN_NONE && rand8() < 10) {
+				// light
+				lightsource *li = new_light(1, 1<<12, 1<<12, 1<<12);
+				li->x = x<<12; li->y = y<<12;
+				game.map.lights.push(li);
+
+				// object
+				Node<Object> on(new NodeV<Object>);
+				on->type = STAR;
+				on->quantity = 0;
+				game.map.at(x,y)->objects.push(on);
+
+				// animation
+				Node<Animation> ani(new NodeV<Animation>);
+				ani->obj = on;
+				ani->frame = 0;
+				ani->x = x; ani->y = y;
+				game.animations.push(ani);
+			}
+		}
+	}
+}
+
 void CATrees() {
 	for (int y = 0; y < torch.buf.geth(); y++) {
 		for (int x = 0; x < torch.buf.getw(); x++) {
@@ -351,6 +377,15 @@ void SpawnCreatures() {
 	}
 }
 
+static inline void startTimer() {
+	TIMER_CR(1) = TIMER_CASCADE;
+	TIMER_CR(0) = TIMER_DIV_1024 | TIMER_ENABLE;
+}
+static inline u32 stopTimer() {
+	TIMER_CR(0) = 0;
+	return TIMER_DATA(0) | (TIMER_DATA(1) << 16);
+}
+
 void generate_terrarium() {
 	s16 cx = torch.buf.getw()/2, cy = torch.buf.geth()/2;
 
@@ -362,17 +397,27 @@ void generate_terrarium() {
 	filledCircle(cx, cy, 60, set_tile, (void*)GROUND);
 	hollowCircle(cx, cy, 60, set_tile, (void*)GLASS);
 
+	AddStars();
+
+	u32 timerVal;
+
 	printf("Growing trees... ");
+	startTimer();
 	CATrees();
-	printf("done.\n");
+	timerVal = stopTimer();
+	printf("done (%.2fs).\n", timerVal*1024/33.513982e6);
 
 	printf("Filling lakes... ");
+	startTimer();
 	CALakes();
-	printf("done.\n");
+	timerVal = stopTimer();
+	printf("done (%.2fs).\n", timerVal*1024/33.513982e6);
 
 	printf("Buying shrubberies... ");
+	startTimer();
 	AddGrass();
-	printf("done.\n");
+	timerVal = stopTimer();
+	printf("done (%.2fs).\n", timerVal*1024/33.513982e6);
 
 	printf("Checking connectivity... ");
 	if (checkConnected()) {

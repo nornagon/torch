@@ -10,7 +10,7 @@ struct Object {
 	Object(): type(0), quantity(1) {}
 	const ObjectDesc& desc() { return objectdesc[type]; }
 	u16 type;
-	u8 quantity;
+	u16 quantity;
 };
 
 void stack_item_push(List<Object> &container, Node<Object> obj);

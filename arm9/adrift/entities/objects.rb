@@ -13,3 +13,9 @@ object 'rain stick' do
   char '/'
   color 18,18,0
 end
+
+object 'star' do
+  char '.'
+  color 31,31,31
+  animation '.-+x+-.'
+end

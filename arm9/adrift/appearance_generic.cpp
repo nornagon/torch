@@ -13,15 +13,21 @@ bool isforgettable(s16 x, s16 y) {
 
 void visible_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 	Cell *l = game.map.at(x,y);
-	if (l->creature)
-		*ch = creaturedesc[l->creature->type].ch,
+	if (l->creature) {
+		*ch = creaturedesc[l->creature->type].ch;
 		*col = creaturedesc[l->creature->type].color;
-	else if (l->objects.top())
-		*ch = objectdesc[l->objects.top()->type].ch,
-		*col = objectdesc[l->objects.top()->type].color;
-	else
-		*ch = terraindesc[l->type].ch,
+	} else if (l->objects.top()) {
+		if (l->objects.top()->desc().animation) {
+			*ch = l->objects.top()->desc().animation[l->objects.top()->quantity];
+			*col = l->objects.top()->desc().color;
+		} else {
+			*ch = l->objects.top()->desc().ch;
+			*col = l->objects.top()->desc().color;
+		}
+	} else {
+		*ch = terraindesc[l->type].ch;
 		*col = terraindesc[l->type].color;
+	}
 }
 
 void recalled_appearance(s16 x, s16 y, u16 *ch, u16 *col) {

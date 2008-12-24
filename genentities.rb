@@ -171,6 +171,7 @@ if $0 == __FILE__
       io.puts "#define ENTITY_#{kind.to_c}_H"
       io.puts
       io.puts "#include <nds/jtypes.h>"
+      io.puts "#include <stdlib.h>"
       io.puts
       io.puts "struct #{kind.capitalize}Desc {"
       io.puts "\tconst char *name;"

@@ -60,6 +60,12 @@ struct Projectile {
 	bresenstate st;
 };
 
+struct Animation {
+	Node<Object> obj;
+	s16 x, y;
+	s16 frame;
+};
+
 struct Adrift {
 	Adrift();
 	Player player;
@@ -67,6 +73,7 @@ struct Adrift {
 
 	List<Creature> monsters;
 	List<Projectile> projectiles;
+	List<Animation> animations;
 
 	fov_settings_type *fov_light, *fov_sight;
 

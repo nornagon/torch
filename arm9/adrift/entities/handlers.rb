@@ -8,3 +8,4 @@ end
 
 default :color => [31,0,31]
 default :char => '?'
+default :animation => nil
