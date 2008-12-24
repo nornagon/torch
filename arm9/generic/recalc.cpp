@@ -6,7 +6,11 @@ void recalc(blockmap *block, s16 x, s16 y) {
 	mapel *m = torch.buf.at(x,y);
 	if (b->visible && torch.buf.luxat(x,y)->lval > 0) {
 		visible_appearance(x, y, &m->ch, &m->col);
-	} else if (torch.buf.cacheat(x,y)->was_visible) {
+	} else if (x < torch.buf.scroll.x || x-32 > torch.buf.scroll.x ||
+	           y < torch.buf.scroll.y || y-32 > torch.buf.scroll.y ||
+	           torch.buf.cacheat(x,y)->was_visible) {
+	  // recalculating either something off the screen or something that has
+	  // become invisible
 		recalled_appearance(x, y, &m->ch, &m->col);
 	}
 }

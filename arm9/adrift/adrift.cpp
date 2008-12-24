@@ -205,6 +205,7 @@ void update_animations() {
 	while (ani) {
 		assert(ani->obj->desc().animation);
 		if (ani->frame >= 0) {
+			// dirty the cache iff it's on the screen
 			if (ani->x >= torch.buf.scroll.x && ani->x < torch.buf.scroll.x+32 &&
 			    ani->y >= torch.buf.scroll.y && ani->y < torch.buf.scroll.y+24)
 				torch.buf.cacheat(ani->x, ani->y)->dirty = 1;

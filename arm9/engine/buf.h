@@ -2,6 +2,7 @@
 #define BUF_H 1
 
 #include <nds/jtypes.h>
+#include "assert.h"
 
 struct mapel {
 	mapel() { reset(); }
@@ -61,7 +62,9 @@ class cachebucket {
 			y += origin.y;
 			if (x >= W) x -= W;
 			if (y >= H) y -= H;
-			return &els[y*W+x];
+			int idx = y*W+x;
+			assert(idx >= 0 && idx < W*H);
+			return &els[idx];
 		}
 
 		void reset() {
@@ -79,7 +82,10 @@ class torchbuf {
 		mapel *map;
 		luxel *light;
 
-		inline luxel *luxat_s(s16 x, s16 y) { return &light[y*32+x]; }
+		inline luxel *luxat_s(s16 x, s16 y) {
+			assert(y*32+x >= 0 && y*32+x < 32*24);
+			return &light[y*32+x];
+		}
 
 	public:
 		torchbuf();
@@ -95,6 +101,8 @@ class torchbuf {
 		inline mapel *at(s16 x, s16 y) { return &map[y*w+x]; }
 		inline luxel *luxat(s16 x, s16 y) { return &light[(y-scroll.y)*32+(x-scroll.x)]; }
 		inline cachel *cacheat(s16 x, s16 y) {
+			assert(x - scroll.x >= 0 && y - scroll.y >= 0);
+			assert(x < scroll.x + 32 && y < scroll.y + 24);
 			return cache.at(x - scroll.x, y - scroll.y);
 		}
 
