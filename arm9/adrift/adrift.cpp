@@ -208,11 +208,11 @@ void update_animations() {
 			if (ani->x >= torch.buf.scroll.x && ani->x < torch.buf.scroll.x+32 &&
 			    ani->y >= torch.buf.scroll.y && ani->y < torch.buf.scroll.y+24)
 				torch.buf.cacheat(ani->x, ani->y)->dirty = 1;
-			ani->obj->quantity = ani->frame/16; // whee, hacks
+			ani->obj->quantity = ani->frame/4; // whee, hacks
 			int len = strlen(ani->obj->desc().animation);
 			if (ani->obj->quantity >= len) {
 				ani->obj->quantity = 0;
-				ani->frame = 0;
+				ani->frame = -rand8();
 			}
 		}
 		ani->frame++;
