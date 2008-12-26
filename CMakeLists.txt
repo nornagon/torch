@@ -27,12 +27,12 @@ FILE (GLOB entities ${SRC}/arm9/adrift/*.rb)
 
 INCLUDE_DIRECTORIES(${SRC}/arm9/include ${SRC}/arm9/engine ${SRC}/arm9/generic
 	${SRC}/native/include ${SRC}/arm9/adrift)
-INCLUDE_DIRECTORIES(${SDL_INCLUDE_DIR})
 
 ADD_DEFINITIONS( "-Wall -Wunused" )
 ADD_DEFINITIONS( -DNATIVE=1 )
 
 FIND_PACKAGE(SDL REQUIRED)
+INCLUDE_DIRECTORIES(${SDL_INCLUDE_DIR})
 
 ADD_CUSTOM_COMMAND(
 	OUTPUT ${generated_files}

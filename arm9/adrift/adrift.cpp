@@ -241,7 +241,7 @@ void update_projectiles() {
 void update_animations() {
 	Node<Animation> ani = game.animations.top();
 	while (ani) {
-		assert(ani->obj->desc().animation);
+		assert(ani->obj->desc()->animation);
 		if (ani->frame >= 0) {
 			// dirty the cache iff it's on the screen
 			if (ani->x >= torch.buf.scroll.x && ani->x < torch.buf.scroll.x+32 &&
