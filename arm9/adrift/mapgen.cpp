@@ -496,16 +496,19 @@ void generate_terrarium() {
 	Node<lightsource> li(new NodeV<lightsource>);
 	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+40)<<12; li->y = cy<<12;
+	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 	set_tile(cx+30, cy, FIRE);
 	li = new NodeV<lightsource>;
 	set_light(li, 12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+30)<<12; li->y = cy<<12;
+	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 	set_tile(cx+35, cy-7, FIRE);
 	li = new NodeV<lightsource>;
 	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
 	li->x = (cx+35)<<12; li->y = (cy-7)<<12;
+	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 
 	game.map.block.refresh_blocked_from();

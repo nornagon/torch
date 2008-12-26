@@ -293,6 +293,7 @@ void handler() {
 	update_animations();
 	step_monsters();
 
+	game.player.light->update_flicker();
 	process_sight();
 	draw_lights(game.fov_light, &game.map.block, game.map.lights);
 	{

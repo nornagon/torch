@@ -66,6 +66,23 @@ void lightsource::update_flicker() {
 				}
 			}
 			break;
+		case FLICKER_RADIUS:
+			if (frame > 0) {
+				frame--;
+				if (frame == 0) {
+					frame = -1-(rand32()%5);
+					int32 factor = 2*rand8();
+					radius = orig_radius - ((orig_radius*factor)>>12);
+					intensity = orig_intensity - ((orig_intensity*factor)>>12);
+				}
+			} else {
+				frame++;
+				if (frame == 0) {
+					frame = 1+(rand4()&0x7);
+					radius = orig_radius;
+				}
+			}
+			break;
 		case FLICKER_DARK:
 		case FLICKER_NONE:
 			return;

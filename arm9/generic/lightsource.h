@@ -13,6 +13,7 @@ enum FLICKER_TYPE {
 	FLICKER_NONE,
 	FLICKER_LIGHT,
 	FLICKER_DARK,
+	FLICKER_RADIUS,
 };
 
 // lightsource holds information about a specific light source, as well as
