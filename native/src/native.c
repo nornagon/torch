@@ -1,4 +1,5 @@
 #include "native.h"
+#include "font.h"
 #include <math.h>
 #include <SDL.h>
 
@@ -126,8 +127,21 @@ Uint32 rgb32from15(u32 color) {
 }
 
 void drawcq(u32 x, u32 y, u32 c, u32 color) {
-	putpixel(screen, x, y, rgb32from15(color));
+	c -= ' ';
+	const unsigned char *chardata = &fontTiles[8 * 8 * c];
+
+	unsigned int i, j;
+	for (i = 0; i < 8; i++) {
+		for (j = 0; j < 8; j++) {
+			unsigned int offset = i + (j * 8);
+			Uint32 col = 0;
+			if (chardata[offset])
+				col = rgb32from15(color);
+			putpixel(screen, x + i, y + j, col);
+		}
+	}
 }
+
 void swapbufs() {
 }
 
