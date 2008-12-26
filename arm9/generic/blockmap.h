@@ -12,7 +12,7 @@ struct blockel {
 	bool visible : 1;
 
 	void reset() {
-		blocked_from = seen_from = opaque = 0;
+		blocked_from = seen_from = opaque = visible = 0;
 	}
 };
 
