@@ -27,9 +27,51 @@ touchPosition touchReadXY() {
 	return ret;
 }
 
-void scanKeys() {}
-uint32 keysHeld() { return 0; }
-uint32 keysDown() { return 0; }
+uint32 dsKeyForSDLKey(SDLKey key) {
+	switch (key) {
+		case 'a': return KEY_A;
+		case 'b': return KEY_B;
+		case SDLK_LEFT: return KEY_LEFT;
+		case SDLK_RIGHT: return KEY_RIGHT;
+		case SDLK_UP: return KEY_UP;
+		case SDLK_DOWN: return KEY_DOWN;
+		default: break;
+	}
+
+	return 0;
+}
+
+uint32 currentKeyState;
+uint32 downKeysState;
+void scanKeys() {
+	currentKeyState = 0;
+	downKeysState = 0;
+	
+	Uint8 *state = SDL_GetKeyState(NULL);
+	unsigned int i;
+	for (i = 0; i < SDLK_LAST; i++) {
+		if (state[i])
+			currentKeyState |= dsKeyForSDLKey(i);
+	}
+
+
+	SDL_Event event;
+	while (SDL_PollEvent(&event)) {
+		switch (event.type) {
+			case SDL_KEYDOWN:
+				downKeysState |= dsKeyForSDLKey(event.key.keysym.sym);
+				break;
+		}
+	}
+}
+
+uint32 keysHeld() {
+	return currentKeyState;
+}
+
+uint32 keysDown() {
+	return downKeysState;
+}
 
 void lcdMainOnBottom() {}
 void lcdMainOnTop() {}
