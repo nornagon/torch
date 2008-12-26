@@ -163,6 +163,8 @@ void inventory() {
 			u16 color = selected == i+start ? RGB15(31,31,31) : RGB15(18,18,18);
 			if (o->quantity == 1)
 				tprintf(17, 12+i*9, color, "%s", name);
+			else if (o->desc()->plural)
+				tprintf(17, 12+i*9, color, "%d %s", o->quantity, o->desc()->plural);
 			else
 				tprintf(17, 12+i*9, color, "%d %ss", o->quantity, name);
 			if (i+start == selected) {

@@ -25,3 +25,17 @@ object 'vending machine' do
   color 31,5,2
   obstruction
 end
+
+object 'can of stewed beef' do
+  char '%'
+  plural 'cans of stewed beef'
+  color 17,13,2
+  stackable
+end
+
+object 'bottle of water' do
+  char '%'
+  plural 'bottles of water'
+  color 0,25,25
+  stackable
+end

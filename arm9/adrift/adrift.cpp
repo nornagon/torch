@@ -62,12 +62,16 @@ bool get_items() {
 
 	Node<Object> k;
 	while ((k = os.pop())) {
-		const char *name = objectdesc[k->type].name;
+		const char *name = k->desc()->name;
 		if (k->quantity == 1) {
 			const char *a_an = isvowel(name[0]) ? "n" : "";
 			iprintf("You pick up a%s %s.\n", a_an, name);
 		} else {
-			iprintf("You pick up %d %ss.\n", k->quantity, name);
+			if (k->desc()->plural) {
+				iprintf("You pick up %d %s.\n", k->quantity, k->desc()->plural);
+			} else {
+				iprintf("You pick up %d %ss.\n", k->quantity, name);
+			}
 		}
 
 		// go through the bag to see if we can stack.
@@ -160,6 +164,36 @@ void process_keys() {
 			return;
 		}
 
+		if (down & KEY_A) {
+			seek_and_destroy();
+			if (!game.player.target) {
+				// no monsters in range
+				for (int x = game.player.x-1; x <= game.player.x+1; x++) {
+					for (int y = game.player.y-1; y <= game.player.y+1; y++) {
+						Node<Object> o = game.map.at(x,y)->objects.top();
+						if (!o) continue;
+						if (o->type == VENDING_MACHINE) {
+							if (game.player.x == x+D_DX[o->orientation] && game.player.y == y+D_DY[o->orientation]) {
+								iprintf("You kick the vending machine. ");
+								if (o->quantity > 0 && rand4() < 5) {
+									if (rand4() & 1) {
+										iprintf("Clunk! A can rolls out.\n");
+										addObject(game.player.x, game.player.y, CAN_OF_STEWED_BEEF);
+									} else {
+										iprintf("Clunk! A bottle rolls out.\n");
+										addObject(game.player.x, game.player.y, BOTTLE_OF_WATER);
+									}
+									o->quantity--;
+								} else {
+									iprintf("Nothing happens.\n");
+								}
+								game.cooldown += 5;
+							}
+						}
+					}
+				}
+			} else return;
+		}
 		if (keys & KEY_A) {
 			seek_and_destroy(); return;
 		}

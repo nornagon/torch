@@ -16,6 +16,7 @@ struct Object {
 	DIRECTION orientation;
 };
 
+Node<Object> addObject(s16 x, s16 y, u16 type);
 void stack_item_push(List<Object> &container, Node<Object> obj);
 
 #endif /* OBJECT_H */

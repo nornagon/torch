@@ -207,13 +207,6 @@ int countTrees(s16 x, s16 y, s16 r) {
 	return countFoo(x, y, r, TREE);
 }
 
-Node<Object> addObject(s16 x, s16 y, u16 type) {
-	Node<Object> on(new NodeV<Object>);
-	on->type = type;
-	game.map.at(x,y)->objects.push(on);
-	return on;
-}
-
 void AddStars() {
 	for (int y = 0; y < torch.buf.geth(); y++) {
 		for (int x = 0; x < torch.buf.getw(); x++) {
@@ -365,6 +358,7 @@ void Inhabit() {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (!game.map.solid(x,y) && countFoo(x,y,1,GROUND) > 4) {
 			Node<Object> on = addObject(x, y, VENDING_MACHINE);
+			on->quantity = rand4() + 10;
 			// don't let it face into a tree
 			DIRECTION orientation = D_EAST;
 			do {
@@ -375,6 +369,7 @@ void Inhabit() {
 					case 3: orientation = D_WEST; break;
 				}
 			} while (game.map.solid(x+D_DX[orientation],y+D_DY[orientation]));
+			on->orientation = orientation;
 			lightsource *li = new_light_beam(orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
 			li->x = x<<12; li->y = y<<12;
 			game.map.lights.push(li);
