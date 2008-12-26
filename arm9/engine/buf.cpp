@@ -22,6 +22,7 @@ void torchbuf::resize(s16 _w, s16 _h) {
 
 	scroll.reset();
 	cache.reset();
+	reset();
 }
 
 void torchbuf::reset() {

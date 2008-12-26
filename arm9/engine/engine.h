@@ -42,6 +42,8 @@ class engine {
 		void draw();
 
 		void run(void (*handler)());
+
+		s32 get_low_luminance() { return low_luminance; }
 };
 
 extern engine torch;

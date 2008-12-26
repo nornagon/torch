@@ -1,5 +1,6 @@
 #ifndef LIST_H
 #define LIST_H 1
+#include <stdio.h>
 
 // These singly-linked lists are as memory-light and call malloc as little as I
 // could make them do without re-implementing malloc. They are designed such

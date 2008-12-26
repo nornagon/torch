@@ -65,6 +65,7 @@ void Player::move(DIRECTION dir, bool run) {
 		// move the player object
 		game.map.at(x, y)->creature = NULL;
 		game.map.at(x + dpX, y + dpY)->creature = obj;
+		obj->setPos(x+dpX, y+dpY);
 		recalc(&game.map.block, x, y);
 		recalc(&game.map.block, x + dpX, y + dpY);
 

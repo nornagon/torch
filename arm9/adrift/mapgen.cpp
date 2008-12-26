@@ -2,6 +2,7 @@
 #include "adrift.h"
 #include "mersenne.h"
 #include "engine.h"
+#include "recalc.h"
 #include "lightsource.h"
 #include <malloc.h>
 #include <string.h>
@@ -483,29 +484,13 @@ void generate_terrarium() {
 	}
 	printf("done.\n");
 
-	Cell *l;
 	s16 x = cx, y = cy;
 	while (game.map.solid(x, y))
 		randwalk(x, y);
 	game.player.x = x;
 	game.player.y = y;
 
-	x = cx, y = cy;
-	while ((l = game.map.at(x, y)) && game.map.solid(x,y))
-		randwalk(x, y);
-	Node<Creature> cn(new NodeV<Creature>);
-	cn->type = 0;
-	cn->cooldown = 0;
-	cn->setPos(x,y);
-	l->creature = cn;
-
 	x = cx; y = cy;
-
-	while ((l = game.map.at(x, y)) && game.map.solid(x, y))
-		randwalk(x, y);
-	Node<Object> on(new NodeV<Object>);
-	on->type = 0;
-	l->objects.push(on);
 
 	set_tile(cx+40, cy, FIRE);
 	Node<lightsource> li(new NodeV<lightsource>);
@@ -524,4 +509,54 @@ void generate_terrarium() {
 	game.map.lights.push(li);
 
 	game.map.block.refresh_blocked_from();
+}
+
+void test_map() {
+	game.map.resize(64,64);
+	torch.buf.resize(64,64);
+
+	s16 cx = torch.buf.getw()/2, cy = torch.buf.geth()/2;
+
+	filledCircle(cx, cy, 30, set_tile_i, (void*)GROUND);
+	hollowCircle(cx, cy, 30, set_tile_i, (void*)GLASS);
+
+	game.player.x = cx; game.player.y = cy;
+	game.map.at(cx,cy)->creature = game.player.obj;
+	game.player.obj->setPos(cx,cy);
+
+	Node<lightsource> li;
+	set_tile(cx+5, cy, FIRE);
+	li = new NodeV<lightsource>;
+	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
+	li->x = (cx+5)<<12; li->y = cy<<12;
+	game.map.lights.push(li);
+	set_tile(cx-5, cy, FIRE);
+	li = new NodeV<lightsource>;
+	set_light(li, 12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
+	li->x = (cx-5)<<12; li->y = cy<<12;
+	game.map.lights.push(li);
+	set_tile(cx, cy-5, FIRE);
+	li = new NodeV<lightsource>;
+	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
+	li->x = cx<<12; li->y = (cy-5)<<12;
+	game.map.lights.push(li);
+
+	Node<Object> on = addObject(cx+2, cy-1, VENDING_MACHINE);
+	on->quantity = rand4() + 10;
+	DIRECTION orientation = D_WEST;
+	on->orientation = orientation;
+	li = new NodeV<lightsource>;
+	set_light_beam(li, orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
+	li->x = (cx+2)<<12; li->y = (cy-1)<<12;
+	li->flicker = FLICKER_LIGHT;
+	game.map.lights.push(li);
+
+	game.map.block.refresh_blocked_from();
+	recalc(&game.map.block, game.player.x, game.player.y);
+
+	torch.buf.scroll.x = game.player.x - 16;
+	torch.buf.scroll.y = game.player.y - 12;
+	torch.buf.bounded(torch.buf.scroll.x, torch.buf.scroll.y);
+	torch.dirty_screen();
+	torch.reset_luminance();
 }

@@ -136,6 +136,10 @@ void process_keys() {
 		u32 down = keysDown();
 		touchPosition touch = touchReadXY();
 
+		if (down & KEY_SELECT) {
+			test_map(); return;
+		}
+
 		if (down & KEY_X) {
 			inventory(); return;
 		}
@@ -143,9 +147,11 @@ void process_keys() {
 			overview(); return;
 		}
 
-		if (down & KEY_TOUCH && game.player.projectile && touch.px != 0 && touch.py != 0) {
-			game.player.chuck(torch.buf.scroll.x + touch.px/8,
-			                  torch.buf.scroll.y + touch.py/8);
+		if (down & KEY_TOUCH && touch.px != 0 && touch.py != 0) {
+			if (!(keys & KEY_R) && game.player.projectile) {
+				game.player.chuck(torch.buf.scroll.x + touch.px/8,
+													torch.buf.scroll.y + touch.py/8);
+			}
 			return;
 		}
 
@@ -295,6 +301,14 @@ void handler() {
 			k->update_flicker();
 			draw_light(game.fov_light, &game.map.block, k);
 		}
+	}
+
+	u32 keys = keysHeld();
+	u32 down = keysDown();
+	touchPosition touch = touchReadXY();
+	if (down & KEY_TOUCH && keys & KEY_R && touch.px != 0 && touch.py != 0) {
+		luxel *l = torch.buf.luxat(torch.buf.scroll.x + touch.px/8, torch.buf.scroll.y + touch.py/8);
+		iprintf("c:%d,%d,%d v:%d, low:%d\n", l->lr, l->lg, l->lb, l->lval, torch.get_low_luminance());
 	}
 
 	refresh(&game.map.block);
