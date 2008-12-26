@@ -22,6 +22,8 @@ enum {
 	KEY_DOWN,
 	KEY_UP,
 	KEY_TOUCH,
+	KEY_SELECT,
+	KEY_START,
 };
 
 enum IRQ_MASKS {
