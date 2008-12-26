@@ -8,7 +8,9 @@
 #ifdef NATIVE
 #include "native.h"
 #include <sys/time.h>
+#define TRIP_DMA trip_dma()
 #else
+#define TRIP_DMA ((void)0)
 #include "draw.h"
 #endif
 
@@ -75,7 +77,6 @@ void engine::init() {
 
 // we copy data *away* from dir
 void engine::move_port(DIRECTION dir) {
-#ifndef NATIVE
 	u32 i;
 	// TODO: generalise?
 	if (dir & D_NORTH) {
@@ -90,16 +91,19 @@ void engine::move_port(DIRECTION dir) {
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
+			TRIP_DMA;
 		} else if (dir & D_WEST) {
 			for (i = 1; i < 24; i++)
 				buf.cache.at(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8-8)>>1);
+			TRIP_DMA;
 		} else {
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-256*8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-256*8)>>1);
+			TRIP_DMA;
 		}
 	} else if (dir & D_SOUTH) {
 		// mark the southern squares dirty
@@ -111,16 +115,19 @@ void engine::move_port(DIRECTION dir) {
 			DMA_SRC(3) = (uint32)&backbuf[256*8+8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
+			TRIP_DMA;
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 23; i++)
 				buf.cache.at(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*8];
 			DMA_DEST(3) = (uint32)&backbuf[8];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8-8)>>1);
+			TRIP_DMA;
 		} else {
 			DMA_SRC(3) = (uint32)&backbuf[256*8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-256*8)>>1);
+			TRIP_DMA;
 		}
 	} else {
 		if (dir & D_EAST) {
@@ -129,15 +136,16 @@ void engine::move_port(DIRECTION dir) {
 			DMA_SRC(3) = (uint32)&backbuf[8];
 			DMA_DEST(3) = (uint32)&backbuf[0];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | ((256*192-8)>>1);
+			TRIP_DMA;
 		} else if (dir & D_WEST) {
 			for (i = 0; i < 24; i++)
 				buf.cache.at(0, i)->dirty = 2;
 			DMA_SRC(3) = (uint32)&backbuf[256*192-1-8];
 			DMA_DEST(3) = (uint32)&backbuf[256*192-1];
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);
+			TRIP_DMA;
 		}
 	}
-#endif
 }
 
 void engine::scroll(int dsX, int dsY) {

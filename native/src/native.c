@@ -7,6 +7,10 @@ VoidFunctionPointer __irq_vector[32];
 
 vuint16 DIV_CR = 0;
 vint32 DIV_RESULT32 = 0;
+vuint32 dmaSrc[4];
+vuint32 dmaDest[4];
+vuint32 dmaCR[4];
+u16 backbuf[256*256];
 
 SDL_Surface *screen;
 
@@ -151,4 +155,7 @@ void irqSet(IRQ_MASK irq, VoidFunctionPointer f) {
 
 void irqEnable(IRQ_MASK irq) {
 	REG_IE |= BIT(irq);
+}
+
+void trip_dma() {
 }

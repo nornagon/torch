@@ -33,6 +33,33 @@ enum IRQ_MASKS {
 
 typedef enum IRQ_MASKS IRQ_MASK;
 
+#define DMA_ENABLE      BIT(31)
+#define DMA_BUSY	    BIT(31)
+#define DMA_IRQ_REQ     BIT(30)
+
+#define DMA_START_NOW   0
+
+#define DMA_16_BIT      0
+#define DMA_32_BIT      BIT(26)
+
+#define DMA_SRC_INC     (0)
+#define DMA_SRC_DEC     BIT(23)
+
+#define DMA_DST_INC     (0)
+#define DMA_DST_DEC     BIT(21)
+
+#define DMA_COPY_WORDS     (DMA_ENABLE | DMA_32_BIT | DMA_START_NOW)
+
+#define DMA_SRC(n) dmaSrc[n]
+#define DMA_DEST(n) dmaDest[n]
+#define DMA_CR(n) dmaCR[n]
+extern vuint32 dmaSrc[4];
+extern vuint32 dmaDest[4];
+extern vuint32 dmaCR[4];
+void trip_dma();
+
+extern u16 backbuf[256*256];
+
 void native_init();
 
 void scanKeys();
