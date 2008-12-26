@@ -8,7 +8,7 @@
 
 struct Object {
 	Object(): type(0), quantity(1) {}
-	const ObjectDesc& desc() { return objectdesc[type]; }
+	const ObjectDesc* desc() { return &objectdesc[type]; }
 	u16 type;
 	u16 quantity;
 };

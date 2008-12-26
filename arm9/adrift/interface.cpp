@@ -91,9 +91,9 @@ bool withitem(Node<Object> obj) {
 	int sel = 0;
 	text_display_clear();
 	if (obj->quantity == 1) {
-		printcenter(40, 0xffff, "%s", obj->desc().name);
+		printcenter(40, 0xffff, "%s", obj->desc()->name);
 	} else {
-		printcenter(40, 0xffff, "%d %ss", obj->quantity, obj->desc().name);
+		printcenter(40, 0xffff, "%d %ss", obj->quantity, obj->desc()->name);
 	}
 	while (1) {
 		int i = 0;
@@ -159,7 +159,7 @@ void inventory() {
 		for (; i < start; i++) o = o.next();
 
 		for (i = 0; i < 19 && o; i++, o = o.next()) {
-			const char *name = objectdesc[o->type].name;
+			const char *name = o->desc()->name;
 			u16 color = selected == i+start ? RGB15(31,31,31) : RGB15(18,18,18);
 			if (o->quantity == 1)
 				tprintf(17, 12+i*9, color, "%s", name);

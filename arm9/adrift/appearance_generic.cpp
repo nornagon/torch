@@ -17,12 +17,12 @@ void visible_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 		*ch = creaturedesc[l->creature->type].ch;
 		*col = creaturedesc[l->creature->type].color;
 	} else if (l->objects.top()) {
-		if (l->objects.top()->desc().animation) {
-			*ch = l->objects.top()->desc().animation[l->objects.top()->quantity];
-			*col = l->objects.top()->desc().color;
+		if (l->objects.top()->desc()->animation) {
+			*ch = l->objects.top()->desc()->animation[l->objects.top()->quantity];
+			*col = l->objects.top()->desc()->color;
 		} else {
-			*ch = l->objects.top()->desc().ch;
-			*col = l->objects.top()->desc().color;
+			*ch = l->objects.top()->desc()->ch;
+			*col = l->objects.top()->desc()->color;
 		}
 	} else {
 		*ch = terraindesc[l->type].ch;

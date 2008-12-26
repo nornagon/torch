@@ -214,7 +214,7 @@ void update_animations() {
 			    ani->y >= torch.buf.scroll.y && ani->y < torch.buf.scroll.y+24)
 				torch.buf.cacheat(ani->x, ani->y)->dirty = 1;
 			ani->obj->quantity = ani->frame/4; // whee, hacks
-			int len = strlen(ani->obj->desc().animation);
+			int len = strlen(ani->obj->desc()->animation);
 			if (ani->obj->quantity >= len) {
 				ani->obj->quantity = 0;
 				ani->frame = -rand8();

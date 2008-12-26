@@ -11,9 +11,9 @@ void Player::drop(Node<Object> obj) {
 	if (!game.player.bag.remove(obj)) return;
 	game.map.at(game.player.x, game.player.y)->objects.push(obj);
 	if (obj->quantity == 1)
-		iprintf("You drop a %s\n", obj->desc().name);
+		iprintf("You drop a %s\n", obj->desc()->name);
 	else
-		iprintf("You drop %d %ss\n", obj->quantity, obj->desc().name);
+		iprintf("You drop %d %ss\n", obj->quantity, obj->desc()->name);
 }
 
 void Player::exist() {
