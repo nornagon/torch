@@ -196,10 +196,12 @@ bool checkConnected() {
 // count tiles of type ty in the (square) vicinity
 int countFoo(s16 x, s16 y, s16 r, int ty) {
 	int count = 0;
-	for (int dx = -r; dx <= r; dx++)
-		for (int dy = -r; dy <= r; dy++)
-			if (x+dx >= 0 && y+dy >= 0 && x+dx < game.map.getw() && y+dy < game.map.geth() &&
-					game.map.at(x+dx,y+dy)->type == ty)
+	int w = game.map.getw(), h = game.map.geth();
+	int dxstart = (x-r<0?0:x-r), dystart = (y-r<0?0:y-r);
+	int dxend = (x+r>w-1?w-1:x+r), dyend = (y+r>h-1?h-1:y+r);
+	for (int dx = dxstart; dx <= dxend; dx++)
+		for (int dy = dystart; dy <= dyend; dy++)
+			if (game.map.at(dx,dy)->type == ty)
 				count++;
 	return count;
 }
