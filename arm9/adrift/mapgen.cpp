@@ -17,14 +17,16 @@
 
 #include "assert.h"
 
-// helper function for passing to the gfxPrimitives generics
-static inline void set_tile(s16 x, s16 y, void *info) {
-	int type_ = (int)info;
-	game.map.at(x,y)->type = type_;
+static inline void set_tile(s16 x, s16 y, int type) {
+	game.map.at(x,y)->type = type;
 	mapel *m = torch.buf.at(x,y);
-	m->recall = 0; m->col = terraindesc[type_].color; m->ch = terraindesc[type_].ch;
+	m->recall = 0; m->col = terraindesc[type].color; m->ch = terraindesc[type].ch;
 	blockel *b = game.map.block.at(x,y);
-	b->opaque = terraindesc[type_].opaque;
+	b->opaque = terraindesc[type].opaque;
+}
+// helper function for passing to the gfxPrimitives generics
+static void set_tile_i(s16 x, s16 y, void* type) {
+	set_tile(x,y,(int)type);
 }
 
 // The algorithm here is to start at a middle point and throw out radial lines
@@ -210,6 +212,13 @@ int countTrees(s16 x, s16 y, s16 r) {
 	return countFoo(x, y, r, TREE);
 }
 
+Node<Object> addObject(s16 x, s16 y, u16 type) {
+	Node<Object> on(new NodeV<Object>);
+	on->type = type;
+	game.map.at(x,y)->objects.push(on);
+	return on;
+}
+
 void AddStars() {
 	for (int y = 0; y < torch.buf.geth(); y++) {
 		for (int x = 0; x < torch.buf.getw(); x++) {
@@ -220,10 +229,8 @@ void AddStars() {
 				game.map.lights.push(li);
 
 				// object
-				Node<Object> on(new NodeV<Object>);
-				on->type = STAR;
+				Node<Object> on = addObject(x,y,STAR);
 				on->quantity = 0;
-				game.map.at(x,y)->objects.push(on);
 
 				// animation
 				Node<Animation> ani(new NodeV<Animation>);
@@ -239,7 +246,7 @@ void AddStars() {
 void CATrees() {
 	for (int y = 0; y < torch.buf.geth(); y++) {
 		for (int x = 0; x < torch.buf.getw(); x++) {
-			if (!game.map.at(x,y)->desc()->solid && (rand4() < 6)) set_tile(x,y, (void*)TREE);
+			if (!game.map.at(x,y)->desc()->solid && (rand4() < 6)) set_tile(x,y, TREE);
 		}
 	}
 	bool *next = new bool[torch.buf.geth()*torch.buf.getw()];
@@ -255,9 +262,9 @@ void CATrees() {
 			for (int x = 0; x < torch.buf.getw(); x++) {
 				if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == TREE) {
 					if (next[y*torch.buf.getw()+x])
-						set_tile(x,y, (void*)TREE);
+						set_tile(x,y, TREE);
 					else
-						set_tile(x,y, (void*)GROUND);
+						set_tile(x,y, GROUND);
 				}
 			}
 		}
@@ -274,9 +281,9 @@ void CATrees() {
 			for (int x = 0; x < torch.buf.getw(); x++) {
 				if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == TREE) {
 					if (next[y*torch.buf.getw()+x])
-						set_tile(x,y, (void*)TREE);
+						set_tile(x,y, TREE);
 					else
-						set_tile(x,y, (void*)GROUND);
+						set_tile(x,y, GROUND);
 				}
 			}
 		}
@@ -286,7 +293,7 @@ void CATrees() {
 void CALakes() {
 	for (int y = 0; y < torch.buf.geth(); y++) {
 		for (int x = 0; x < torch.buf.getw(); x++) {
-			if (!game.map.at(x,y)->desc()->solid && (rand8() < 23) && countFoo(x,y,6,GLASS)) set_tile(x,y, (void*)WATER);
+			if (!game.map.at(x,y)->desc()->solid && (rand8() < 23) && countFoo(x,y,6,GLASS)) set_tile(x,y, WATER);
 		}
 	}
 	bool *next = new bool[torch.buf.geth()*torch.buf.getw()];
@@ -303,9 +310,9 @@ void CALakes() {
 				//if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == WATER) {
 				if (game.map.at(x,y)->type != GLASS && game.map.at(x,y)->type != 0) {
 					if (next[y*torch.buf.getw()+x])
-						set_tile(x,y, (void*)WATER);
+						set_tile(x,y, WATER);
 					else if (game.map.at(x,y)->type == WATER)
-						set_tile(x,y, (void*)GROUND);
+						set_tile(x,y, GROUND);
 				}
 			}
 		}
@@ -323,9 +330,9 @@ void CALakes() {
 			for (int x = 0; x < torch.buf.getw(); x++) {
 				if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == WATER) {
 					if (next[y*torch.buf.getw()+x])
-						set_tile(x,y, (void*)WATER);
+						set_tile(x,y, WATER);
 					else
-						set_tile(x,y, (void*)GROUND);
+						set_tile(x,y, GROUND);
 				}
 			}
 		}
@@ -350,10 +357,19 @@ void AddGrass() {
 				             nGrass2 = countFoo(x,y,2,GRASS);
 				if (rand4() < nWater1 || (rand8() & 0x1f) < nWater2 ||
 				    rand4() < nGrass1/2 || (rand8() & 0x1f) < nGrass2/2 ) {
-					set_tile(x,y, (void*)GRASS);
+					set_tile(x,y, GRASS);
 				}
 			}
 		}
+	}
+}
+
+void Inhabit() {
+	for (unsigned int i = 0; i < 4+(rand4()&7); i++) {
+		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
+		if (!game.map.at(x,y)->desc()->solid && countFoo(x,y,1,GROUND > 4)) {
+			set_tile(x,y,VENDING_MACHINE);
+		} else i--;
 	}
 }
 
@@ -368,7 +384,7 @@ void SpawnCreatures() {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (game.map.at(x,y)->type == TREE && countFoo(x,y,1,GROUND) >= 1) {
 			game.spawn(VENUS_FLY_TRAP, x, y);
-			set_tile(x,y, (void*)GROUND);
+			set_tile(x,y, GROUND);
 		} else i--;
 	}
 
@@ -403,8 +419,8 @@ void generate_terrarium() {
 	game.map.reset();
 
 	// glass on the rim
-	filledCircle(cx, cy, 60, set_tile, (void*)GROUND);
-	hollowCircle(cx, cy, 60, set_tile, (void*)GLASS);
+	filledCircle(cx, cy, 60, set_tile_i, (void*)GROUND);
+	hollowCircle(cx, cy, 60, set_tile_i, (void*)GLASS);
 
 	AddStars();
 
@@ -434,6 +450,10 @@ void generate_terrarium() {
 	} else {
 		printf("\1\x1f\x01unconnected\2.\n");
 	}
+
+	printf("Simulating inhabitation... ");
+	Inhabit();
+	printf("done.\n");
 
 	printf("Spawning creatures... ");
 	SpawnCreatures();
@@ -474,15 +494,15 @@ void generate_terrarium() {
 	on->type = 0;
 	l->objects.push(on);
 
-	set_tile(cx+40, cy, (void*)FIRE);
+	set_tile(cx+40, cy, FIRE);
 	lightsource *li = new_light(12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+40)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
-	set_tile(cx+30, cy, (void*)FIRE);
+	set_tile(cx+30, cy, FIRE);
 	li = new_light(12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+30)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
-	set_tile(cx+35, cy-7, (void*)FIRE);
+	set_tile(cx+35, cy-7, FIRE);
 	li = new_light(12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
 	li->x = (cx+35)<<12; li->y = (cy-7)<<12;
 	game.map.lights.push(li);
