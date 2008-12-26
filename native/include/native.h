@@ -30,7 +30,8 @@ enum IRQ_MASKS {
 
 typedef enum IRQ_MASKS IRQ_MASK;
 
-//void initNative();
+void native_init();
+
 void scanKeys();
 uint32 keysHeld();
 uint32 keysDown();
@@ -44,6 +45,7 @@ void swiWaitForVBlank();
 
 int32 sqrtf32(int32 x);
 int32 divf32(int32 num, int32 den);
+void native_div_32_32_raw(int32 num, int32 den);
 
 void drawcq(u32 x, u32 y, u32 c, u32 color);
 void swapbufs();

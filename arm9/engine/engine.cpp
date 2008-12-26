@@ -62,8 +62,7 @@ void engine::init() {
 	text_init();
 	text_console_render("This is \1\x9E\x02Torch\1\xFF\xFF, an engine from \1\xE0\x7Dnornagon\1\xFF\xFF. Starting up...\n");
 #else
-	SDL_Init(SDL_INIT_VIDEO);
-	screen = SDL_SetVideoMode(256,192*2,16,SDL_SWSURFACE);
+	native_init();
 	{
 		struct timeval tv;
 		gettimeofday(&tv, NULL);

@@ -42,11 +42,6 @@ class engine {
 		void draw();
 
 		void run(void (*handler)());
-
-#ifdef NATIVE
-		SDL_Surface *screen;
-		SDL_Surface *backbuf;
-#endif
 };
 
 extern engine torch;

@@ -2,7 +2,9 @@
 #define UTIL_H 1
 
 #include <stdlib.h>
-#ifndef NATIVE
+#ifdef NATIVE
+#include "native.h"
+#else
 #include <nds.h>
 #endif
 
@@ -44,7 +46,9 @@ static inline int max(int a, int b) {
 
 // raw divide, you'll have to check DIV_RESULT32 and DIV_BUSY yourself.
 static inline void div_32_32_raw(int32 num, int32 den) {
-#ifndef NATIVE
+#ifdef NATIVE
+	native_div_32_32_raw(num,den);
+#else
 	DIV_CR = DIV_32_32;
 
 	while (DIV_CR & DIV_BUSY);
