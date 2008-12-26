@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include <stdio.h>
-#include <nds.h>
+//#include <nds.h>
 
 #include "gfxPrimitives.h"
 
@@ -111,14 +111,14 @@ void drop_rock(s16 x, s16 y, void *info) {
 }
 
 // drop rocks in the vicinity around a specified point
-void drop_rocks(s16 ax, s16 ay, int r) {
+/*void drop_rocks(s16 ax, s16 ay, int r) {
 	for (unsigned int t = 0; t < 0x1ff; t += 4) {
 		int x = COS[t], y = SIN[t];
 		if (t % 16 != 0)
 			bresenham(ax + ((x*r) >> 12), ay + ((y*r) >> 12),
 			               ax + ((x*(r+4)) >> 12), ay + ((y*(r+4)) >> 12), drop_rock, NULL);
 	}
-}
+}*/
 
 struct Point { int x, y; };
 
@@ -378,12 +378,18 @@ void SpawnCreatures() {
 }
 
 static inline void startTimer() {
+#ifndef NATIVE
 	TIMER_CR(1) = TIMER_CASCADE;
 	TIMER_CR(0) = TIMER_DIV_1024 | TIMER_ENABLE;
+#endif
 }
 static inline u32 stopTimer() {
+#ifndef NATIVE
 	TIMER_CR(0) = 0;
 	return TIMER_DATA(0) | (TIMER_DATA(1) << 16);
+#else
+	return 0;
+#endif
 }
 
 void generate_terrarium() {

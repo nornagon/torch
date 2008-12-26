@@ -25,6 +25,10 @@
 #include "entities/terrain.h"
 #include "entities/object.h"
 
+#ifdef NATIVE
+#include <sys/time.h>
+#endif
+
 Adrift game;
 
 Adrift::Adrift() {
@@ -256,10 +260,18 @@ void new_game() {
 	game.map.block.resize(128,128);
 	torch.buf.resize(128,128);
 
+#ifndef NATIVE
 	// TODO: replace with gettimeofday() or similar
 	init_genrand(genrand_int32() ^ (IPC->time.rtc.seconds +
 				IPC->time.rtc.minutes*60 + IPC->time.rtc.hours*60*60 +
 				IPC->time.rtc.weekday*7*24*60*60));
+#else
+	{
+		struct timeval tv;
+		gettimeofday(&tv,NULL);
+		init_genrand(tv.tv_usec+tv.tv_sec*1000000);
+	}
+#endif
 
 	generate_terrarium();
 

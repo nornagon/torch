@@ -1,5 +1,4 @@
 #include "object.h"
-#include <nds/arm9/video.h>
 
 void stack_item_push(List<Object> &container, Node<Object> obj) {
 	Node<Object> contobj = container.top();

@@ -6,6 +6,10 @@
 
 #include "blockmap.h"
 
+#ifdef NATIVE
+#include "native.h"
+#endif
+
 void cast_sight(fov_settings_type *settings, blockmap *block, lightsource *l) {
 	fov_circle(settings, block, l, l->x>>12, l->y>>12, 32);
 	luxel *e = torch.buf.luxat(l->x>>12, l->y>>12);

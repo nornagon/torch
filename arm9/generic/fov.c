@@ -7,7 +7,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef NATIVE
+#include "native.h"
+#else
 #include <nds/arm9/math.h>
+#endif
 #include "fov.h"
 
 /*

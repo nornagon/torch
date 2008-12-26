@@ -7,6 +7,9 @@
 #include "text.h"
 #include <stdarg.h>
 #include <stdio.h>
+#ifdef NATIVE
+#include "native.h"
+#endif
 
 inline void pixel(u16* surf, u8 x, u8 y, u16 color) {
 	surf[y*256+x] = color|BIT(15);
@@ -33,6 +36,7 @@ u32 waitkey() {
 }
 
 void printcenter(u16 y, u16 color, const char *fmt, ...) {
+#ifndef NATIVE
 	va_list ap;
 	char foo[100];
 	va_start(ap, fmt);
@@ -40,6 +44,7 @@ void printcenter(u16 y, u16 color, const char *fmt, ...) {
 	va_end(ap);
 	int width = textwidth(foo);
 	text_render_raw(128-width/2, y, foo, len, color | BIT(15));
+#endif
 }
 
 enum ACTION {
@@ -82,6 +87,7 @@ bool canuse(Node<Object> obj) {
 }
 
 bool withitem(Node<Object> obj) {
+#ifndef NATIVE
 	int sel = 0;
 	text_display_clear();
 	if (obj->quantity == 1) {
@@ -117,9 +123,13 @@ bool withitem(Node<Object> obj) {
 		if (sel < 0) sel = 0;
 		if (sel >= i) sel = i - 1;
 	}
+#else
+	return true;
+#endif
 }
 
 void inventory() {
+#ifndef NATIVE
 	int selected = 0;
 	int start = 0;
 	int length = game.player.bag.length();
@@ -193,9 +203,11 @@ void inventory() {
 		default:
 			break;
 	}*/
+#endif
 }
 
 void overview() {
+#ifndef NATIVE
 	text_console_disable();
 
 	u16* subscr = (u16*)BG_BMP_RAM_SUB(0);
@@ -241,4 +253,5 @@ void overview() {
 		swiWaitForVBlank();
 	}
 	text_console_enable();
+#endif
 }

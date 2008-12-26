@@ -1,5 +1,4 @@
 #include <nds.h>
-#include <nds/arm9/console.h>
 
 #include "engine.h"
 

@@ -1,6 +1,10 @@
 #ifndef ADRIFT_H
 #define ADRIFT_H 1
 
+#ifdef NATIVE
+#include "native.h"
+#endif
+
 #include "lightsource.h"
 #include "fov.h"
 #include "buf.h"

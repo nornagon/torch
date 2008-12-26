@@ -2,7 +2,9 @@
 #define UTIL_H 1
 
 #include <stdlib.h>
+#ifndef NATIVE
 #include <nds.h>
+#endif
 
 #ifndef abs
 #define abs(x) ((x) < 0 ? -(x) : (x))
@@ -10,6 +12,10 @@
 
 //---------------------------------------------------------------------------
 // timers
+#ifdef NATIVE
+static inline void start_stopwatch() {}
+static inline u16 read_stopwatch() { return 0; }
+#else
 static inline void start_stopwatch() {
 	TIMER_CR(0) = TIMER_DIV_1 | TIMER_ENABLE;
 }
@@ -18,6 +24,7 @@ static inline u16 read_stopwatch() {
 	TIMER_CR(0) = 0;
 	return TIMER_DATA(0);
 }
+#endif
 //---------------------------------------------------------------------------
 
 
@@ -37,19 +44,25 @@ static inline int max(int a, int b) {
 
 // raw divide, you'll have to check DIV_RESULT32 and DIV_BUSY yourself.
 static inline void div_32_32_raw(int32 num, int32 den) {
+#ifndef NATIVE
 	DIV_CR = DIV_32_32;
 
 	while (DIV_CR & DIV_BUSY);
 
 	DIV_NUMERATOR32 = num;
 	DIV_DENOMINATOR32 = den;
+#endif
 }
 // beware, if your numerator can't deal with being shifted left 12, you will
 // lose bits off the left-hand side!
 static inline int32 div_32_32(int32 num, int32 den) {
+#ifdef NATIVE
+	return num / den;
+#else
 	div_32_32_raw(num << 12, den);
 	while (DIV_CR & DIV_BUSY);
 	return DIV_RESULT32;
+#endif
 }
 //---------------------------------------------------------------------------
 

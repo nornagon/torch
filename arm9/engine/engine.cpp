@@ -1,10 +1,16 @@
 #include "engine.h"
-#include "draw.h"
 #include "mersenne.h"
 #include "util.h"
 #include "text.h"
 
 #include "nocash.h"
+
+#ifdef NATIVE
+#include "native.h"
+#include <sys/time.h>
+#else
+#include "draw.h"
+#endif
 
 engine torch;
 
@@ -21,6 +27,7 @@ void vblank_counter() {
 
 void engine::init() {
 	// Set up IRQs to call our stuff when we need it
+#ifndef NATIVE
 	irqInit();
 	irqSet(IRQ_VBLANK, vblank_counter);
 	irqEnable(IRQ_VBLANK);
@@ -39,10 +46,6 @@ void engine::init() {
 	BG3_YDY = 1 << 8;
 	BG_PALETTE[0] = 0;
 
-	// some text test stuff
-	text_init();
-	text_console_render("This is \1\x9E\x02Torch\1\xFF\xFF, an engine from \1\xE0\x7Dnornagon\1\xFF\xFF. Starting up...\n");
-
 	// not sure if this is necessary, but we don't want any surprises. TIMER_DATA
 	// is what the timer resets to when you start it (or it overflows)
 	TIMER_DATA(0) = 0;
@@ -55,11 +58,24 @@ void engine::init() {
 	seed += IPC->time.rtc.weekday*7*24*60*60;
 	init_genrand(seed);
 
+	// some text test stuff
+	text_init();
+	text_console_render("This is \1\x9E\x02Torch\1\xFF\xFF, an engine from \1\xE0\x7Dnornagon\1\xFF\xFF. Starting up...\n");
+#else
+	SDL_Init(SDL_INIT_VIDEO);
+	{
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		init_genrand(tv.tv_usec + tv.tv_sec*1000000);
+	}
+#endif
+
 	dirty = 0;
 }
 
 // we copy data *away* from dir
 void engine::move_port(DIRECTION dir) {
+#ifndef NATIVE
 	u32 i;
 	// TODO: generalise?
 	if (dir & D_NORTH) {
@@ -121,6 +137,7 @@ void engine::move_port(DIRECTION dir) {
 			DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_DEC | DMA_DST_DEC | ((256*192-8)>>1);
 		}
 	}
+#endif
 }
 
 void engine::scroll(int dsX, int dsY) {
@@ -338,9 +355,11 @@ void engine::run(void (*handler)()) {
 
 		handler();
 
+#ifndef NATIVE
 		// wait for DMA to finish
 		if (copying)
 			while (dmaBusy(3));
+#endif
 
 		// draw loop
 		draw();

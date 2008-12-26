@@ -1,6 +1,10 @@
 #ifndef ENGINE_H
 #define ENGINE_H 1
 
+#ifdef NATIVE
+#include <SDL.h>
+#endif
+
 #include "buf.h"
 #include "direction.h"
 //#include "list.h"

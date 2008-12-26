@@ -2,6 +2,10 @@
 #include "engine.h"
 #include "util.h"
 
+#ifdef NATIVE
+#include "native.h"
+#endif
+
 #include <stdio.h>
 
 void draw_lights(fov_settings_type *settings, blockmap *map, List<lightsource*> lights) {

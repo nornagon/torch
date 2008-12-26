@@ -1,6 +1,9 @@
 #include "assert.h"
 
 #include <nds.h>
+#ifdef NATIVE
+#include "native.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
