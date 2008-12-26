@@ -10,21 +10,22 @@ extern "C" {
 
 #define iprintf printf
 
-enum {
-	KEY_A,
-	KEY_B,
-	KEY_X,
-	KEY_Y,
-	KEY_L,
-	KEY_R,
-	KEY_RIGHT,
-	KEY_LEFT,
-	KEY_DOWN,
-	KEY_UP,
-	KEY_TOUCH,
-	KEY_SELECT,
-	KEY_START,
-};
+typedef enum KEYPAD_BITS {
+  KEY_A      = BIT(0),
+  KEY_B      = BIT(1),
+  KEY_SELECT = BIT(2),
+  KEY_START  = BIT(3),
+  KEY_RIGHT  = BIT(4),
+  KEY_LEFT   = BIT(5),
+  KEY_UP     = BIT(6),
+  KEY_DOWN   = BIT(7),
+  KEY_R      = BIT(8),
+  KEY_L      = BIT(9),
+  KEY_X      = BIT(10),
+  KEY_Y      = BIT(11),
+  KEY_TOUCH  = BIT(12),
+  KEY_LID    = BIT(13)
+} KEYPAD_BITS;
 
 enum IRQ_MASKS {
 	IRQ_VBLANK = 0
