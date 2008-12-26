@@ -80,7 +80,6 @@ Uint32 rgb32from15(u32 color) {
 }
 
 void drawcq(u32 x, u32 y, u32 c, u32 color) {
-	if (color) printf("%c %x\n", c, color);
 	putpixel(screen, x, y, rgb32from15(color));
 }
 void swapbufs() {

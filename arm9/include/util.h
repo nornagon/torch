@@ -61,7 +61,7 @@ static inline void div_32_32_raw(int32 num, int32 den) {
 // lose bits off the left-hand side!
 static inline int32 div_32_32(int32 num, int32 den) {
 #ifdef NATIVE
-	return num / den;
+	return (num << 12) / den;
 #else
 	div_32_32_raw(num << 12, den);
 	while (DIV_CR & DIV_BUSY);
