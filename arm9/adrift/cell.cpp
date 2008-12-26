@@ -6,6 +6,6 @@
 void Cell::reset() {
 	type = TERRAIN_NONE;
 	while (objects.top())
-		delete objects.pop();
+		objects.pop()->free();
 	creature = NULL;
 }

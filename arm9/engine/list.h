@@ -62,7 +62,7 @@ class Node {
 		T operator*() { return v->data; }
 		operator bool() { return !!v; }
 		Node<T> next() { return v->next; }
-		void operator delete (void* thing) { ((Node<T>*)thing)->v->free(); }
+		void free() { v->free(); }
 };
 
 template <class T>

@@ -233,7 +233,7 @@ void update_projectiles() {
 			Node<Projectile> next = p.next();
 			game.map.projectiles.remove(p);
 			stack_item_push(game.map.at(x,y)->objects, p->obj);
-			delete p;
+			p.free();
 			p = next;
 		} else {
 			game.map.at(x,y)->objects.push(p->obj);

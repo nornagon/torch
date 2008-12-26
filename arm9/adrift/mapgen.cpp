@@ -277,6 +277,7 @@ void CATrees() {
 			}
 		}
 	}
+	delete [] next;
 }
 
 void CALakes() {
@@ -326,6 +327,7 @@ void CALakes() {
 			}
 		}
 	}
+	delete [] next;
 	int w = 0;
 	for (int y = 0; y < torch.buf.geth(); y++) {
 		for (int x = 0; x < torch.buf.getw(); x++) {

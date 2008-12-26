@@ -49,7 +49,7 @@ void behave(Node<Creature> creature) {
 
 					// TODO: function for removing creatures
 					game.map.monsters.remove(c->creature);
-					delete c->creature;
+					c->creature.free();
 					c->creature = NULL;
 					creature->acted();
 					return;
