@@ -37,11 +37,11 @@ Adrift::Adrift() {
 	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
 }
 
-void Adrift::spawn(u16 type, s16 x, s16 y) {
+void Map::spawn(u16 type, s16 x, s16 y) {
 	Node<Creature> c(new NodeV<Creature>);
 	c->init(type);
 	c->setPos(x,y);
-	map.at(x,y)->creature = c;
+	at(x,y)->creature = c;
 	monsters.push(c);
 }
 
@@ -49,6 +49,10 @@ void Map::reset() {
 	for (s16 y = 0; y < h; y++)
 		for (s16 x = 0; x < w; x++)
 			at(x,y)->reset();
+	lights.clear();
+	animations.clear();
+	monsters.clear();
+	projectiles.clear();
 }
 
 bool isvowel(char c) {
@@ -203,7 +207,7 @@ void process_keys() {
 }
 
 void update_projectiles() {
-	Node<Projectile> p = game.projectiles.top();
+	Node<Projectile> p = game.map.projectiles.top();
 	while (p) {
 		s16 x = p->st.posx();
 		s16 y = p->st.posy();
@@ -227,7 +231,7 @@ void update_projectiles() {
 
 		if ((x == destx && y == desty) || collided) {
 			Node<Projectile> next = p.next();
-			game.projectiles.remove(p);
+			game.map.projectiles.remove(p);
 			stack_item_push(game.map.at(x,y)->objects, p->obj);
 			delete p;
 			p = next;
@@ -239,7 +243,7 @@ void update_projectiles() {
 }
 
 void update_animations() {
-	Node<Animation> ani = game.animations.top();
+	Node<Animation> ani = game.map.animations.top();
 	while (ani) {
 		assert(ani->obj->desc()->animation);
 		if (ani->frame >= 0) {
@@ -272,7 +276,7 @@ void process_sight() {
 }
 
 void step_monsters() {
-	for (Node<Creature> m = game.monsters.top(); m; m = m.next()) {
+	for (Node<Creature> m = game.map.monsters.top(); m; m = m.next()) {
 		step_creature(m);
 	}
 }
@@ -286,10 +290,10 @@ void handler() {
 	process_sight();
 	draw_lights(game.fov_light, &game.map.block, game.map.lights);
 	{
-		Node<lightsource*> k = game.map.lights.top();
+		Node<lightsource> k = game.map.lights.top();
 		for (; k; k = k.next()) {
-			(*k)->update_flicker();
-			draw_light(game.fov_light, &game.map.block, *k);
+			k->update_flicker();
+			draw_light(game.fov_light, &game.map.block, k);
 		}
 	}
 
@@ -298,7 +302,6 @@ void handler() {
 
 void new_game() {
 	game.map.resize(128,128);
-	game.map.block.resize(128,128);
 	torch.buf.resize(128,128);
 
 #ifndef NATIVE

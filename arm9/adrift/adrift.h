@@ -19,6 +19,17 @@
 
 #include "entities/terrain.h"
 
+struct Projectile {
+	Node<Object> obj;
+	bresenstate st;
+};
+
+struct Animation {
+	Node<Object> obj;
+	s16 x, y;
+	s16 frame;
+};
+
 class Map {
 	private:
 		Cell *cells;
@@ -26,7 +37,10 @@ class Map {
 
 	public:
 		blockmap block;
-		List<lightsource*> lights;
+		List<lightsource> lights;
+		List<Creature> monsters;
+		List<Projectile> projectiles;
+		List<Animation> animations;
 
 		Map() { cells = 0; w = h = 0; }
 		Map(s16 w_, s16 h_) { resize(w_,h_); }
@@ -35,6 +49,8 @@ class Map {
 			if (cells) delete [] cells;
 			w = _w; h = _h;
 			cells = new Cell[w*h];
+			block.resize(w,h);
+			reset();
 		}
 		void reset();
 
@@ -66,17 +82,8 @@ class Map {
 
 		inline s16 getw() { return w; }
 		inline s16 geth() { return h; }
-};
 
-struct Projectile {
-	Node<Object> obj;
-	bresenstate st;
-};
-
-struct Animation {
-	Node<Object> obj;
-	s16 x, y;
-	s16 frame;
+		void spawn(u16 type, s16 x, s16 y);
 };
 
 struct Adrift {
@@ -84,13 +91,7 @@ struct Adrift {
 	Player player;
 	Map map;
 
-	List<Creature> monsters;
-	List<Projectile> projectiles;
-	List<Animation> animations;
-
 	fov_settings_type *fov_light, *fov_sight;
-
-	void spawn(u16 type, s16 x, s16 y);
 
 	int cooldown;
 };

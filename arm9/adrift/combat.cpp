@@ -17,7 +17,7 @@ bool you_hit_monster(Node<Creature> target) {
 		target->hp -= damage;
 		if (target->hp <= 0) {
 			iprintf("The %s dies.\n", name);
-			game.monsters.remove(target); // TODO linked list remove... ugh
+			game.map.monsters.remove(target); // TODO linked list remove... ugh
 			delete target;
 			died = true;
 			game.map.at(target->x,target->y)->creature = NULL;

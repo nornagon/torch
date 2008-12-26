@@ -117,6 +117,6 @@ void Player::chuck(s16 destx, s16 desty) {
 		projectile = NULL;
 	}
 
-	game.projectiles.push(thrown);
+	game.map.projectiles.push(thrown);
 	game.cooldown += 6;
 }

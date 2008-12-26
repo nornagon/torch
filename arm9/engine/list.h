@@ -57,8 +57,8 @@ class Node {
 			return &v->data;
 		}
 
-		operator NodeV<T>*() { return v; }
-		//operator T*() { return &v->data; }
+		NodeV<T>* data() { return v; }
+		operator T*() { return &v->data; }
 		T operator*() { return v->data; }
 		operator bool() { return !!v; }
 		Node<T> next() { return v->next; }
@@ -108,6 +108,9 @@ struct List {
 				prev->next = k->next;
 			return !!k;
 		}
+		inline bool remove(Node<T> node) {
+			return remove(node.data());
+		}
 		/*bool remove(T x) {
 			if (head == 0) return false;
 			if (x == head->data) { head = head->next; return true; }
@@ -125,6 +128,9 @@ struct List {
 			NodeV<T>* n = new NodeV<T>;
 			n->data = x;
 			push(n);
+		}
+		inline void push(Node<T> node) {
+			push(node.data());
 		}
 		void push(NodeV<T> *node) {
 			node->next = head;
@@ -146,6 +152,12 @@ struct List {
 
 		bool empty() {
 			return !head;
+		}
+
+		void clear() {
+			while (NodeV<T>* k = pop())
+				k->free();
+			NodeV<T>::pool.flush_free();
 		}
 };
 

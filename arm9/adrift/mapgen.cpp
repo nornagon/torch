@@ -212,7 +212,8 @@ void AddStars() {
 		for (int x = 0; x < torch.buf.getw(); x++) {
 			if (game.map.at(x,y)->type == TERRAIN_NONE && rand8() < 10) {
 				// light
-				lightsource *li = new_light(1, 1<<12, 1<<12, 1<<12);
+				Node<lightsource> li(new NodeV<lightsource>);
+				set_light(li, 1, 1<<12, 1<<12, 1<<12);
 				li->x = x<<12; li->y = y<<12;
 				game.map.lights.push(li);
 
@@ -225,7 +226,7 @@ void AddStars() {
 				ani->obj = on;
 				ani->frame = 0;
 				ani->x = x; ani->y = y;
-				game.animations.push(ani);
+				game.map.animations.push(ani);
 			}
 		}
 	}
@@ -370,7 +371,8 @@ void Inhabit() {
 				}
 			} while (game.map.solid(x+D_DX[orientation],y+D_DY[orientation]));
 			on->orientation = orientation;
-			lightsource *li = new_light_beam(orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
+			Node<lightsource> li(new NodeV<lightsource>);
+			set_light_beam(li, orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
 			li->x = x<<12; li->y = y<<12;
 			li->flicker = FLICKER_LIGHT;
 			game.map.lights.push(li);
@@ -386,13 +388,13 @@ void SpawnCreatures() {
 	for (int i = 0, n = 40 + (rand8() % 32); i < n; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (!game.map.solid(x,y)) {
-			game.spawn(BLOWFLY, x, y);
+			game.map.spawn(BLOWFLY, x, y);
 		} else i--;
 	}
 	for (int i = 0, n = 20 + rand4(); i < n; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (game.map.at(x,y)->type == TREE && countFoo(x,y,1,GROUND) >= 1) {
-			game.spawn(VENUS_FLY_TRAP, x, y);
+			game.map.spawn(VENUS_FLY_TRAP, x, y);
 			set_tile(x,y, GROUND);
 		} else i--;
 	}
@@ -400,7 +402,7 @@ void SpawnCreatures() {
 	for (int i = 0, n = 15 + rand4(); i < n; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (!game.map.solid(x,y)) {
-			game.spawn(LABRADOR, x, y);
+			game.map.spawn(LABRADOR, x, y);
 		} else i--;
 	}
 }
@@ -504,15 +506,18 @@ void generate_terrarium() {
 	l->objects.push(on);
 
 	set_tile(cx+40, cy, FIRE);
-	lightsource *li = new_light(12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
+	Node<lightsource> li(new NodeV<lightsource>);
+	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+40)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
 	set_tile(cx+30, cy, FIRE);
-	li = new_light(12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
+	li = new NodeV<lightsource>;
+	set_light(li, 12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+30)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
 	set_tile(cx+35, cy-7, FIRE);
-	li = new_light(12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
+	li = new NodeV<lightsource>;
+	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
 	li->x = (cx+35)<<12; li->y = (cy-7)<<12;
 	game.map.lights.push(li);
 

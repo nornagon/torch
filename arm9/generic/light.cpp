@@ -24,10 +24,10 @@ fov_direction_type to_fov_dir(DIRECTION dir) {
 	return FOV_EAST;
 }
 
-void draw_lights(fov_settings_type *settings, blockmap *map, List<lightsource*> lights) {
-	Node<lightsource*> k = lights.top();
+void draw_lights(fov_settings_type *settings, blockmap *map, List<lightsource> lights) {
+	Node<lightsource> k = lights.top();
 	for (; k; k = k.next())
-		draw_light(settings, map, *k);
+		draw_light(settings, map, k);
 }
 
 void draw_light(fov_settings_type *settings, blockmap *map, lightsource *l) {
@@ -57,7 +57,7 @@ void draw_light(fov_settings_type *settings, blockmap *map, lightsource *l) {
 		e->lr += l->r;
 		e->lg += l->g;
 		e->lb += l->b;
-		torch.buf.at(l->x>>12, l->y>>12)->recall = 1<<12;
+		torch.buf.at(l->x>>12, l->y>>12)->recall = l->intensity;
 	}
 }
 

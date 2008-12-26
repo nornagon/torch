@@ -13,11 +13,11 @@
 void cast_sight(fov_settings_type *settings, blockmap *block, lightsource *l) {
 	fov_circle(settings, block, l, l->x>>12, l->y>>12, 32);
 	luxel *e = torch.buf.luxat(l->x>>12, l->y>>12);
-	e->lval = (1<<12);
+	e->lval = l->intensity;
 	e->lr = l->r;
 	e->lg = l->g;
 	e->lb = l->b;
-	torch.buf.at(l->x>>12, l->y>>12)->recall = 1<<12;
+	torch.buf.at(l->x>>12, l->y>>12)->recall = l->intensity;
 	block->at(l->x>>12, l->y>>12)->visible = true;
 }
 

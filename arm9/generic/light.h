@@ -15,7 +15,7 @@
 // ownsome?
 void draw_light(fov_settings_type *settings, blockmap *map, lightsource *l);
 
-void draw_lights(fov_settings_type *settings, blockmap *map, List<lightsource*> lights);
+void draw_lights(fov_settings_type *settings, blockmap *map, List<lightsource> lights);
 
 // standard light-casting opacity test for libfov. Checks map edges, cell
 // opacity and player occupation (via map->pX/pY).

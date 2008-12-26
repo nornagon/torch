@@ -48,7 +48,7 @@ void behave(Node<Creature> creature) {
 						iprintf("The venus fly trap gobbles up the blowfly.\n");
 
 					// TODO: function for removing creatures
-					game.monsters.remove(c->creature);
+					game.map.monsters.remove(c->creature);
 					delete c->creature;
 					c->creature = NULL;
 					creature->acted();
