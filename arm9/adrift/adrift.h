@@ -39,6 +39,7 @@ class Map {
 		void reset();
 
 		inline Cell *at(s16 x, s16 y) {
+			assert(x >= 0 && y >= 0 && x < w && y < w);
 			return &cells[y*w+x];
 		}
 
@@ -57,6 +58,9 @@ class Map {
 		inline bool contains(s16 x, s16 y) {
 			return x >= 0 && x < w && y >= 0 && y < h;
 		}
+
+		inline s16 getw() { return w; }
+		inline s16 geth() { return h; }
 };
 
 struct Projectile {

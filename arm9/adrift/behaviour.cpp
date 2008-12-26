@@ -43,7 +43,7 @@ void behave(Node<Creature> creature) {
 			for (int i = x-1; i <= x+1; i++) {
 				if (i == x && j == y) continue;
 				Cell *c = game.map.at(i,j);
-				if (c->creature->type == BLOWFLY) {
+				if (c->creature && c->creature->type == BLOWFLY) {
 					if (game.map.block.at(i,j)->visible || game.map.block.at(x,y)->visible)
 						iprintf("The venus fly trap gobbles up the blowfly.\n");
 

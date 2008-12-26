@@ -198,7 +198,8 @@ int countFoo(s16 x, s16 y, s16 r, int ty) {
 	int count = 0;
 	for (int dx = -r; dx <= r; dx++)
 		for (int dy = -r; dy <= r; dy++)
-			if (game.map.at(x+dx,y+dy)->type == ty)
+			if (x+dx >= 0 && y+dy >= 0 && x+dx < game.map.getw() && y+dy < game.map.geth() &&
+					game.map.at(x+dx,y+dy)->type == ty)
 				count++;
 	return count;
 }

@@ -3,6 +3,7 @@
 #include <nds.h>
 #ifdef NATIVE
 #include "native.h"
+#include <stdlib.h>
 #endif
 
 #ifdef __cplusplus
@@ -12,7 +13,12 @@ extern "C" {
 void _assert(const char *file, int line, const char *func, const char *expr, bool v) {
 	if (!v) {
 		printf("%s:%d in %s:\nassert(%s)", file, line, func, expr);
+#ifdef NATIVE
+		printf("\n");
+		abort();
+#else
 		while (1) swiWaitForVBlank();
+#endif
 	}
 }
 
