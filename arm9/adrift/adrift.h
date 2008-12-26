@@ -44,7 +44,12 @@ class Map {
 		}
 
 		inline bool solid(s16 x, s16 y) {
-			return terraindesc[at(x,y)->type].solid;
+			Node<Object> o = at(x,y)->objects.top();
+			while (o) {
+				if (o->desc()->obstruction) return true;
+				o = o.next();
+			}
+			return at(x,y)->desc()->solid;
 		}
 
 		inline bool occupied(s16 x, s16 y) {

@@ -19,3 +19,9 @@ object 'star' do
   color 31,31,31
   animation '.-+x+-.'
 end
+
+object 'vending machine' do
+  char '#'
+  color 31,5,2
+  obstruction
+end

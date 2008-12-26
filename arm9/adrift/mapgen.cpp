@@ -1,21 +1,16 @@
 #include "mapgen.h"
 #include "adrift.h"
 #include "mersenne.h"
-
 #include "engine.h"
-
 #include "lightsource.h"
 #include <malloc.h>
 #include <string.h>
-
 #include <stdio.h>
-//#include <nds.h>
 
 #include "gfxPrimitives.h"
+#include "assert.h"
 
 #include "entities/creature.h"
-
-#include "assert.h"
 
 static inline void set_tile(s16 x, s16 y, int type) {
 	game.map.at(x,y)->type = type;
@@ -105,7 +100,7 @@ static void set_tile_i(s16 x, s16 y, void* type) {
 
 void drop_rock(s16 x, s16 y, void *info) {
 	Cell *l = game.map.at(x,y);
-	if (rand32() % 10 == 0 && !l->desc()->solid) {
+	if (rand32() % 10 == 0 && !game.map.solid(x,y)) {
 		Node<Object> on(new NodeV<Object>);
 		on->type = ROCK;
 		stack_item_push(l->objects, on);
@@ -136,7 +131,7 @@ bool checkConnected() {
 
 	for (y = 0; y < h; y++) {
 		for (x = 0; x < w; x++) {
-			if (!game.map.at(x,y)->desc()->solid) { done = true; break; }
+			if (!game.map.solid(x,y)) { done = true; break; }
 		}
 		if (done) break;
 	}
@@ -153,7 +148,7 @@ bool checkConnected() {
 		Point p = Np->data;
 		for (int dx = -1; dx <= 1; dx++) {
 			for (int dy = -1; dy <= 1; dy++) {
-				if (!marks[(p.y+dy)*w+p.x+dx] && !game.map.at(p.x+dx,p.y+dy)->desc()->solid) {
+				if (!marks[(p.y+dy)*w+p.x+dx] && !game.map.solid(p.x+dx,p.y+dy)) {
 					marks[p.x + dx + w*(p.y+dy)] = true;
 					Point pp = { p.x+dx, p.y+dy };
 					queue.push(pp);
@@ -168,7 +163,7 @@ bool checkConnected() {
 	done = false;
 	for (y = 0; y < h; y++) {
 		for (x = 0; x < w; x++) {
-			if (!game.map.at(x,y)->desc()->solid && !marks[y*w+x]) {
+			if (!game.map.solid(x,y) && !marks[y*w+x]) {
 				done = true; break;
 			}
 		}
@@ -246,7 +241,7 @@ void AddStars() {
 void CATrees() {
 	for (int y = 0; y < torch.buf.geth(); y++) {
 		for (int x = 0; x < torch.buf.getw(); x++) {
-			if (!game.map.at(x,y)->desc()->solid && (rand4() < 6)) set_tile(x,y, TREE);
+			if (!game.map.solid(x,y) && (rand4() < 6)) set_tile(x,y, TREE);
 		}
 	}
 	bool *next = new bool[torch.buf.geth()*torch.buf.getw()];
@@ -260,7 +255,7 @@ void CATrees() {
 		}
 		for (int y = 0; y < torch.buf.geth(); y++) {
 			for (int x = 0; x < torch.buf.getw(); x++) {
-				if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == TREE) {
+				if (!game.map.solid(x,y) || game.map.at(x,y)->type == TREE) {
 					if (next[y*torch.buf.getw()+x])
 						set_tile(x,y, TREE);
 					else
@@ -279,7 +274,7 @@ void CATrees() {
 		}
 		for (int y = 0; y < torch.buf.geth(); y++) {
 			for (int x = 0; x < torch.buf.getw(); x++) {
-				if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == TREE) {
+				if (!game.map.solid(x,y) || game.map.at(x,y)->type == TREE) {
 					if (next[y*torch.buf.getw()+x])
 						set_tile(x,y, TREE);
 					else
@@ -293,7 +288,7 @@ void CATrees() {
 void CALakes() {
 	for (int y = 0; y < torch.buf.geth(); y++) {
 		for (int x = 0; x < torch.buf.getw(); x++) {
-			if (!game.map.at(x,y)->desc()->solid && (rand8() < 23) && countFoo(x,y,6,GLASS)) set_tile(x,y, WATER);
+			if (!game.map.solid(x,y) && (rand8() < 23) && countFoo(x,y,6,GLASS)) set_tile(x,y, WATER);
 		}
 	}
 	bool *next = new bool[torch.buf.geth()*torch.buf.getw()];
@@ -328,7 +323,7 @@ void CALakes() {
 		}
 		for (int y = 0; y < torch.buf.geth(); y++) {
 			for (int x = 0; x < torch.buf.getw(); x++) {
-				if (!game.map.at(x,y)->desc()->solid || game.map.at(x,y)->type == WATER) {
+				if (!game.map.solid(x,y) || game.map.at(x,y)->type == WATER) {
 					if (next[y*torch.buf.getw()+x])
 						set_tile(x,y, WATER);
 					else
@@ -365,18 +360,36 @@ void AddGrass() {
 }
 
 void Inhabit() {
+	int ntries = 0;
 	for (unsigned int i = 0; i < 4+(rand4()&7); i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
-		if (!game.map.at(x,y)->desc()->solid && countFoo(x,y,1,GROUND > 4)) {
-			set_tile(x,y,VENDING_MACHINE);
-		} else i--;
+		if (!game.map.solid(x,y) && countFoo(x,y,1,GROUND) > 4) {
+			Node<Object> on = addObject(x, y, VENDING_MACHINE);
+			// don't let it face into a tree
+			DIRECTION orientation = D_EAST;
+			do {
+				switch (rand4() & 0x3) {
+					case 0: orientation = D_NORTH; break;
+					case 1: orientation = D_SOUTH; break;
+					case 2: orientation = D_EAST; break;
+					case 3: orientation = D_WEST; break;
+				}
+			} while (game.map.solid(x+D_DX[orientation],y+D_DY[orientation]));
+			lightsource *li = new_light_beam(orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
+			li->x = x<<12; li->y = y<<12;
+			game.map.lights.push(li);
+		} else {
+			i--;
+			ntries++;
+			if (ntries > 10000) assert(!"too many tries...");
+		}
 	}
 }
 
 void SpawnCreatures() {
 	for (int i = 0, n = 40 + (rand8() % 32); i < n; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
-		if (!game.map.at(x,y)->desc()->solid) {
+		if (!game.map.solid(x,y)) {
 			game.spawn(BLOWFLY, x, y);
 		} else i--;
 	}
@@ -390,7 +403,7 @@ void SpawnCreatures() {
 
 	for (int i = 0, n = 15 + rand4(); i < n; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
-		if (!game.map.at(x,y)->desc()->solid) {
+		if (!game.map.solid(x,y)) {
 			game.spawn(LABRADOR, x, y);
 		} else i--;
 	}
@@ -462,7 +475,7 @@ void generate_terrarium() {
 	printf("Dropping items... ");
 	for (int i = 0; i < 60; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
-		if (!game.map.at(x,y)->desc()->solid) {
+		if (!game.map.solid(x,y)) {
 			Node<Object> on(new NodeV<Object>);
 			on->type = ROCK;
 			stack_item_push(game.map.at(x,y)->objects, on);
@@ -472,13 +485,13 @@ void generate_terrarium() {
 
 	Cell *l;
 	s16 x = cx, y = cy;
-	while (game.map.at(x, y)->desc()->solid)
+	while (game.map.solid(x, y))
 		randwalk(x, y);
 	game.player.x = x;
 	game.player.y = y;
 
 	x = cx, y = cy;
-	while ((l = game.map.at(x, y)) && l->desc()->solid)
+	while ((l = game.map.at(x, y)) && game.map.solid(x,y))
 		randwalk(x, y);
 	Node<Creature> cn(new NodeV<Creature>);
 	cn->type = 0;
@@ -488,7 +501,7 @@ void generate_terrarium() {
 
 	x = cx; y = cy;
 
-	while ((l = game.map.at(x, y)) && l->desc()->solid)
+	while ((l = game.map.at(x, y)) && game.map.solid(x, y))
 		randwalk(x, y);
 	Node<Object> on(new NodeV<Object>);
 	on->type = 0;

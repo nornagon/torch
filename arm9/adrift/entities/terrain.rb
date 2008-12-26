@@ -39,9 +39,3 @@ terrain 'fire' do
   color 28, 17, 7
   solid
 end
-
-terrain 'vending machine' do
-  char '#'
-  color 31,5,2
-  solid
-end

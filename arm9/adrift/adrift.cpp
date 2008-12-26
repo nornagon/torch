@@ -80,6 +80,7 @@ bool get_items() {
 
 void seek_and_destroy() {
 	if (!game.player.target) {
+		// acquire a target
 		u16 mindist = 16;
 		Node<Creature> candidate;
 		for (int y = game.player.y-4; y < game.player.y+4; y++)
@@ -182,8 +183,7 @@ void update_projectiles() {
 		while ((x-ox)*(x-ox)+(y-oy)*(y-oy) < 2*2) {
 			if (x == destx && y == desty) break;
 			p->st.step();
-			// TODO use a real flag
-			if (terraindesc[game.map.at(p->st.posx(),p->st.posy())->type].opaque) {
+			if (game.map.solid(p->st.posx(),p->st.posy())) {
 				collided = true;
 				break;
 			}

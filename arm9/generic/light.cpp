@@ -6,7 +6,23 @@
 #include "native.h"
 #endif
 
+#include "assert.h"
 #include <stdio.h>
+
+fov_direction_type to_fov_dir(DIRECTION dir) {
+	switch (dir) {
+		case D_NORTH: return FOV_NORTH;
+		case D_SOUTH: return FOV_SOUTH;
+		case D_EAST: return FOV_EAST;
+		case D_WEST: return FOV_WEST;
+		case D_NORTHEAST: return FOV_NORTHEAST;
+		case D_NORTHWEST: return FOV_NORTHWEST;
+		case D_SOUTHEAST: return FOV_SOUTHEAST;
+		case D_SOUTHWEST: return FOV_SOUTHWEST;
+	}
+	assert(!"nonexistent direction");
+	return FOV_EAST;
+}
 
 void draw_lights(fov_settings_type *settings, blockmap *map, List<lightsource*> lights) {
 	Node<lightsource*> k = lights.top();
@@ -23,8 +39,14 @@ void draw_light(fov_settings_type *settings, blockmap *map, lightsource *l) {
 	    l->radius == 0 || (l->r == 0 && l->g == 0 && l->b == 0)) return;
 
 	// calculate lighting values
-	fov_circle(settings, map, l,
-			l->x>>12, l->y>>12, (l->radius>>12) + 1);
+	if (l->type == LIGHT_POINT) {
+		fov_circle(settings, map, l,
+				l->x>>12, l->y>>12, (l->radius>>12) + 1);
+	} else {
+		fov_beam(settings, map, l,
+				l->x>>12, l->y>>12, (l->radius>>12) + 1,
+				to_fov_dir(l->direction), l->angle);
+	}
 
 	// since fov_circle doesn't touch the origin tile, we'll do its lighting
 	// manually here.
