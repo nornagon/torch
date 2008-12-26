@@ -372,6 +372,7 @@ void Inhabit() {
 			on->orientation = orientation;
 			lightsource *li = new_light_beam(orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
 			li->x = x<<12; li->y = y<<12;
+			li->flicker = FLICKER_LIGHT;
 			game.map.lights.push(li);
 		} else {
 			i--;

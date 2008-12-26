@@ -285,6 +285,13 @@ void handler() {
 
 	process_sight();
 	draw_lights(game.fov_light, &game.map.block, game.map.lights);
+	{
+		Node<lightsource*> k = game.map.lights.top();
+		for (; k; k = k.next()) {
+			(*k)->update_flicker();
+			draw_light(game.fov_light, &game.map.block, *k);
+		}
+	}
 
 	refresh(&game.map.block);
 }

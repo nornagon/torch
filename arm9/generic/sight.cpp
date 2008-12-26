@@ -54,8 +54,7 @@ void apply_sight(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 				rad2 = (rad * rad) >> 8;
 
 	if (dist2 < rad2) {
-		//div_32_32_raw(dist2<<8, rad2>>4);
-		div_32_32_raw(rad2<<8,(rad2+(((9<<8)*dist2)>>8)));
+		div_32_32_raw(rad2*(l->intensity>>4),(rad2+(((9<<8)*dist2)>>8)));
 		luxel *e = torch.buf.luxat(x,y);
 		while (DIV_CR & DIV_BUSY);
 		int32 intensity = DIV_RESULT32 << 4;

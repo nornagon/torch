@@ -53,7 +53,7 @@ void draw_light(fov_settings_type *settings, blockmap *map, lightsource *l) {
 	blockel *b = map->at(l->x>>12, l->y>>12);
 	if (b->visible) {
 		luxel *e = torch.buf.luxat(l->x>>12, l->y>>12);
-		e->lval += (1<<12);
+		e->lval += l->intensity;
 		e->lr += l->r;
 		e->lg += l->g;
 		e->lb += l->b;
@@ -84,8 +84,7 @@ void apply_light(void *map_, int x, int y, int dxblah, int dyblah, void *src) {
 	      rad2 = (rad * rad) >> 8;
 
 	if (dist2 < rad2) {
-		//div_32_32_raw(dist2<<8, rad2>>4);
-		div_32_32_raw(rad2<<8,rad2+(((9<<8)*dist2)>>8));
+		div_32_32_raw(rad2*(l->intensity>>4),rad2+(((9<<8)*dist2)>>8));
 
 		DIRECTION d = D_NONE;
 		if (b->opaque)
