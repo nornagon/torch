@@ -27,10 +27,10 @@ void vblank_counter() {
 
 void engine::init() {
 	// Set up IRQs to call our stuff when we need it
-#ifndef NATIVE
 	irqInit();
 	irqSet(IRQ_VBLANK, vblank_counter);
 	irqEnable(IRQ_VBLANK);
+#ifndef NATIVE
 
 	// a bunch of other stuff (draw.c, from memory) relies on the below being the
 	// case (i.e, VRAM banks being mapped like that and the BG modes set thus), so
@@ -63,6 +63,7 @@ void engine::init() {
 	text_console_render("This is \1\x9E\x02Torch\1\xFF\xFF, an engine from \1\xE0\x7Dnornagon\1\xFF\xFF. Starting up...\n");
 #else
 	SDL_Init(SDL_INIT_VIDEO);
+	screen = SDL_SetVideoMode(256,192*2,16,SDL_SWSURFACE);
 	{
 		struct timeval tv;
 		gettimeofday(&tv, NULL);

@@ -24,6 +24,12 @@ enum {
 	KEY_TOUCH,
 };
 
+enum IRQ_MASKS {
+	IRQ_VBLANK = 0
+};
+
+typedef enum IRQ_MASKS IRQ_MASK;
+
 //void initNative();
 void scanKeys();
 uint32 keysHeld();
@@ -45,6 +51,10 @@ void swapbufs();
 extern vint32 DIV_RESULT32;
 extern vuint16 DIV_CR;
 #define DIV_BUSY (1<<15)
+
+void irqInit();
+void irqSet(IRQ_MASK irq, VoidFunctionPointer handler);
+void irqEnable(IRQ_MASK irq);
 
 #ifdef __cplusplus
 }
