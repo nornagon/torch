@@ -2,6 +2,7 @@
 #include "font.h"
 #include <math.h>
 #include <SDL.h>
+#include <string.h>
 
 vuint32 REG_IE = 0;
 VoidFunctionPointer __irq_vector[32];
@@ -11,11 +12,13 @@ vint32 DIV_RESULT32 = 0;
 vuint32 dmaSrc[4];
 vuint32 dmaDest[4];
 vuint32 dmaCR[4];
-u16 backbuf[256*256];
+u16 *backbuf = 0;
 
-SDL_Surface *screen;
+SDL_Surface *screen, *backbuffer, *frontbuffer;
 
 Uint32 vblank(Uint32 interval, void *param) {
+	SDL_FillRect(screen, NULL, 0);
+	SDL_BlitSurface(backbuffer, NULL, screen, NULL);
 	SDL_Flip(screen);
 	return interval;
 }
@@ -23,7 +26,28 @@ Uint32 vblank(Uint32 interval, void *param) {
 void native_init() {
 	SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER);
 	screen = SDL_SetVideoMode(256,192*2,16,SDL_SWSURFACE);
+	SDL_PixelFormat *fmt = malloc(sizeof(SDL_PixelFormat));
+	memcpy(fmt, screen->format, sizeof(SDL_PixelFormat));
+	fmt->Rmask = 0x1f;
+	fmt->Rshift = 0;
+	fmt->Rloss = 3;
+	fmt->Gmask = 0x3e0;
+	fmt->Gshift = 5;
+	fmt->Gloss = 3;
+	fmt->Bmask = 0x7c00;
+	fmt->Bshift = 10;
+	fmt->Bloss = 3;
+	fmt->Amask = 0;
+	fmt->Ashift = 0;
+	fmt->Aloss = 8;
+	backbuffer = SDL_ConvertSurface(screen, fmt, SDL_SWSURFACE);
+	frontbuffer = SDL_ConvertSurface(screen, fmt, SDL_SWSURFACE);
+	backbuf = backbuffer->pixels;
 	SDL_AddTimer(17, vblank, NULL);
+	int i;
+	for (i = 0; i < 4; i++) {
+		dmaSrc[i] = dmaDest[i] = dmaCR[i] = 0;
+	}
 }
 
 touchPosition touchReadXY() {
@@ -66,6 +90,8 @@ void scanKeys() {
 			case SDL_KEYDOWN:
 				downKeysState |= dsKeyForSDLKey(event.key.keysym.sym);
 				break;
+			case SDL_QUIT:
+				exit(0);
 		}
 	}
 }
@@ -136,13 +162,17 @@ void drawcq(u32 x, u32 y, u32 c, u32 color) {
 			unsigned int offset = i + (j * 8);
 			Uint32 col = 0;
 			if (chardata[offset])
-				col = rgb32from15(color);
-			putpixel(screen, x + i, y + j, col);
+				col = color;
+			putpixel(backbuffer, x + i, y + j, col);
 		}
 	}
 }
 
 void swapbufs() {
+	SDL_Surface *tmp = backbuffer;
+	backbuffer = frontbuffer;
+	frontbuffer = tmp;
+	backbuf = backbuffer->pixels;
 }
 
 void native_div_32_32_raw(int32 num, int32 den) {
@@ -171,5 +201,24 @@ void irqEnable(IRQ_MASK irq) {
 	REG_IE |= BIT(irq);
 }
 
-void trip_dma() {
+void trip_dma(int n) {
+	if (dmaCR[n] & DMA_ENABLE) {
+		int nwords = dmaCR[n] & 0x1fffff;
+		int copied;
+		for (copied = 0; copied < nwords; copied++) {
+			*((vuint32*)dmaDest[n]) = *((vuint32*)dmaSrc[n]);
+			if (dmaCR[n] & DMA_SRC_DEC) dmaSrc[n] -= 4;
+			else dmaSrc[n] += 4;
+			if (dmaCR[n] & DMA_DST_DEC) dmaDest[n] -= 4;
+			else dmaDest[n] += 4;
+		}
+		printf("dma copied %d words ", nwords);
+		if (dmaCR[n] & DMA_SRC_DEC) printf("down\n");
+		else printf("up\n");
+		dmaCR[n] = 0;
+	}
+}
+
+bool dmaBusy(int n) {
+	return dmaCR[n] & DMA_BUSY;
 }

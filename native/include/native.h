@@ -56,9 +56,10 @@ typedef enum IRQ_MASKS IRQ_MASK;
 extern vuint32 dmaSrc[4];
 extern vuint32 dmaDest[4];
 extern vuint32 dmaCR[4];
-void trip_dma();
+void trip_dma(int);
+bool dmaBusy(int);
 
-extern u16 backbuf[256*256];
+extern u16 *backbuf;
 
 void native_init();
 
