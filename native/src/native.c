@@ -212,9 +212,6 @@ void trip_dma(int n) {
 			if (dmaCR[n] & DMA_DST_DEC) dmaDest[n] -= 4;
 			else dmaDest[n] += 4;
 		}
-		printf("dma copied %d words ", nwords);
-		if (dmaCR[n] & DMA_SRC_DEC) printf("down\n");
-		else printf("up\n");
 		dmaCR[n] = 0;
 	}
 }
