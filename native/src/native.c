@@ -64,6 +64,7 @@ uint32 dsKeyForSDLKey(SDLKey key) {
 		case SDLK_RIGHT: return KEY_RIGHT;
 		case SDLK_UP: return KEY_UP;
 		case SDLK_DOWN: return KEY_DOWN;
+		case SDLK_RSHIFT: return KEY_SELECT;
 		default: break;
 	}
 
@@ -85,6 +86,7 @@ void scanKeys() {
 
 
 	SDL_Event event;
+	memset(&event,0,sizeof(SDL_Event));
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 			case SDL_KEYDOWN:

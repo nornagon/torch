@@ -555,7 +555,6 @@ void test_map() {
 	game.map.lights.push(li);
 
 	game.map.block.refresh_blocked_from();
-	recalc(&game.map.block, game.player.x, game.player.y);
 
 	torch.buf.scroll.x = game.player.x - 16;
 	torch.buf.scroll.y = game.player.y - 12;

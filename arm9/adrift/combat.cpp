@@ -12,7 +12,7 @@ bool you_hit_monster(Node<Creature> target) {
 	s32 roll = rand32() % (attack + their_ac);
 	if (roll >= their_ac) {
 		s16 damage = 1 + (rand4() & 0x3);
-		const char *name = creaturedesc[target->type].name;
+		const char *name = target->desc()->name;
 		iprintf("Smack! You hit the %s for %d points of damage.\n", name, damage);
 		target->hp -= damage;
 		if (target->hp <= 0) {
@@ -35,5 +35,5 @@ bool you_hit_monster(Node<Creature> target) {
 }
 
 void monster_hit_you(Node<Creature> monster) {
-	iprintf("The %s hits you.\n", creaturedesc[monster->type].name);
+	iprintf("The %s hits you.\n", monster->desc()->name);
 }

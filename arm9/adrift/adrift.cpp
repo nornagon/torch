@@ -274,8 +274,10 @@ void process_sight() {
 	// go 1 over the boundaries to be sure we mark everything properly, even if
 	// we scrolled just now...
 	for (int y = torch.buf.scroll.y-1; y < torch.buf.scroll.y + 24 + 1; y++)
-		for (int x = torch.buf.scroll.x-1; x < torch.buf.scroll.x + 32 + 1; x++)
-			game.map.block.at(x, y)->visible = false;
+		for (int x = torch.buf.scroll.x-1; x < torch.buf.scroll.x + 32 + 1; x++) {
+			if (x >= torch.buf.getw() || x < 0 || y >= torch.buf.geth() || y < 0) continue;
+			game.map.block.at(x,y)->visible = false;
+		}
 	game.player.light->x = game.player.x << 12;
 	game.player.light->y = game.player.y << 12;
 	cast_sight(game.fov_sight, &game.map.block, game.player.light);
