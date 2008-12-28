@@ -32,6 +32,7 @@ void Creature::move(s16 _x, s16 _y) {
 	Cell *c = game.map.at(x,y);
 	Node<Creature> selfnode = c->creature;
 	c->creature = NULL;
+	assert(!game.map.at(_x,_y)->creature);
 	game.map.at(_x,_y)->creature = selfnode;
 	setPos(_x,_y);
 }

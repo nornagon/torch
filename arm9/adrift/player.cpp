@@ -139,6 +139,7 @@ void Player::chuck(s16 destx, s16 desty) {
 	projectile->quantity--;
 	if (projectile->quantity <= 0) { // ran out of stuff
 		bag.remove(projectile);
+		projectile.free();
 		projectile = NULL;
 	}
 

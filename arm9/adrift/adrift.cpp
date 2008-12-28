@@ -138,6 +138,11 @@ void process_keys() {
 		u32 down = keysDown();
 		touchPosition touch = touchReadXY();
 
+		if (down & KEY_START) {
+			new_game();
+			return;
+		}
+
 		if (down & KEY_SELECT) {
 			test_map();
 

@@ -15,7 +15,7 @@ bool hits(Node<Creature> attacker, Node<Creature> target) {
 s16 damage_done(Node<Creature> attacker, Node<Creature> target) {
 	s16 min = attacker->desc()->natural_min;
 	s16 max = attacker->desc()->natural_max;
-	return min + (rand32() % (max-min+1)) + attacker->strength;
+	return min + (rand32() % (max-min+1)) + attacker->strength/2;
 }
 
 bool you_hit_monster(Node<Creature> target) {
@@ -46,7 +46,6 @@ void monster_hit_you(Node<Creature> monster) {
 		iprintf("The %s hits you for %d points of damage.\n", monster->desc()->name, damage);
 		game.player.obj->hp -= damage;
 		game.player.exercise_resilience();
-		// TODO: player death
 	} else {
 		iprintf("The %s misses.\n", monster->desc()->name);
 		game.player.exercise_agility();

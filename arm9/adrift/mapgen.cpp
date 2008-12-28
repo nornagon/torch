@@ -412,14 +412,17 @@ void SpawnCreatures() {
 
 static inline void startTimer() {
 #ifndef NATIVE
-	TIMER_CR(1) = TIMER_CASCADE;
+	TIMER_CR(1) = TIMER_CASCADE | TIMER_ENABLE;
 	TIMER_CR(0) = TIMER_DIV_1024 | TIMER_ENABLE;
 #endif
 }
 static inline u32 stopTimer() {
 #ifndef NATIVE
 	TIMER_CR(0) = 0;
-	return TIMER_DATA(0) | (TIMER_DATA(1) << 16);
+	TIMER_CR(1) = 0;
+	u32 data = TIMER_DATA(0) | (TIMER_DATA(1) << 16);
+	TIMER_DATA(0) = TIMER_DATA(1) = 0;
+	return data;
 #else
 	return 0;
 #endif
@@ -497,19 +500,22 @@ void generate_terrarium() {
 
 	set_tile(cx+40, cy, FIRE);
 	Node<lightsource> li(new NodeV<lightsource>);
-	li->set(12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
+	li->set(9<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
+	li->orig_intensity = li->intensity = 1<<11;
 	li->x = (cx+40)<<12; li->y = cy<<12;
 	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 	set_tile(cx+30, cy, FIRE);
 	li = new NodeV<lightsource>;
-	li->set(12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
+	li->set(9<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
+	li->orig_intensity = li->intensity = 1<<11;
 	li->x = (cx+30)<<12; li->y = cy<<12;
 	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 	set_tile(cx+35, cy-7, FIRE);
 	li = new NodeV<lightsource>;
-	li->set(12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
+	li->set(9<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
+	li->orig_intensity = li->intensity = 1<<11;
 	li->x = (cx+35)<<12; li->y = (cy-7)<<12;
 	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);

@@ -22,6 +22,18 @@ void _assert(const char *file, int line, const char *func, const char *expr, boo
 	}
 }
 
+void _require(const char *file, int line, const char *func, const char *expr, bool v, const char *str) {
+	if (!v) {
+		printf("%s:%d in %s:\n  requirement (%s) failed:\n  %s", file, line, func, expr, str);
+#ifdef NATIVE
+		printf("\n");
+		abort();
+#else
+		while (1) swiWaitForVBlank();
+#endif
+	}
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -16,11 +16,14 @@ extern "C" {
 
 #ifdef NDEBUG
 #define assert(k) (__ASSERT_VOID_CAST (0))
+#define require(k,str) (k)
 #else
 #ifdef NATIVE
 #define assert(k) _assert(__FILE__,__LINE__,__PRETTY_FUNCTION__,__STRING(k),(bool)(k))
+#define require(k,str) _require(__FILE__,__LINE__,__PRETTY_FUNCTION__,__STRING(k),(bool)(k),str)
 #else
 #define assert(k) _assert(__FILE__,__LINE__,__func__,#k,(bool)(k))
+#define require(k,str) _require(__FILE__,__LINE__,__func__,#k,(bool)(k),str)
 #endif
 #endif
 
