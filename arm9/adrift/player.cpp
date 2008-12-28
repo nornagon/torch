@@ -20,7 +20,7 @@ void Player::exist() {
 	obj = Node<Creature>(new NodeV<Creature>);
 	obj->init(PLAYER);
 	obj->setPos(x,y);
-	obj->hp = 20;
+	obj->hp = obj->max_hp();
 	game.map.at(x,y)->creature = obj;
 	light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 	light->flicker = FLICKER_RADIUS;
@@ -136,3 +136,21 @@ void Player::chuck(s16 destx, s16 desty) {
 	game.map.projectiles.push(thrown);
 	game.cooldown += 6;
 }
+
+#define DEF_EXERCISE(stat) \
+	void Player::exercise_##stat(int n) { \
+		game.player.stat##_xp++; \
+		if (game.player.stat##_xp > game.player.obj->stat) { \
+			game.player.obj->stat++; \
+			game.player.stat##_xp -= game.player.obj->stat; \
+			iprintf("Your \1\x03\x6a%s\2 skill is now \1\x03\x6a%d\2.\n", #stat, game.player.obj->stat); \
+		} \
+	}
+
+DEF_EXERCISE(strength)
+DEF_EXERCISE(agility)
+DEF_EXERCISE(resilience)
+DEF_EXERCISE(aim)
+DEF_EXERCISE(melee)
+
+#undef DEF_EXERCISE

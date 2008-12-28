@@ -4,4 +4,6 @@
 void inventory();
 void overview();
 
+void statusbar();
+
 #endif /* INTERFACE_H */

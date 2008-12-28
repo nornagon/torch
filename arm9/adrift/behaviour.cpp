@@ -27,6 +27,10 @@ void behave(Node<Creature> creature) {
 			}
 		}
 	}
+	if (creature->hp < creature->max_hp()) {
+		creature->regenerate();
+		return;
+	}
 	if (creature->desc()->wanders) {
 		s16 x = creature->x, y = creature->y;
 		randwalk(x,y);

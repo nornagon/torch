@@ -31,7 +31,12 @@ struct Player {
 
 	s16 x, y;
 
-	s32 strength_xp, agility_xp, aim_xp, melee_xp;
+	s32 strength_xp, agility_xp, resilience_xp, aim_xp, melee_xp;
+	void exercise_strength(int n = 1);
+	void exercise_agility(int n = 1);
+	void exercise_resilience(int n = 1);
+	void exercise_aim(int n = 1);
+	void exercise_melee(int n = 1);
 };
 
 #endif /* PLAYER_H */

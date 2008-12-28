@@ -7,6 +7,7 @@
 #include "text.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #ifdef NATIVE
 #include "native.h"
 #endif
@@ -250,5 +251,13 @@ void overview() {
 		swiWaitForVBlank();
 	}
 	text_console_enable();
+#endif
+}
+
+void statusbar() {
+#ifndef NATIVE
+	u16* subscr = (u16*)BG_BMP_RAM_SUB(0);
+	memset(&subscr[256*(192-9)], 0, 256*9*2);
+	tprintf(2,192-9,0xffff, "HP:%d/%d", game.player.obj->hp, game.player.obj->max_hp());
 #endif
 }

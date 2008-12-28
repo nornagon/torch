@@ -13,6 +13,8 @@ unsigned short offset[NO_CHARS];
 unsigned char width[NO_CHARS];
 unsigned short bitmapwidth;
 
+#define TEXT_END (192-9)
+
 /* state for renderer */
 #define TEXT_BUFFER_SIZE (100 * 40) /* ought to be about two screens worth */
 #define DEFAULT_COLOR 0xFFFF
@@ -216,12 +218,12 @@ void text_scroll() {
 	/* XXX: this is probably dumb */
 	DMA_SRC(3) = (uint32)&subfrontbuf[256 * (CHAR_HEIGHT + 2)];
 	DMA_DEST(3) = (uint32)&subfrontbuf[0];
-	DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | (256 * (192 - (CHAR_HEIGHT + 2))) >> 1;
+	DMA_CR(3) = DMA_COPY_WORDS | DMA_SRC_INC | DMA_DST_INC | (256 * (TEXT_END - (CHAR_HEIGHT + 2))) >> 1;
 	while (dmaBusy(3));
 
 	/* wipe rest of screen */
 	/* TODO: use memset32? */
-	for (i = 256 * (192 - (CHAR_HEIGHT + 2)); i < (256 * 192); i++)
+	for (i = 256 * (TEXT_END - (CHAR_HEIGHT + 2)); i < (256 * TEXT_END); i++)
 		subfrontbuf[i] = 0;
 }
 
@@ -242,7 +244,7 @@ void text_render_str(const char *text, int len) {
 		
 		/* if there's a colour change here, render the text so far and change colour */
 		if (text[i] == '\1') {
-			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
+			while (yoffset + CHAR_HEIGHT + 2 > TEXT_END) text_scroll();
 			lastgoodlen = i;
 			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
 			if (keepstate) append_console_state(text, lastgoodlen + 3);
@@ -258,7 +260,7 @@ void text_render_str(const char *text, int len) {
 		}
 		if (text[i] == '\2') { // return to default colour
 			/* TODO: copy/pasted from above; should remove to a seperate function */
-			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
+			while (yoffset + CHAR_HEIGHT + 2 > TEXT_END) text_scroll();
 			lastgoodlen = i;
 			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
 			if (keepstate) append_console_state(text, lastgoodlen + 1);
@@ -275,7 +277,7 @@ void text_render_str(const char *text, int len) {
 
 		/* if there's a newline or we ran out of space here, render the text up to the last word and move to the next line */
 		if (text[i] == '\n' || xusage + width[c] + 2 > 256) {
-			while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
+			while (yoffset + CHAR_HEIGHT + 2 > TEXT_END) text_scroll();
 			if (xoffset == 0 && lastgoodlen == 0) lastgoodlen = i; /* if there's some crazy-long word which takes up a whole line, render the whole thing */
 			if (renderconsole) text_render_raw(xoffset, yoffset, text, lastgoodlen, fgcolor);
 			if (keepstate) append_console_state(text, lastgoodlen);
@@ -300,7 +302,7 @@ void text_render_str(const char *text, int len) {
 	
 	if (len > 0) {
 		/* render any leftover text */
-		while (yoffset + CHAR_HEIGHT + 2 > 192) text_scroll();
+		while (yoffset + CHAR_HEIGHT + 2 > TEXT_END) text_scroll();
 		if (renderconsole) text_render_raw(xoffset, yoffset, text, len, fgcolor);
 		if (keepstate) append_console_state(text, len);
 		xoffset = xusage;

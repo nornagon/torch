@@ -5,13 +5,23 @@
 
 #include "entities/creature.h"
 
+bool hits(Node<Creature> attacker, Node<Creature> target) {
+	s32 attack = attacker->melee;
+	s32 ac = target->melee + target->agility/4;
+	s32 roll = rand32() % (attack + ac);
+	return roll >= ac;
+}
+
+s16 damage_done(Node<Creature> attacker, Node<Creature> target) {
+	s16 min = attacker->desc()->natural_min;
+	s16 max = attacker->desc()->natural_max;
+	return min + (rand32() % (max-min+1)) + attacker->strength;
+}
+
 bool you_hit_monster(Node<Creature> target) {
 	bool died = false;
-	s32 attack = game.player.obj->melee;
-	s32 their_ac = target->melee + target->agility/4;
-	s32 roll = rand32() % (attack + their_ac);
-	if (roll >= their_ac) {
-		s16 damage = 1 + (rand4() & 0x3);
+	if (hits(game.player.obj, target)) {
+		s16 damage = damage_done(game.player.obj, target);
 		const char *name = target->desc()->name;
 		iprintf("Smack! You hit the %s for %d points of damage.\n", name, damage);
 		target->hp -= damage;
@@ -22,18 +32,23 @@ bool you_hit_monster(Node<Creature> target) {
 			died = true;
 			game.map.at(target->x,target->y)->creature = NULL;
 		}
+		game.player.exercise_strength();
 	} else {
 		iprintf("You miss.\n");
 	}
-	game.player.melee_xp++;
-	if (game.player.melee_xp > game.player.obj->melee) {
-		game.player.obj->melee++;
-		game.player.melee_xp -= game.player.obj->melee;
-		iprintf("Your \1\x03\x6amelee\2 skill is now \1\x03\x6a%d\2.\n", game.player.obj->melee);
-	}
+	game.player.exercise_melee();
 	return died;
 }
 
 void monster_hit_you(Node<Creature> monster) {
-	iprintf("The %s hits you.\n", monster->desc()->name);
+	if (hits(monster, game.player.obj)) {
+		s16 damage = damage_done(monster, game.player.obj);
+		iprintf("The %s hits you for %d points of damage.\n", monster->desc()->name, damage);
+		game.player.obj->hp -= damage;
+		game.player.exercise_resilience();
+		// TODO: player death
+	} else {
+		iprintf("The %s misses.\n", monster->desc()->name);
+		game.player.exercise_agility();
+	}
 }

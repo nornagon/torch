@@ -8,6 +8,7 @@ creature 'player' do
   color 31, 31, 31
   strength 1
   agility 1
+  resilience 1
   aim 1
   melee 1
 end
@@ -17,8 +18,11 @@ creature 'venus fly trap' do
   color 12, 29, 5
   strength 5
   agility 1
+  resilience 4
   aim 1
   melee 5
+
+  natural 3..5
 
   cooldown 15
   stationary
@@ -29,6 +33,7 @@ creature 'blowfly' do
   color 7,7,7
   strength 1
   agility 5
+  resilience 1
   aim 1
   melee 1
   cooldown 5
@@ -40,7 +45,8 @@ creature 'labrador' do
   color 28, 23, 0
   strength 5
   agility 2
-  aim 4
+  resilience 3
+  aim 1
   melee 4
   cooldown 10
   wanders; hungry

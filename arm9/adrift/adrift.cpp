@@ -315,6 +315,10 @@ void handler() {
 	}
 
 	refresh(&game.map.block);
+
+	if (game.cooldown <= 0) game.player.obj->regenerate();
+
+	statusbar();
 }
 
 void new_game() {
