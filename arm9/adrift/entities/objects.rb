@@ -7,11 +7,13 @@ object 'rock' do
   char '8'
   color 18,18,18
   stackable
+  usable
 end
 
 object 'rain stick' do
   char '/'
   color 18,18,0
+  usable
 end
 
 object 'star' do
@@ -31,6 +33,7 @@ object 'can of stewed beef' do
   plural 'cans of stewed beef'
   color 17,13,2
   stackable
+  edible
 end
 
 object 'bottle of water' do
@@ -38,4 +41,5 @@ object 'bottle of water' do
   plural 'bottles of water'
   color 0,25,25
   stackable
+  drinkable
 end

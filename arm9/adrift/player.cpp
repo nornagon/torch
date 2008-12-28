@@ -96,6 +96,20 @@ void Player::use(Node<Object> item) {
 	}
 }
 
+void Player::eat(Node<Object> item) {
+	iprintf("You eat the %s.\n", item->desc()->name);
+	item->quantity--;
+	if (item->quantity <= 0)
+		bag.remove(item);
+}
+
+void Player::drink(Node<Object> item) {
+	iprintf("You drink the %s.\n", item->desc()->name);
+	item->quantity--;
+	if (item->quantity <= 0)
+		bag.remove(item);
+}
+
 void Player::setprojectile(Node<Object> proj) {
 	projectile = proj;
 }

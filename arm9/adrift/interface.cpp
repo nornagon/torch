@@ -53,6 +53,7 @@ enum ACTION {
 	ACT_THROW,
 	ACT_EQUIP,
 	ACT_EAT,
+	ACT_DRINK,
 	ACT_USE,
 };
 
@@ -67,6 +68,12 @@ void perform(Node<Object> obj, ACTION act) {
 		case ACT_THROW:
 			game.player.setprojectile(obj);
 			break;
+		case ACT_EAT:
+			game.player.eat(obj);
+			break;
+		case ACT_DRINK:
+			game.player.drink(obj);
+			break;
 		default:
 			break;
 	}
@@ -76,15 +83,13 @@ struct menuitem {
 	const char *text;
 	ACTION action;
 } itemmenu[] = {
+	{ "Eat", ACT_EAT },
+	{ "Drink", ACT_DRINK },
 	{ "Use", ACT_USE },
 	{ "Throw", ACT_THROW },
 	{ "Drop", ACT_DROP },
 	{ 0 }
 };
-
-bool canuse(Node<Object> obj) {
-	return obj->type == ROCK;
-}
 
 bool withitem(Node<Object> obj) {
 #ifndef NATIVE
@@ -101,7 +106,9 @@ bool withitem(Node<Object> obj) {
 		for (menuitem* k = itemmenu; k->text; k++) {
 			bool validaction = false;
 			switch (k->action) {
-				case ACT_USE:   validaction = canuse(obj); break;
+				case ACT_EAT:   validaction = obj->desc()->edible; break;
+				case ACT_DRINK: validaction = obj->desc()->drinkable; break;
+				case ACT_USE:   validaction = obj->desc()->usable; break;
 				case ACT_DROP:  validaction = true; break;
 				case ACT_THROW: validaction = true; break;
 				default: validaction = false; break;
@@ -143,6 +150,7 @@ void inventory() {
 	u16* subscr = (u16*)BG_BMP_RAM_SUB(0);
 
 	while (1) {
+		swiWaitForVBlank();
 		text_display_clear();
 
 		// print the border
@@ -192,19 +200,6 @@ void inventory() {
 	lcdMainOnBottom();
 
 	text_console_enable();
-
-	/*switch (act) {
-		case ACT_DROP:
-			game.player.drop(sel);
-			break;
-		case ACT_THROW:
-			break;
-		case ACT_USE:
-			game.player.use(sel);
-			break;
-		default:
-			break;
-	}*/
 #endif
 }
 

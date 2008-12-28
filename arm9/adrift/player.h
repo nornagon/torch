@@ -20,9 +20,12 @@ struct Player {
 	void exist();
 
 	void move(DIRECTION dir, bool run);
-	void drop(Node<Object> obj);
 
+	void drop(Node<Object> item);
 	void use(Node<Object> item);
+	void eat(Node<Object> item);
+	void drink(Node<Object> item);
+
 	void setprojectile(Node<Object> proj);
 	void chuck(s16 destx, s16 desty);
 
