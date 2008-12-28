@@ -390,7 +390,7 @@ void Inhabit() {
 void SpawnCreatures() {
 	for (int i = 0, n = 40 + (rand8() % 32); i < n; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
-		if (!game.map.solid(x,y)) {
+		if (game.map.walkable(x,y)) {
 			game.map.spawn(BLOWFLY, x, y);
 		} else i--;
 	}
@@ -404,7 +404,7 @@ void SpawnCreatures() {
 
 	for (int i = 0, n = 15 + rand4(); i < n; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
-		if (!game.map.solid(x,y)) {
+		if (game.map.walkable(x,y)) {
 			game.map.spawn(LABRADOR, x, y);
 		} else i--;
 	}

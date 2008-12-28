@@ -28,9 +28,10 @@ bool you_hit_monster(Node<Creature> target) {
 		if (target->hp <= 0) {
 			iprintf("The %s dies.\n", name);
 			game.map.monsters.remove(target); // TODO linked list remove... ugh
+			assert(game.map.at(target->x,target->y)->creature == (Creature*)target);
+			game.map.at(target->x,target->y)->creature = NULL;
 			target.free();
 			died = true;
-			game.map.at(target->x,target->y)->creature = NULL;
 		}
 		game.player.exercise_strength();
 	} else {

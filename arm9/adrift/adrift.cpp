@@ -43,6 +43,7 @@ void Map::spawn(u16 type, s16 x, s16 y) {
 	Node<Creature> c(new NodeV<Creature>);
 	c->init(type);
 	c->setPos(x,y);
+	assert(!occupied(x,y));
 	at(x,y)->creature = c;
 	monsters.push(c);
 }

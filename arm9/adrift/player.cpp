@@ -73,9 +73,7 @@ void Player::move(DIRECTION dir, bool run) {
 		cell = game.map.at(x + dpX, y + dpY);
 
 		// move the player object
-		game.map.at(x, y)->creature = NULL;
-		game.map.at(x + dpX, y + dpY)->creature = obj;
-		obj->setPos(x+dpX, y+dpY);
+		game.player.obj->move(x + dpX, y + dpY);
 		recalc(&game.map.block, x, y);
 		recalc(&game.map.block, x + dpX, y + dpY);
 
@@ -84,8 +82,6 @@ void Player::move(DIRECTION dir, bool run) {
 
 		game.map.block.pX = x;
 		game.map.block.pY = y;
-
-		obj->setPos(x,y);
 
 		torch.onscreen(x,y,8);
 	}
