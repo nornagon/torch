@@ -15,13 +15,11 @@ vuint32 dmaCR[4];
 u16 *backbuf = 0;
 
 SDL_Surface *screen, *backbuffer, *frontbuffer;
+SDL_cond *vblankCond;
+SDL_mutex *vblankMutex;
+SDL_mutex *keysMutex;
 
-Uint32 vblank(Uint32 interval, void *param) {
-	SDL_FillRect(screen, NULL, 0);
-	SDL_BlitSurface(backbuffer, NULL, screen, NULL);
-	SDL_Flip(screen);
-	return interval;
-}
+Uint32 vblank(Uint32 interval, void *param);
 
 void native_init() {
 	SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER);
@@ -43,11 +41,17 @@ void native_init() {
 	backbuffer = SDL_ConvertSurface(screen, fmt, SDL_SWSURFACE);
 	frontbuffer = SDL_ConvertSurface(screen, fmt, SDL_SWSURFACE);
 	backbuf = backbuffer->pixels;
-	SDL_AddTimer(17, vblank, NULL);
+
+	vblankMutex = SDL_CreateMutex();
+	vblankCond = SDL_CreateCond();
+	keysMutex = SDL_CreateMutex();
+
 	int i;
 	for (i = 0; i < 4; i++) {
 		dmaSrc[i] = dmaDest[i] = dmaCR[i] = 0;
 	}
+
+	SDL_AddTimer(15, vblank, NULL);
 }
 
 touchPosition touchReadXY() {
@@ -71,48 +75,57 @@ uint32 dsKeyForSDLKey(SDLKey key) {
 	return 0;
 }
 
-uint32 currentKeyState;
-uint32 downKeysState;
+uint32 currentKeyState[2];
+uint32 downKeyState[2];
 void scanKeys() {
-	currentKeyState = 0;
-	downKeysState = 0;
-	
-	Uint8 *state = SDL_GetKeyState(NULL);
-	unsigned int i;
-	for (i = 0; i < SDLK_LAST; i++) {
-		if (state[i])
-			currentKeyState |= dsKeyForSDLKey(i);
-	}
+	SDL_LockMutex(keysMutex);
+	currentKeyState[0] = currentKeyState[1];
+	downKeyState[0] = downKeyState[1];
+	SDL_UnlockMutex(keysMutex);
+}
 
+uint32 keysHeld() {
+	return currentKeyState[0];
+}
 
+uint32 keysDown() {
+	return downKeyState[0];
+}
+
+Uint32 vblank(Uint32 interval, void *param) {
+	SDL_FillRect(screen, NULL, 0);
+	SDL_BlitSurface(frontbuffer, NULL, screen, NULL);
+	SDL_Flip(screen);
+	SDL_CondSignal(vblankCond);
+	SDL_LockMutex(keysMutex);
+	downKeyState[1] = 0;
 	SDL_Event event;
-	memset(&event,0,sizeof(SDL_Event));
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 			case SDL_KEYDOWN:
-				downKeysState |= dsKeyForSDLKey(event.key.keysym.sym);
+				downKeyState[1] |= dsKeyForSDLKey(event.key.keysym.sym);
+				break;
+			case SDL_KEYUP:
+				currentKeyState[1] &= ~dsKeyForSDLKey(event.key.keysym.sym);
 				break;
 			case SDL_QUIT:
 				exit(0);
 		}
 	}
+	currentKeyState[1] |= downKeyState[1];
+	SDL_UnlockMutex(keysMutex);
+	return interval;
 }
 
-uint32 keysHeld() {
-	return currentKeyState;
-}
-
-uint32 keysDown() {
-	return downKeysState;
+void swiWaitForVBlank() {
+	SDL_mutexP(vblankMutex);
+	SDL_CondWait(vblankCond, vblankMutex);
+	SDL_mutexV(vblankMutex);
+	if (REG_IE & BIT(IRQ_VBLANK)) __irq_vector[IRQ_VBLANK]();
 }
 
 void lcdMainOnBottom() {}
 void lcdMainOnTop() {}
-
-void swiWaitForVBlank() {
-	SDL_Delay(17);
-	if (REG_IE & BIT(IRQ_VBLANK)) __irq_vector[IRQ_VBLANK]();
-}
 
 void putpixel(SDL_Surface *surface, int x, int y, Uint32 pixel)
 {
