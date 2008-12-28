@@ -3,7 +3,7 @@
 
 void inventory();
 void overview();
-
+void playerdeath();
 void statusbar();
 
 #endif /* INTERFACE_H */

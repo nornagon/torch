@@ -17,14 +17,23 @@ void Player::drop(Node<Object> obj) {
 }
 
 void Player::exist() {
+	clear();
 	obj = Node<Creature>(new NodeV<Creature>);
 	obj->init(PLAYER);
-	obj->setPos(x,y);
-	obj->hp = obj->max_hp();
-	game.map.at(x,y)->creature = obj;
-	light = new_light(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
+	light = new lightsource(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 	light->flicker = FLICKER_RADIUS;
+}
+
+void Player::clear() {
+	if (obj) obj.free();
+	if (light) delete light;
+	obj = NULL;
+	light = NULL;
+	target = NULL;
 	projectile = NULL;
+	bag.clear();
+	x = y = 0;
+	strength_xp = agility_xp = resilience_xp = melee_xp = aim_xp = 0;
 }
 
 void Player::move(DIRECTION dir, bool run) {
@@ -140,7 +149,7 @@ void Player::chuck(s16 destx, s16 desty) {
 #define DEF_EXERCISE(stat) \
 	void Player::exercise_##stat(int n) { \
 		game.player.stat##_xp++; \
-		if (game.player.stat##_xp > game.player.obj->stat) { \
+		if (game.player.stat##_xp > game.player.obj->stat*4) { \
 			game.player.obj->stat++; \
 			game.player.stat##_xp -= game.player.obj->stat; \
 			iprintf("Your \1\x03\x6a%s\2 skill is now \1\x03\x6a%d\2.\n", #stat, game.player.obj->stat); \

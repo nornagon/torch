@@ -20,6 +20,14 @@ enum FLICKER_TYPE {
 // intermediate information used by processes that alter the light source (such
 // as flickering)
 struct lightsource {
+	lightsource();
+	lightsource(int32 radius, int32 r, int32 g, int32 b);
+	lightsource(DIRECTION direction, int32 radius, int32 angle, int32 r, int32 g, int32 b);
+
+	// fill the properties of a light structure
+	void set(int32 radius, int32 r, int32 g, int32 b);
+	void set(DIRECTION direction, int32 radius, int32 angle, int32 r, int32 g, int32 b);
+
 	int32 x,y; // position in the map
 	int32 orig_r,orig_g,orig_b, orig_intensity; // original color
 	int32 r,g,b, intensity; // current color
@@ -33,16 +41,5 @@ struct lightsource {
 
 	void update_flicker();
 };
-
-// fill the properties of a light structure
-void set_light(lightsource *light, int32 radius, int32 r, int32 g, int32 b);
-void set_light_beam(lightsource *light, DIRECTION direction, int32 radius, int32 angle,
-                    int32 r, int32 g, int32 b);
-
-// allocate some space for a new light structure. You will be responsible for
-// freeing the light.
-lightsource *new_light(int32 radius, int32 r, int32 g, int32 b);
-lightsource *new_light_beam(DIRECTION direction, int32 radius, int32 angle,
-                            int32 r, int32 g, int32 b);
 
 #endif /* LIGHTSOURCE_H */

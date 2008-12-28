@@ -6,11 +6,11 @@ end
 creature 'player' do
   char '@'
   color 31, 31, 31
-  strength 1
-  agility 1
-  resilience 1
-  aim 1
-  melee 1
+  strength 4
+  agility 4
+  resilience 4
+  aim 4
+  melee 4
 end
 
 creature 'venus fly trap' do
@@ -43,8 +43,8 @@ end
 creature 'labrador' do
   char 'd'
   color 28, 23, 0
-  strength 5
-  agility 2
+  strength 6
+  agility 3
   resilience 3
   aim 1
   melee 4

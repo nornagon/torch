@@ -23,7 +23,7 @@ void Creature::regenerate() {
 			else
 				hp += hp_gain;
 		}
-		regen_cooldown += 10+rand4()*2;
+		regen_cooldown += 20+rand4()*2;
 	} else regen_cooldown--;
 }
 

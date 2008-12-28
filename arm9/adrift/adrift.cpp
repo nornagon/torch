@@ -29,6 +29,8 @@
 #include <sys/time.h>
 #endif
 
+void new_game();
+
 Adrift game;
 
 Adrift::Adrift() {
@@ -137,7 +139,15 @@ void process_keys() {
 		touchPosition touch = touchReadXY();
 
 		if (down & KEY_SELECT) {
-			test_map(); return;
+			test_map();
+
+			torch.buf.scroll.x = game.player.x - 16;
+			torch.buf.scroll.y = game.player.y - 12;
+			torch.buf.bounded(torch.buf.scroll.x, torch.buf.scroll.y);
+			torch.dirty_screen();
+			torch.reset_luminance();
+
+			return;
 		}
 
 		if (down & KEY_X) {
@@ -316,14 +326,34 @@ void handler() {
 
 	refresh(&game.map.block);
 
+	if (game.player.obj->hp <= 0) {
+		playerdeath();
+		game.player.clear();
+		new_game();
+	}
+
 	if (game.cooldown <= 0) game.player.obj->regenerate();
 
 	statusbar();
 }
 
 void new_game() {
-	game.map.resize(128,128);
-	torch.buf.resize(128,128);
+	game.player.exist();
+
+	generate_terrarium();
+
+	game.player.obj->setPos(game.player.x,game.player.y);
+	game.map.at(game.player.x,game.player.y)->creature = game.player.obj;
+
+	torch.buf.scroll.x = game.player.x - 16;
+	torch.buf.scroll.y = game.player.y - 12;
+	torch.buf.bounded(torch.buf.scroll.x, torch.buf.scroll.y);
+	torch.dirty_screen();
+	torch.reset_luminance();
+}
+
+void init_world() {
+	lcdMainOnBottom();
 
 #ifndef NATIVE
 	// TODO: replace with gettimeofday() or similar
@@ -338,19 +368,7 @@ void new_game() {
 	}
 #endif
 
-	generate_terrarium();
-
-	game.player.exist();
-	recalc(&game.map.block, game.player.x, game.player.y);
-
-	torch.buf.scroll.x = game.player.x - 16;
-	torch.buf.scroll.y = game.player.y - 12;
-	torch.buf.bounded(torch.buf.scroll.x, torch.buf.scroll.y);
+	new_game();
 
 	torch.run(handler);
-}
-
-void init_world() {
-	lcdMainOnBottom();
-	new_game();
 }

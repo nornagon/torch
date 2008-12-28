@@ -254,6 +254,12 @@ void overview() {
 #endif
 }
 
+void playerdeath() {
+	statusbar();
+	iprintf("You die... press start to continue.\n");
+	while (!(waitkey() & KEY_START));
+}
+
 void statusbar() {
 #ifndef NATIVE
 	u16* subscr = (u16*)BG_BMP_RAM_SUB(0);

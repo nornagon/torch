@@ -214,7 +214,7 @@ void AddStars() {
 			if (game.map.at(x,y)->type == TERRAIN_NONE && rand8() < 10) {
 				// light
 				Node<lightsource> li(new NodeV<lightsource>);
-				set_light(li, 1, 1<<12, 1<<12, 1<<12);
+				li->set(1, 1<<12, 1<<12, 1<<12);
 				li->x = x<<12; li->y = y<<12;
 				game.map.lights.push(li);
 
@@ -375,7 +375,7 @@ void Inhabit() {
 			} while (game.map.solid(x+D_DX[orientation],y+D_DY[orientation]));
 			on->orientation = orientation;
 			Node<lightsource> li(new NodeV<lightsource>);
-			set_light_beam(li, orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
+			li->set(orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
 			li->x = x<<12; li->y = y<<12;
 			li->flicker = FLICKER_LIGHT;
 			game.map.lights.push(li);
@@ -426,6 +426,9 @@ static inline u32 stopTimer() {
 }
 
 void generate_terrarium() {
+	game.map.resize(128,128);
+	torch.buf.resize(128,128);
+
 	s16 cx = torch.buf.getw()/2, cy = torch.buf.geth()/2;
 
 	torch.buf.reset();
@@ -494,24 +497,26 @@ void generate_terrarium() {
 
 	set_tile(cx+40, cy, FIRE);
 	Node<lightsource> li(new NodeV<lightsource>);
-	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
+	li->set(12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+40)<<12; li->y = cy<<12;
 	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 	set_tile(cx+30, cy, FIRE);
 	li = new NodeV<lightsource>;
-	set_light(li, 12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
+	li->set(12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+30)<<12; li->y = cy<<12;
 	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 	set_tile(cx+35, cy-7, FIRE);
 	li = new NodeV<lightsource>;
-	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
+	li->set(12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
 	li->x = (cx+35)<<12; li->y = (cy-7)<<12;
 	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 
 	game.map.block.refresh_blocked_from();
+	torch.dirty_screen();
+	torch.reset_luminance();
 }
 
 void test_map() {
@@ -530,17 +535,17 @@ void test_map() {
 	Node<lightsource> li;
 	set_tile(cx+5, cy, FIRE);
 	li = new NodeV<lightsource>;
-	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
+	li->set(12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+5)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
 	set_tile(cx-5, cy, FIRE);
 	li = new NodeV<lightsource>;
-	set_light(li, 12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
+	li->set(12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx-5)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
 	set_tile(cx, cy-5, FIRE);
 	li = new NodeV<lightsource>;
-	set_light(li, 12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
+	li->set(12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
 	li->x = cx<<12; li->y = (cy-5)<<12;
 	game.map.lights.push(li);
 
@@ -549,16 +554,10 @@ void test_map() {
 	DIRECTION orientation = D_WEST;
 	on->orientation = orientation;
 	li = new NodeV<lightsource>;
-	set_light_beam(li, orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
+	li->set(orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
 	li->x = (cx+2)<<12; li->y = (cy-1)<<12;
 	li->flicker = FLICKER_LIGHT;
 	game.map.lights.push(li);
 
 	game.map.block.refresh_blocked_from();
-
-	torch.buf.scroll.x = game.player.x - 16;
-	torch.buf.scroll.y = game.player.y - 12;
-	torch.buf.bounded(torch.buf.scroll.x, torch.buf.scroll.y);
-	torch.dirty_screen();
-	torch.reset_luminance();
 }
