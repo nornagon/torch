@@ -22,7 +22,7 @@ SET (generated_files
 	${GEN}/terrain.h
 	${GEN}/terrain.cpp
 	)
-FILE (GLOB entities ${SRC}/arm9/adrift/*.rb)
+FILE (GLOB entities ${SRC}/arm9/adrift/entities/*.rb)
 
 
 INCLUDE_DIRECTORIES(${SRC}/arm9/include ${SRC}/arm9/engine ${SRC}/arm9/generic
