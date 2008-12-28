@@ -81,6 +81,7 @@ void scanKeys() {
 	SDL_LockMutex(keysMutex);
 	currentKeyState[0] = currentKeyState[1];
 	downKeyState[0] = downKeyState[1];
+	downKeyState[1] = 0;
 	SDL_UnlockMutex(keysMutex);
 }
 
@@ -98,12 +99,12 @@ Uint32 vblank(Uint32 interval, void *param) {
 	SDL_Flip(screen);
 	SDL_CondSignal(vblankCond);
 	SDL_LockMutex(keysMutex);
-	downKeyState[1] = 0;
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 			case SDL_KEYDOWN:
 				downKeyState[1] |= dsKeyForSDLKey(event.key.keysym.sym);
+				currentKeyState[1] |= dsKeyForSDLKey(event.key.keysym.sym);
 				break;
 			case SDL_KEYUP:
 				currentKeyState[1] &= ~dsKeyForSDLKey(event.key.keysym.sym);
@@ -112,7 +113,6 @@ Uint32 vblank(Uint32 interval, void *param) {
 				exit(0);
 		}
 	}
-	currentKeyState[1] |= downKeyState[1];
 	SDL_UnlockMutex(keysMutex);
 	return interval;
 }
