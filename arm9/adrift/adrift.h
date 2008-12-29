@@ -55,7 +55,7 @@ class Map {
 		void reset();
 
 		inline Cell *at(s16 x, s16 y) {
-			assert(x >= 0 && y >= 0 && x < w && y < w);
+			assert(x >= 0 && y >= 0 && x < w && y < h);
 			return &cells[y*w+x];
 		}
 
