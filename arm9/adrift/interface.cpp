@@ -58,7 +58,7 @@ enum ACTION {
 	ACT_USE,
 };
 
-void perform(Node<Object> obj, ACTION act) {
+void perform(Object *obj, ACTION act) {
 	switch (act) {
 		case ACT_DROP:
 			game.player.drop(obj);
@@ -67,7 +67,7 @@ void perform(Node<Object> obj, ACTION act) {
 			game.player.use(obj);
 			break;
 		case ACT_THROW:
-			game.player.setprojectile(obj);
+			game.player.projectile = obj;
 			break;
 		case ACT_EAT:
 			game.player.eat(obj);
@@ -92,7 +92,7 @@ struct menuitem {
 	{ 0 }
 };
 
-bool withitem(Node<Object> obj) {
+bool withitem(Object *obj) {
 #ifndef NATIVE
 	int sel = 0;
 	text_display_clear();
@@ -142,7 +142,7 @@ void inventory() {
 	int start = 0;
 	int length = game.player.bag.length();
 
-	Node<Object> sel;
+	Object *sel = 0;
 
 	lcdMainOnTop();
 
@@ -161,13 +161,13 @@ void inventory() {
 		vline(subscr, 255-5, 4, 191-5, RGB15(31,31,31));
 		tprintf(8,1, 0xffff, "Inventory");
 
-		Node<Object> o = game.player.bag.top();
+		Object *o = game.player.bag.head();
 
 		// push o up to the start
 		int i = 0;
-		for (; i < start; i++) o = o.next();
+		for (; i < start; i++) o = o->next();
 
-		for (i = 0; i < 19 && o; i++, o = o.next()) {
+		for (i = 0; i < 19 && o; i++, o = o->next()) {
 			const char *name = o->desc()->name;
 			u16 color = selected == i+start ? RGB15(31,31,31) : RGB15(18,18,18);
 			if (o->quantity == 1)
@@ -264,6 +264,6 @@ void statusbar() {
 #ifndef NATIVE
 	u16* subscr = (u16*)BG_BMP_RAM_SUB(0);
 	memset(&subscr[256*(192-9)], 0, 256*9*2);
-	tprintf(2,192-9,0xffff, "HP:%d/%d", game.player.obj->hp, game.player.obj->max_hp());
+	tprintf(2,192-9,0xffff, "HP:%d/%d", game.player.hp, game.player.max_hp());
 #endif
 }

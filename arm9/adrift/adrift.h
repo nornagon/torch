@@ -19,13 +19,13 @@
 
 #include "entities/terrain.h"
 
-struct Projectile {
-	Node<Object> obj;
+struct Projectile : public listable<Projectile> {
+	Object *obj;
 	bresenstate st;
 };
 
-struct Animation {
-	Node<Object> obj;
+struct Animation : public listable<Animation> {
+	Object *obj;
 	s16 x, y;
 	s16 frame;
 };
@@ -60,10 +60,10 @@ class Map {
 		}
 
 		inline bool solid(s16 x, s16 y) {
-			Node<Object> o = at(x,y)->objects.top();
+			Object *o = at(x,y)->objects.head();
 			while (o) {
 				if (o->desc()->obstruction) return true;
-				o = o.next();
+				o = o->next();
 			}
 			return at(x,y)->desc()->solid;
 		}

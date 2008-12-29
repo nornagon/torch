@@ -11,177 +11,151 @@
 // next_ptr is a single word: a pointer to the next node in the list, or NULL if
 // this is the tail of the list. The data can be anything and any size, with one
 // restriction: all the elements in a particular list must have the same size.
-// llpool_t will deal with memory allocation for you as much as possible. When
-// you create a new llpool ('linked list pool'), you must specify the size of
-// the elements it will deal with.
 //
-// llpool_t keeps track of a list of "free nodes". These nodes are allocated,
-// but unused. When you request a node from a pool, you will simply be given the
+// A Pool keeps track of a list of "free nodes". These nodes are allocated, but
+// unused. When you request a node from a pool, you will simply be given the
 // pointer to the head of the "free" list, unless it is empty -- in which case,
-// space for 32 more nodes will be allocated and the nodes allocated will be
-// added to the free pool. Note that the space allocated *includes* enough space
+// space for more nodes will be allocated and the nodes allocated will be added
+// to the free pool. Note that the space allocated *includes* enough space
 // after each node pointer for whatever kind of data the pool is storing.
 //
-// (TODO: make the number of nodes allocated in a block-allocation configurable)
-//
-// Note that an llpool will never free() any memory on its own. Calling
+// Note that an Pool will never free() any memory on its own. Calling
 // flush_free will walk the free list and free() each node (and its data with
 // it.)
 
 #include <cstddef> // for size_t
 #include <cstdlib>
 
-template <class T> struct NodeV;
+#define POOLED(T) \
+	private: \
+	static Pool<T>& __getPool() { \
+		static Pool<T> p; \
+		return p; \
+	} \
+	public: \
+	inline void *operator new(size_t sz) { \
+		assert(sz <= sizeof(T)); \
+		return __getPool().alloc(); \
+	} \
+	inline void operator delete(void *mem) { \
+		__getPool().free((T*)mem); \
+	}
+
+#define UNPOOLED \
+	public: \
+	inline void *operator new(size_t sz) { \
+		return ::operator new(sz); \
+	} \
+	inline void operator delete(void *mem) { \
+		::operator delete(mem); \
+	}
+
+
 template <class T> struct List;
 
-template <class T>
-struct Pool {
-	Pool<T>(): free_nodes() {}
-
-	List<T> free_nodes;
-
-	void alloc_space(unsigned int n);
-	void flush_free();
-	NodeV<T> *request_node();
-};
-
-template <class T>
-class Node {
-	protected:
-		NodeV<T> *v;
+template <class T, unsigned int blockSize = 32>
+class Pool {
+	static List<T> free_nodes;
 
 	public:
-		Node<T>(NodeV<T>* v_): v(v_) {}
-		Node<T>(): v(0) {}
-
-		T* operator->() {
-			return &v->data;
+		T* alloc() {
+			if (free_nodes.empty()) {
+				for (unsigned int i = 0; i < blockSize; i++) {
+					T* node = (T*)malloc(sizeof(T));
+					free_nodes.push(node);
+				}
+			}
+			T* ret = free_nodes.pop();
+			return ret;
+		}
+		void free(T* t) {
+			free_nodes.push(t);
 		}
 
-		NodeV<T>* data() { return v; }
-		operator T*() { return &v->data; }
-		T operator*() { return v->data; }
-		operator bool() { return !!v; }
-		Node<T> next() { return v->next; }
-		void free() { v->free(); }
+		static void flush_free() {
+			T *n = free_nodes.head();
+			while (n) {
+				T *next = n->next();
+				delete n;
+				n = next;
+			}
+		}
 };
 
+template <class T, unsigned int blockSize>
+List<T> Pool<T, blockSize>::free_nodes;
+
 template <class T>
-struct NodeV {
-	NodeV(): next(0) {}
-	NodeV<T> *next;
-	T data;
-	static Pool<T> pool;
-	void free() {
-		pool.free_nodes.push(this);
-	}
-	operator T* () { return &data; }
-	void* operator new (size_t sz) { return (void*) NodeV<T>::pool.request_node(); }
-	void operator delete (void* thing) { ((NodeV<T>*)thing)->free(); }
-	operator Node<T>() { return Node<T>(this); }
+class listable {
+	listable *__next;
+	friend class List<T>;
+	public:
+		T* next() {
+			return static_cast<T*>(__next);
+		}
 };
-template <class T> Pool<T> NodeV<T>::pool = Pool<T>();
 
 template <class T>
 struct List {
 	protected:
-		NodeV<T> *head;
+		listable<T> *mHead;
 
 	public:
-		List(): head(0) {}
+		List(): mHead(0) {}
 
-		Node<T> top() {
-			return Node<T>(head);
+		T* head() {
+			return static_cast<T*>(mHead);
 		}
 
 		// returns true if the node is in the list (and thus was removed), false if
 		// it wasn't (and thus wasn't removed)
-		bool remove(NodeV<T> *node) {
-			if (head == 0) return false;
-			if (node == head) { head = head->next; return true; }
-			NodeV<T>* prev = head;
-			NodeV<T>* k = prev->next;
-			while (k && k != node) {
+		bool remove(listable<T> *ptr) {
+			if (mHead == 0) return false;
+			if (ptr == mHead) { mHead = mHead->__next; return true; }
+			listable<T> *prev = mHead;
+			listable<T> *k = prev->__next;
+			while (k && k != ptr) {
 				prev = k;
-				k = k->next;
+				k = k->__next;
 			}
 			if (k) // didn't hit the end
-				prev->next = k->next;
+				prev->__next = k->__next;
 			return !!k;
 		}
-		inline bool remove(Node<T> node) {
-			return remove(node.data());
+		inline bool remove(T *ptr) {
+			return remove(static_cast<listable<T>*>(ptr));
 		}
-		/*bool remove(T x) {
-			if (head == 0) return false;
-			if (x == head->data) { head = head->next; return true; }
-			NodeV<T>* prev = head;
-			NodeV<T>* k = prev->next;
-			while (k && k->data != x) {
-				prev = k;
-				k = k->next;
-			}
-			if (k) // didn't hit the end
-				prev->next = k->next;
-			return !!k;
-		}*/
-		inline void push(T x) { // TODO: pass by reference?
-			NodeV<T>* n = new NodeV<T>;
-			n->data = x;
-			push(n);
+
+		inline void push(listable<T> *x) {
+			x->__next = mHead;
+			mHead = x;
 		}
-		inline void push(Node<T> node) {
-			push(node.data());
+		inline void push(T *x) {
+			push(static_cast<listable<T>*>(x));
 		}
-		void push(NodeV<T> *node) {
-			node->next = head;
-			head = node;
-		}
-		NodeV<T> *pop() {
-			if (head == 0) return 0;
-			NodeV<T> *ret = head;
-			head = head->next;
-			return ret;
+
+		T *pop() {
+			if (!mHead) return NULL;
+			listable<T> *ret = mHead;
+			mHead = mHead->__next;
+			return static_cast<T*>(ret);
 		}
 
 		unsigned int length() {
 			unsigned int len = 0;
-			for (NodeV<T>* k = head; k; k = k->next)
+			for (listable<T> *k = mHead; k; k = k->__next)
 				len++;
 			return len;
 		}
 
 		bool empty() {
-			return !head;
+			return !mHead;
 		}
 
-		void clear() {
-			while (NodeV<T>* k = pop())
-				k->free();
-			NodeV<T>::pool.flush_free();
+		void delete_all() {
+			while (T* k = pop())
+				delete k;
 		}
 };
-
-template <class T> void Pool<T>::alloc_space(unsigned int n) {
-	for (; n > 0; n--) {
-		NodeV<T> *node = (NodeV<T>*)malloc(sizeof(NodeV<T>));
-		free_nodes.push(node);
-	}
-}
-
-template <class T> void Pool<T>::flush_free() {
-	NodeV<T> *p;
-	while ((p = free_nodes.pop())) {
-		free(p);
-	}
-}
-
-// request a node from the pool. will alloc more space if there is none.
-template <class T>
-NodeV<T>* Pool<T>::request_node() {
-	if (!free_nodes.top())
-		alloc_space(32); // TODO: allow customisation
-	return free_nodes.pop();
-}
 
 #endif /* LIST_H */

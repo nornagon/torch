@@ -10,7 +10,7 @@ class Object; class Creature;
 struct Cell {
 	u16 type;
 	List<Object> objects;
-	Node<Creature> creature;
+	Creature *creature;
 
 	TerrainDesc *desc() { return &terraindesc[type]; }
 

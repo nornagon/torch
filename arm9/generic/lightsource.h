@@ -3,6 +3,7 @@
 
 #include <nds/jtypes.h>
 #include "direction.h"
+#include "list.h"
 
 enum LIGHT_TYPE {
 	LIGHT_POINT,
@@ -19,7 +20,7 @@ enum FLICKER_TYPE {
 // lightsource holds information about a specific light source, as well as
 // intermediate information used by processes that alter the light source (such
 // as flickering)
-struct lightsource {
+struct lightsource : public listable<lightsource> {
 	lightsource();
 	lightsource(int32 radius, int32 r, int32 g, int32 b);
 	lightsource(DIRECTION direction, int32 radius, int32 angle, int32 r, int32 g, int32 b);

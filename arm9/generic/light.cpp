@@ -25,8 +25,8 @@ fov_direction_type to_fov_dir(DIRECTION dir) {
 }
 
 void draw_lights(fov_settings_type *settings, blockmap *map, List<lightsource> lights) {
-	Node<lightsource> k = lights.top();
-	for (; k; k = k.next())
+	lightsource *k = lights.head();
+	for (; k; k = k->next())
 		draw_light(settings, map, k);
 }
 

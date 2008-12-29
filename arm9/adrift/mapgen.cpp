@@ -102,7 +102,7 @@ static void set_tile_i(s16 x, s16 y, void* type) {
 void drop_rock(s16 x, s16 y, void *info) {
 	Cell *l = game.map.at(x,y);
 	if (rand32() % 10 == 0 && !game.map.solid(x,y)) {
-		Node<Object> on(new NodeV<Object>);
+		Object *on = new Object;
 		on->type = ROCK;
 		stack_item_push(l->objects, on);
 	}
@@ -118,7 +118,12 @@ void drop_rock(s16 x, s16 y, void *info) {
 	}
 }*/
 
-struct Point { int x, y; };
+struct Point : public listable<Point> {
+	POOLED(Point)
+	public:
+		Point(int _x, int _y): x(_x), y(_y) {}
+		int x, y;
+};
 
 // true if there's a path of non-solid tiles from any point on the map to every
 // other point on the map.
@@ -142,24 +147,23 @@ bool checkConnected() {
 	memset(marks, 0, w*h*sizeof(bool));
 
 	List<Point> queue;
-	queue.push((Point){ x, y });
+	queue.push(new Point(x,y));
 
 	while (!queue.empty()) {
-		NodeV<Point>* Np = queue.pop();
-		Point p = Np->data;
+		Point* p = queue.pop();
 		for (int dx = -1; dx <= 1; dx++) {
 			for (int dy = -1; dy <= 1; dy++) {
-				if (!marks[(p.y+dy)*w+p.x+dx] && !game.map.solid(p.x+dx,p.y+dy)) {
-					marks[p.x + dx + w*(p.y+dy)] = true;
-					Point pp = { p.x+dx, p.y+dy };
+				if (!marks[(p->y+dy)*w+p->x+dx] && !game.map.solid(p->x+dx,p->y+dy)) {
+					marks[p->x + dx + w*(p->y+dy)] = true;
+					Point *pp = new Point(p->x+dx, p->y+dy);
 					queue.push(pp);
 				}
 			}
 		}
-		Np->free();
+		delete p;
 	}
 
-	NodeV<Point>::pool.flush_free();
+	Pool<Point>::flush_free();
 
 	done = false;
 	for (y = 0; y < h; y++) {
@@ -213,17 +217,17 @@ void AddStars() {
 		for (int x = 0; x < torch.buf.getw(); x++) {
 			if (game.map.at(x,y)->type == TERRAIN_NONE && rand8() < 10) {
 				// light
-				Node<lightsource> li(new NodeV<lightsource>);
+				lightsource *li = new lightsource;
 				li->set(1, 1<<12, 1<<12, 1<<12);
 				li->x = x<<12; li->y = y<<12;
 				game.map.lights.push(li);
 
 				// object
-				Node<Object> on = addObject(x,y,STAR);
+				Object *on = addObject(x,y,STAR);
 				on->quantity = 0;
 
 				// animation
-				Node<Animation> ani(new NodeV<Animation>);
+				Animation *ani = new Animation;
 				ani->obj = on;
 				ani->frame = 0;
 				ani->x = x; ani->y = y;
@@ -361,7 +365,7 @@ void Inhabit() {
 	for (unsigned int i = 0; i < 4+(rand4()&7); i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (!game.map.solid(x,y) && countFoo(x,y,1,GROUND) > 4) {
-			Node<Object> on = addObject(x, y, VENDING_MACHINE);
+			Object *on = addObject(x, y, VENDING_MACHINE);
 			on->quantity = rand4() + 10;
 			// don't let it face into a tree
 			DIRECTION orientation = D_EAST;
@@ -374,7 +378,7 @@ void Inhabit() {
 				}
 			} while (game.map.solid(x+D_DX[orientation],y+D_DY[orientation]));
 			on->orientation = orientation;
-			Node<lightsource> li(new NodeV<lightsource>);
+			lightsource *li = new lightsource;
 			li->set(orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
 			li->x = x<<12; li->y = y<<12;
 			li->flicker = FLICKER_LIGHT;
@@ -483,7 +487,7 @@ void generate_terrarium() {
 	for (int i = 0; i < 60; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (!game.map.solid(x,y)) {
-			Node<Object> on(new NodeV<Object>);
+			Object *on = new Object;
 			on->type = ROCK;
 			stack_item_push(game.map.at(x,y)->objects, on);
 		} else i--;
@@ -499,21 +503,21 @@ void generate_terrarium() {
 	x = cx; y = cy;
 
 	set_tile(cx+40, cy, FIRE);
-	Node<lightsource> li(new NodeV<lightsource>);
+	lightsource *li = new lightsource;
 	li->set(9<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
 	li->orig_intensity = li->intensity = 1<<11;
 	li->x = (cx+40)<<12; li->y = cy<<12;
 	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 	set_tile(cx+30, cy, FIRE);
-	li = new NodeV<lightsource>;
+	li = new lightsource;
 	li->set(9<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
 	li->orig_intensity = li->intensity = 1<<11;
 	li->x = (cx+30)<<12; li->y = cy<<12;
 	li->flicker = FLICKER_RADIUS;
 	game.map.lights.push(li);
 	set_tile(cx+35, cy-7, FIRE);
-	li = new NodeV<lightsource>;
+	li = new lightsource;
 	li->set(9<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
 	li->orig_intensity = li->intensity = 1<<11;
 	li->x = (cx+35)<<12; li->y = (cy-7)<<12;
@@ -535,31 +539,31 @@ void test_map() {
 	hollowCircle(cx, cy, 30, set_tile_i, (void*)GLASS);
 
 	game.player.x = cx; game.player.y = cy;
-	game.map.at(cx,cy)->creature = game.player.obj;
-	game.player.obj->setPos(cx,cy);
+	game.map.at(cx,cy)->creature = &game.player;
+	game.player.setPos(cx,cy);
 
-	Node<lightsource> li;
+	lightsource *li;
 	set_tile(cx+5, cy, FIRE);
-	li = new NodeV<lightsource>;
+	li = new lightsource;
 	li->set(12<<12, (int)(0.1*(1<<12)), (int)(1.0*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx+5)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
 	set_tile(cx-5, cy, FIRE);
-	li = new NodeV<lightsource>;
+	li = new lightsource;
 	li->set(12<<12, (int)(1.0*(1<<12)), (int)(0.1*(1<<12)), (int)(0.1*(1<<12)));
 	li->x = (cx-5)<<12; li->y = cy<<12;
 	game.map.lights.push(li);
 	set_tile(cx, cy-5, FIRE);
-	li = new NodeV<lightsource>;
+	li = new lightsource;
 	li->set(12<<12, (int)(0.1*(1<<12)), (int)(0.1*(1<<12)), (int)(1.0*(1<<12)));
 	li->x = cx<<12; li->y = (cy-5)<<12;
 	game.map.lights.push(li);
 
-	Node<Object> on = addObject(cx+2, cy-1, VENDING_MACHINE);
+	Object *on = addObject(cx+2, cy-1, VENDING_MACHINE);
 	on->quantity = rand4() + 10;
 	DIRECTION orientation = D_WEST;
 	on->orientation = orientation;
-	li = new NodeV<lightsource>;
+	li = new lightsource;
 	li->set(orientation, 4<<12, 150<<12, 1<<12, 1<<11, 1<<11);
 	li->x = (cx+2)<<12; li->y = (cy-1)<<12;
 	li->flicker = FLICKER_LIGHT;

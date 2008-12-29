@@ -8,7 +8,7 @@
 
 #include "entities/creature.h"
 
-void behave(Node<Creature> creature) {
+void behave(Creature *creature) {
 	if (!creature->desc()->peaceful) {
 		if (adjacent(game.player.x, game.player.y, creature->x, creature->y)) {
 			monster_hit_you(creature);
@@ -53,7 +53,7 @@ void behave(Node<Creature> creature) {
 
 					// TODO: function for removing creatures
 					game.map.monsters.remove(c->creature);
-					c->creature.free();
+					delete c->creature;
 					c->creature = NULL;
 					creature->acted();
 					return;
@@ -62,7 +62,7 @@ void behave(Node<Creature> creature) {
 	}
 }
 
-void step_creature(Node<Creature> creature) {
+void step_creature(Creature *creature) {
 	if (creature->cooldown <= 0) {
 		behave(creature);
 	}

@@ -7,9 +7,9 @@
 #include "entities/creature.h"
 
 // drops the object if it's in the player's bag
-void Player::drop(Node<Object> o) {
-	if (!game.player.bag.remove(o)) return;
-	game.map.at(game.player.x, game.player.y)->objects.push(o);
+void Player::drop(Object *o) {
+	if (!bag.remove(o)) return;
+	game.map.at(x, y)->objects.push(o);
 	if (o->quantity == 1)
 		iprintf("You drop a %s\n", o->desc()->name);
 	else {
@@ -23,21 +23,17 @@ void Player::drop(Node<Object> o) {
 
 void Player::exist() {
 	clear();
-	obj = Node<Creature>(new NodeV<Creature>);
-	obj->init(PLAYER);
 	light = new lightsource(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 	light->flicker = FLICKER_RADIUS;
 }
 
 void Player::clear() {
-	if (obj) obj.free();
+	init(PLAYER);
 	if (light) delete light;
-	obj = NULL;
 	light = NULL;
 	target = NULL;
 	projectile = NULL;
-	bag.clear();
-	x = y = 0;
+	bag.delete_all();
 	strength_xp = agility_xp = resilience_xp = melee_xp = aim_xp = 0;
 }
 
@@ -78,12 +74,14 @@ void Player::move(DIRECTION dir, bool run) {
 		cell = game.map.at(x + dpX, y + dpY);
 
 		// move the player object
-		game.player.obj->move(x + dpX, y + dpY);
+		//game.player.move(x + dpX, y + dpY);
+		assert(game.map.walkable(x + dpX, y + dpY));
+		game.map.at(x,y)->creature = NULL;
+		game.map.at(x+dpX,y+dpY)->creature = (Creature*)this;
 		recalc(&game.map.block, x, y);
 		recalc(&game.map.block, x + dpX, y + dpY);
 
-		x += dpX;
-		y += dpY;
+		x += dpX; y += dpY;
 
 		game.map.block.pX = x;
 		game.map.block.pY = y;
@@ -92,7 +90,16 @@ void Player::move(DIRECTION dir, bool run) {
 	}
 }
 
-void Player::use(Node<Object> item) {
+/*
+void Player::setPos(s16 x, s16 y) {
+	assert(!game.map.occupied(x,y));
+	game.map.at(x,y) = obj;
+	obj->x = x;
+	obj->y = y;
+}
+*/
+
+void Player::use(Object *item) {
 	switch (item->type) {
 		case ROCK:
 			if (item->quantity > 1) {
@@ -106,22 +113,18 @@ void Player::use(Node<Object> item) {
 	}
 }
 
-void Player::eat(Node<Object> item) {
+void Player::eat(Object *item) {
 	iprintf("You eat the %s.\n", item->desc()->name);
 	item->quantity--;
 	if (item->quantity <= 0)
 		bag.remove(item);
 }
 
-void Player::drink(Node<Object> item) {
+void Player::drink(Object *item) {
 	iprintf("You drink the %s.\n", item->desc()->name);
 	item->quantity--;
 	if (item->quantity <= 0)
 		bag.remove(item);
-}
-
-void Player::setprojectile(Node<Object> proj) {
-	projectile = proj;
 }
 
 void Player::chuck(s16 destx, s16 desty) {
@@ -130,8 +133,8 @@ void Player::chuck(s16 destx, s16 desty) {
 	if (!projectile || (destx == x && desty == y)) return;
 
 	// split the stack
-	Node<Projectile> thrown(new NodeV<Projectile>);
-	thrown->obj = Node<Object>(new NodeV<Object>);
+	Projectile *thrown = new Projectile;
+	thrown->obj = new Object;
 	thrown->obj->quantity = 1;
 	thrown->obj->type = projectile->type;
 	thrown->st.reset(x,y,destx,desty);
@@ -140,21 +143,21 @@ void Player::chuck(s16 destx, s16 desty) {
 	projectile->quantity--;
 	if (projectile->quantity <= 0) { // ran out of stuff
 		bag.remove(projectile);
-		projectile.free();
+		delete projectile;
 		projectile = NULL;
 	}
 
 	game.map.projectiles.push(thrown);
-	game.cooldown += 6;
+	cooldown += 6;
 }
 
 #define DEF_EXERCISE(stat) \
 	void Player::exercise_##stat(int n) { \
 		game.player.stat##_xp++; \
-		if (game.player.stat##_xp > game.player.obj->stat*4) { \
-			game.player.obj->stat++; \
-			game.player.stat##_xp -= game.player.obj->stat; \
-			iprintf("Your \1\x03\x6a%s\2 skill is now \1\x03\x6a%d\2.\n", #stat, game.player.obj->stat); \
+		if (game.player.stat##_xp > game.player.stat*4) { \
+			game.player.stat++; \
+			game.player.stat##_xp -= game.player.stat; \
+			iprintf("Your \1\x03\x6a%s\2 skill is now \1\x03\x6a%d\2.\n", #stat, game.player.stat); \
 		} \
 	}
 

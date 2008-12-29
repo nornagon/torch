@@ -5,23 +5,23 @@
 
 #include "entities/creature.h"
 
-bool hits(Node<Creature> attacker, Node<Creature> target) {
-	s32 attack = attacker->melee;
-	s32 ac = target->melee + target->agility/4;
+bool hits(Creature &attacker, Creature &target) {
+	s32 attack = attacker.melee;
+	s32 ac = target.melee + target.agility/4;
 	s32 roll = rand32() % (attack + ac);
 	return roll >= ac;
 }
 
-s16 damage_done(Node<Creature> attacker, Node<Creature> target) {
-	s16 min = attacker->desc()->natural_min;
-	s16 max = attacker->desc()->natural_max;
-	return min + (rand32() % (max-min+1)) + attacker->strength/2;
+s16 damage_done(Creature &attacker, Creature &target) {
+	s16 min = attacker.desc()->natural_min;
+	s16 max = attacker.desc()->natural_max;
+	return min + (rand32() % (max-min+1)) + attacker.strength/2;
 }
 
-bool you_hit_monster(Node<Creature> target) {
+bool you_hit_monster(Creature *target) {
 	bool died = false;
-	if (hits(game.player.obj, target)) {
-		s16 damage = damage_done(game.player.obj, target);
+	if (hits(game.player, *target)) {
+		s16 damage = damage_done(game.player, *target);
 		const char *name = target->desc()->name;
 		iprintf("Smack! You hit the %s for %d points of damage.\n", name, damage);
 		target->hp -= damage;
@@ -30,7 +30,7 @@ bool you_hit_monster(Node<Creature> target) {
 			game.map.monsters.remove(target); // TODO linked list remove... ugh
 			assert(game.map.at(target->x,target->y)->creature == (Creature*)target);
 			game.map.at(target->x,target->y)->creature = NULL;
-			target.free();
+			delete target;
 			died = true;
 		}
 		game.player.exercise_strength();
@@ -41,11 +41,11 @@ bool you_hit_monster(Node<Creature> target) {
 	return died;
 }
 
-void monster_hit_you(Node<Creature> monster) {
-	if (hits(monster, game.player.obj)) {
-		s16 damage = damage_done(monster, game.player.obj);
+void monster_hit_you(Creature *monster) {
+	if (hits(*monster, game.player)) {
+		s16 damage = damage_done(*monster, game.player);
 		iprintf("The %s hits you for %d points of damage.\n", monster->desc()->name, damage);
-		game.player.obj->hp -= damage;
+		game.player.hp -= damage;
 		game.player.exercise_resilience();
 	} else {
 		iprintf("The %s misses.\n", monster->desc()->name);

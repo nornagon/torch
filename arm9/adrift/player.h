@@ -8,30 +8,35 @@
 #include "direction.h"
 #include <nds/jtypes.h>
 
-struct Player {
-	List<Object> bag;
-	Node<Creature> obj;
-	Node<Creature> target;
+struct Player : public Creature {
+	List<Object> bag; // inventory
+	Creature *target; // currently targetted creature for seek and destroy
 	lightsource *light;
 
-	Node<Object> projectile;
+	// what the player is ready to throw. a reference to some object in the
+	// player's bag -- make sure to check they haven't dropped it or similar
+	// before throwing!
+	Object *projectile;
 
-	// project an existence into the world
+	// initialise and create a new light source.
 	void exist();
 
+	// reset the player struct, freeing all allocated memory
 	void clear();
 
+	// move in given direction, sliding along obstacles and incrementing
+	// cooldown.
 	void move(DIRECTION dir, bool run);
+	// set the player's position
+	//void setPos(s16 x, s16 y);
 
-	void drop(Node<Object> item);
-	void use(Node<Object> item);
-	void eat(Node<Object> item);
-	void drink(Node<Object> item);
+	void drop(Object *item);
+	void use(Object *item);
+	void eat(Object *item);
+	void drink(Object *item);
 
-	void setprojectile(Node<Object> proj);
+	// 'throw' was reserved :(
 	void chuck(s16 destx, s16 desty);
-
-	s16 x, y;
 
 	s32 strength_xp, agility_xp, resilience_xp, aim_xp, melee_xp;
 	void exercise_strength(int n = 1);

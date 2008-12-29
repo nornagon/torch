@@ -40,7 +40,7 @@ Adrift::Adrift() {
 }
 
 void Map::spawn(u16 type, s16 x, s16 y) {
-	Node<Creature> c(new NodeV<Creature>);
+	Creature* c = new Creature;
 	c->init(type);
 	c->setPos(x,y);
 	assert(!occupied(x,y));
@@ -52,10 +52,10 @@ void Map::reset() {
 	for (s16 y = 0; y < h; y++)
 		for (s16 x = 0; x < w; x++)
 			at(x,y)->reset();
-	lights.clear();
-	animations.clear();
-	monsters.clear();
-	projectiles.clear();
+	lights.delete_all();
+	animations.delete_all();
+	monsters.delete_all();
+	projectiles.delete_all();
 }
 
 bool isvowel(char c) {
@@ -67,7 +67,7 @@ bool get_items() {
 	List<Object> &os = game.map.at(game.player.x, game.player.y)->objects;
 	if (os.empty()) return false;
 
-	Node<Object> k;
+	Object *k;
 	while ((k = os.pop())) {
 		const char *name = k->desc()->name;
 		if (k->quantity == 1) {
@@ -93,7 +93,7 @@ void seek_and_destroy() {
 	if (!game.player.target) {
 		// acquire a target
 		u16 mindist = 16;
-		Node<Creature> candidate;
+		Creature *candidate = 0;
 		for (int y = game.player.y-4; y < game.player.y+4; y++)
 			for (int x = game.player.x-4; x < game.player.x+4; x++) {
 				u16 dist = dist2(x,y,game.player.x,game.player.y);
@@ -101,7 +101,7 @@ void seek_and_destroy() {
 				    !(x == game.player.x && y == game.player.y) &&
 				    game.map.block.at(x,y)->visible) {
 				  // try to select aggressive creatures over peaceful ones
-				  Node<Creature> considered = game.map.at(x,y)->creature;
+				  Creature *considered = game.map.at(x,y)->creature;
 				  if (!candidate) candidate = considered;
 					else if ((candidate->desc()->peaceful && !considered->desc()->peaceful) || dist < mindist) {
 				  	candidate = considered;
@@ -196,7 +196,7 @@ void process_keys() {
 				// no monsters in range
 				for (int x = game.player.x-1; x <= game.player.x+1; x++) {
 					for (int y = game.player.y-1; y <= game.player.y+1; y++) {
-						Node<Object> o = game.map.at(x,y)->objects.top();
+						Object *o = game.map.at(x,y)->objects.head();
 						if (!o) continue;
 						if (o->type == VENDING_MACHINE) {
 							if (game.player.x == x+D_DX[o->orientation] && game.player.y == y+D_DY[o->orientation]) {
@@ -229,7 +229,7 @@ void process_keys() {
 }
 
 void update_projectiles() {
-	Node<Projectile> p = game.map.projectiles.top();
+	Projectile *p = game.map.projectiles.head();
 	while (p) {
 		s16 x = p->st.posx();
 		s16 y = p->st.posy();
@@ -252,20 +252,20 @@ void update_projectiles() {
 		}
 
 		if ((x == destx && y == desty) || collided) {
-			Node<Projectile> next = p.next();
+			Projectile *next = p->next();
 			game.map.projectiles.remove(p);
 			stack_item_push(game.map.at(x,y)->objects, p->obj);
-			p.free();
+			delete p;
 			p = next;
 		} else {
 			game.map.at(x,y)->objects.push(p->obj);
-			p = p.next();
+			p = p->next();
 		}
 	}
 }
 
 void update_animations() {
-	Node<Animation> ani = game.map.animations.top();
+	Animation *ani = game.map.animations.head();
 	while (ani) {
 		assert(ani->obj->desc()->animation);
 		if (ani->frame >= 0) {
@@ -282,7 +282,7 @@ void update_animations() {
 		}
 		ani->frame++;
 
-		ani = ani.next();
+		ani = ani->next();
 	}
 }
 
@@ -300,7 +300,7 @@ void process_sight() {
 }
 
 void step_monsters() {
-	for (Node<Creature> m = game.map.monsters.top(); m; m = m.next()) {
+	for (Creature *m = game.map.monsters.head(); m; m = m->next()) {
 		step_creature(m);
 	}
 }
@@ -315,8 +315,8 @@ void handler() {
 	process_sight();
 	draw_lights(game.fov_light, &game.map.block, game.map.lights);
 	{
-		Node<lightsource> k = game.map.lights.top();
-		for (; k; k = k.next()) {
+		lightsource *k = game.map.lights.head();
+		for (; k; k = k->next()) {
 			k->update_flicker();
 			draw_light(game.fov_light, &game.map.block, k);
 		}
@@ -332,13 +332,13 @@ void handler() {
 
 	refresh(&game.map.block);
 
-	if (game.player.obj->hp <= 0) {
+	if (game.player.hp <= 0) {
 		playerdeath();
 		game.player.clear();
 		new_game();
 	}
 
-	if (game.cooldown <= 0) game.player.obj->regenerate();
+	if (game.cooldown <= 0) game.player.regenerate();
 
 	statusbar();
 }
@@ -348,8 +348,8 @@ void new_game() {
 
 	generate_terrarium();
 
-	game.player.obj->setPos(game.player.x,game.player.y);
-	game.map.at(game.player.x,game.player.y)->creature = game.player.obj;
+	game.player.setPos(game.player.x,game.player.y);
+	game.map.at(game.player.x,game.player.y)->creature = &game.player;
 
 	torch.buf.scroll.x = game.player.x - 16;
 	torch.buf.scroll.y = game.player.y - 12;

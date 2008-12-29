@@ -3,8 +3,9 @@
 
 #include <nds/jtypes.h>
 #include "entities/creature.h"
+#include "list.h"
 
-struct Creature {
+struct Creature : public listable<Creature> {
 	u16 type;
 	s16 x,y;
 	s16 cooldown, regen_cooldown;

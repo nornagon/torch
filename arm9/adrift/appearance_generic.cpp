@@ -6,38 +6,38 @@
 
 bool isforgettable(s16 x, s16 y) {
 	Cell *l = game.map.at(x,y);
-	if (!terraindesc[l->type].forgettable) return false;
-	if (l->objects.top()) return false;
+	if (!l->desc()->forgettable) return false;
+	if (l->objects.head()) return false;
 	return true;
 }
 
 void visible_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 	Cell *l = game.map.at(x,y);
 	if (l->creature) {
-		*ch = creaturedesc[l->creature->type].ch;
-		*col = creaturedesc[l->creature->type].color;
-	} else if (l->objects.top()) {
-		if (l->objects.top()->desc()->animation) {
-			*ch = l->objects.top()->desc()->animation[l->objects.top()->quantity];
-			*col = l->objects.top()->desc()->color;
+		*ch = l->creature->desc()->ch;
+		*col = l->creature->desc()->color;
+	} else if (l->objects.head()) {
+		if (l->objects.head()->desc()->animation) {
+			*ch = l->objects.head()->desc()->animation[l->objects.head()->quantity];
+			*col = l->objects.head()->desc()->color;
 		} else {
-			*ch = l->objects.top()->desc()->ch;
-			*col = l->objects.top()->desc()->color;
+			*ch = l->objects.head()->desc()->ch;
+			*col = l->objects.head()->desc()->color;
 		}
 	} else {
-		*ch = terraindesc[l->type].ch;
-		*col = terraindesc[l->type].color;
+		*ch = l->desc()->ch;
+		*col = l->desc()->color;
 	}
 }
 
 void recalled_appearance(s16 x, s16 y, u16 *ch, u16 *col) {
 	Cell *l = game.map.at(x,y);
-	if (l->objects.top())
-		*ch = objectdesc[l->objects.top()->type].ch,
-		*col = objectdesc[l->objects.top()->type].color;
+	if (l->objects.head())
+		*ch = l->objects.head()->desc()->ch,
+		*col = l->objects.head()->desc()->color;
 	else if (!terraindesc[l->type].forgettable)
-		*ch = terraindesc[l->type].ch,
-		*col = terraindesc[l->type].color;
+		*ch = l->desc()->ch,
+		*col = l->desc()->color;
 	else
 		*ch = ' ',
 		*col = 0;
