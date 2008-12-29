@@ -7,13 +7,18 @@
 #include "entities/creature.h"
 
 // drops the object if it's in the player's bag
-void Player::drop(Node<Object> obj) {
-	if (!game.player.bag.remove(obj)) return;
-	game.map.at(game.player.x, game.player.y)->objects.push(obj);
-	if (obj->quantity == 1)
-		iprintf("You drop a %s\n", obj->desc()->name);
-	else
-		iprintf("You drop %d %ss\n", obj->quantity, obj->desc()->name);
+void Player::drop(Node<Object> o) {
+	if (!game.player.bag.remove(o)) return;
+	game.map.at(game.player.x, game.player.y)->objects.push(o);
+	if (o->quantity == 1)
+		iprintf("You drop a %s\n", o->desc()->name);
+	else {
+		if (o->desc()->plural) {
+			iprintf("You drop %d %s\n", o->quantity, o->desc()->plural);
+		} else {
+			iprintf("You drop %d %ss\n", o->quantity, o->desc()->name);
+		}
+	}
 }
 
 void Player::exist() {
