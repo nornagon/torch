@@ -127,7 +127,7 @@ void seek_and_destroy() {
 		} else {
 			bresenstate st(game.player.x, game.player.y, targx, targy);
 			st.step();
-			game.player.move(direction(st.posx(), st.posy(), game.player.x, game.player.y), true);
+			game.player.moveDir(direction(st.posx(), st.posy(), game.player.x, game.player.y), true);
 		}
 	}
 }
@@ -186,7 +186,7 @@ void process_keys() {
 			dir |= D_NORTH;
 
 		if (dir) {
-			game.player.move(dir, keys & KEY_B);
+			game.player.moveDir(dir, keys & KEY_B);
 			return;
 		}
 

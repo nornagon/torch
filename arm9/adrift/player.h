@@ -25,10 +25,10 @@ struct Player : public Creature {
 	void clear();
 
 	// move in given direction, sliding along obstacles and incrementing
-	// cooldown.
-	void move(DIRECTION dir, bool run);
-	// set the player's position
-	//void setPos(s16 x, s16 y);
+	// cooldown. XXX Important that this be called rather than
+	// game.player.move(), which will fall through to Creature::move and explode
+	// if you start passing it DIRECTIONs and bools.
+	void moveDir(DIRECTION dir, bool run);
 
 	void drop(Object *item);
 	void use(Object *item);

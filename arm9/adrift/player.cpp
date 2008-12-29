@@ -37,7 +37,7 @@ void Player::clear() {
 	strength_xp = agility_xp = resilience_xp = melee_xp = aim_xp = 0;
 }
 
-void Player::move(DIRECTION dir, bool run) {
+void Player::moveDir(DIRECTION dir, bool run) {
 	int dpX = D_DX[dir],
 	    dpY = D_DY[dir];
 
@@ -74,14 +74,10 @@ void Player::move(DIRECTION dir, bool run) {
 		cell = game.map.at(x + dpX, y + dpY);
 
 		// move the player object
-		//game.player.move(x + dpX, y + dpY);
 		assert(game.map.walkable(x + dpX, y + dpY));
-		game.map.at(x,y)->creature = NULL;
-		game.map.at(x+dpX,y+dpY)->creature = (Creature*)this;
+		move(x + dpX, y + dpY);
 		recalc(&game.map.block, x, y);
-		recalc(&game.map.block, x + dpX, y + dpY);
-
-		x += dpX; y += dpY;
+		recalc(&game.map.block, x - dpX, y - dpY);
 
 		game.map.block.pX = x;
 		game.map.block.pY = y;

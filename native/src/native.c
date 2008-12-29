@@ -40,6 +40,7 @@ void native_init() {
 	fmt->Aloss = 8;
 	backbuffer = SDL_ConvertSurface(screen, fmt, SDL_SWSURFACE);
 	frontbuffer = SDL_ConvertSurface(screen, fmt, SDL_SWSURFACE);
+	free(fmt);
 	backbuf = backbuffer->pixels;
 
 	vblankMutex = SDL_CreateMutex();

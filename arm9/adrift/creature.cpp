@@ -28,7 +28,7 @@ void Creature::regenerate() {
 }
 
 void Creature::move(s16 _x, s16 _y) {
-	assert(!game.map.at(_x,_y)->creature);
+	assert(!game.map.occupied(_x,_y));
 	assert(game.map.at(x,y)->creature == this);
 	Cell *c = game.map.at(x,y);
 	c->creature = NULL;
