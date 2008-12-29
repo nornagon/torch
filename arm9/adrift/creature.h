@@ -6,6 +6,9 @@
 #include "list.h"
 
 struct Creature : public listable<Creature> {
+	POOLED(Creature)
+
+	public:
 	u16 type;
 	s16 x,y;
 	s16 cooldown, regen_cooldown;

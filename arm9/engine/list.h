@@ -25,6 +25,7 @@
 
 #include <cstddef> // for size_t
 #include <cstdlib>
+#include "assert.h"
 
 #define POOLED(T) \
 	private: \
@@ -73,12 +74,9 @@ class Pool {
 		}
 
 		static void flush_free() {
-			T *n = free_nodes.head();
-			while (n) {
-				T *next = n->next();
-				delete n;
-				n = next;
-			}
+			T *n;
+			while ((n = free_nodes.pop()))
+				::free(n);
 		}
 };
 

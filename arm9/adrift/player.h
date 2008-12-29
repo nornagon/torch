@@ -9,6 +9,9 @@
 #include <nds/jtypes.h>
 
 struct Player : public Creature {
+	UNPOOLED
+
+	public:
 	List<Object> bag; // inventory
 	Creature *target; // currently targetted creature for seek and destroy
 	lightsource *light;

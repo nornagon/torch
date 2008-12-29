@@ -135,6 +135,7 @@ bool checkConnected() {
 	int w = torch.buf.getw(), h = torch.buf.geth();
 	bool done = false;
 
+	// find a walkable cell
 	for (y = 0; y < h; y++) {
 		for (x = 0; x < w; x++) {
 			if (!game.map.solid(x,y)) { done = true; break; }
@@ -152,7 +153,9 @@ bool checkConnected() {
 	while (!queue.empty()) {
 		Point* p = queue.pop();
 		for (int dx = -1; dx <= 1; dx++) {
+			if (p->x+dx < 0 || p->x+dx >= w) continue;
 			for (int dy = -1; dy <= 1; dy++) {
+				if (p->y+dy < 0 || p->y+dy > h) continue;
 				if (!marks[(p->y+dy)*w+p->x+dx] && !game.map.solid(p->x+dx,p->y+dy)) {
 					marks[p->x + dx + w*(p->y+dy)] = true;
 					Point *pp = new Point(p->x+dx, p->y+dy);

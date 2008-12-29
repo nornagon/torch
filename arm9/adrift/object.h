@@ -8,6 +8,9 @@
 #include "direction.h"
 
 struct Object : public listable<Object> {
+	POOLED(Object)
+
+	public:
 	Object(): type(0), quantity(1), state(NULL) {}
 	const ObjectDesc* desc() { return &objectdesc[type]; }
 	u16 type;
