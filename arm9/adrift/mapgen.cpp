@@ -498,10 +498,13 @@ void generate_terrarium() {
 	printf("done.\n");
 
 	s16 x = cx, y = cy;
-	while (game.map.solid(x, y))
+	while (!game.map.walkable(x, y))
 		randwalk(x, y);
 	game.player.x = x;
 	game.player.y = y;
+
+	game.player.setPos(x,y);
+	game.map.at(x,y)->creature = &game.player;
 
 	x = cx; y = cy;
 

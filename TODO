@@ -1,7 +1,6 @@
 * serialisation
 * sub-tile light origins (maybe prod puyo)
 * move by touchscreen?
-* PC port
 * bring stuff to generic/
 * equipment
 * AI
@@ -10,10 +9,10 @@
 
 actual stuff
 - make combat less spammy
-- add A* to seek_and_destroy to avoid annoying wall situations
+- seek_and_destroy
+	- add A* to avoid annoying wall situations
+	- revamp to A = WoW-like monster tabbing; touch-to-attack
 - lake detail
 	- reeds
 	- willowisp
-- ground detail
-	- grass/shrubs
 - fix \x00 bug in text engine

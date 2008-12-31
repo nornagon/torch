@@ -51,3 +51,16 @@ creature 'labrador' do
   cooldown 10
   wanders; hungry
 end
+
+creature 'will o\'wisp' do
+  char 'W'
+  color 4,13,28
+  strength 1
+  agility 10
+  resilience 1
+  aim 4
+  melee 1
+  cooldown 8
+  peaceful; shy; wanders
+  flying
+end

@@ -5,7 +5,6 @@
 #include "text.h"
 #include "interface.h"
 #include "combat.h"
-#include "behaviour.h"
 
 #include "assert.h"
 
@@ -301,7 +300,7 @@ void process_sight() {
 
 void step_monsters() {
 	for (Creature *m = game.map.monsters.head(); m; m = m->next()) {
-		step_creature(m);
+		m->behave();
 	}
 }
 
@@ -347,9 +346,6 @@ void new_game() {
 	game.player.exist();
 
 	generate_terrarium();
-
-	game.player.setPos(game.player.x,game.player.y);
-	game.map.at(game.player.x,game.player.y)->creature = &game.player;
 
 	torch.buf.scroll.x = game.player.x - 16;
 	torch.buf.scroll.y = game.player.y - 12;
