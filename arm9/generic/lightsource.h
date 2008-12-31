@@ -10,12 +10,7 @@ enum LIGHT_TYPE {
 	LIGHT_BEAM,
 };
 
-enum FLICKER_TYPE {
-	FLICKER_NONE,
-	FLICKER_LIGHT,
-	FLICKER_DARK,
-	FLICKER_RADIUS,
-};
+typedef void(*FLICKER_TYPE)(struct lightsource*);
 
 // lightsource holds information about a specific light source, as well as
 // intermediate information used by processes that alter the light source (such
@@ -42,5 +37,10 @@ struct lightsource : public listable<lightsource> {
 
 	void update_flicker();
 };
+
+void FLICKER_NONE(lightsource*);
+void FLICKER_RADIUS(lightsource*);
+void FLICKER_LIGHT(lightsource*);
+void FLICKER_DARK(lightsource*);
 
 #endif /* LIGHTSOURCE_H */

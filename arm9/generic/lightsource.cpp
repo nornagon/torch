@@ -47,44 +47,42 @@ void lightsource::set(DIRECTION dir, int32 radius_, int32 angle_, int32 r_, int3
 }
 
 void lightsource::update_flicker() {
-	switch (flicker) {
-		case FLICKER_LIGHT:
-			if (frame > 0) {
-				frame--;
-				if (frame == 0) {
-					frame = -1-rand4();
-					intensity = orig_intensity >> 1;
-				}
-			} else {
-				frame++;
-				if (frame == 0) {
-					frame = 1+(rand8()%128);
-					r = orig_r;
-					g = orig_g;
-					b = orig_b;
-					intensity = orig_intensity;
-				}
-			}
-			break;
-		case FLICKER_RADIUS:
-			if (frame > 0) {
-				frame--;
-				if (frame == 0) {
-					frame = -1-(rand32()%5);
-					int32 factor = 2*rand8();
-					radius = orig_radius - ((orig_radius*factor)>>12);
-					intensity = orig_intensity - ((orig_intensity*factor)>>12);
-				}
-			} else {
-				frame++;
-				if (frame == 0) {
-					frame = 1+(rand4()&0x7);
-					radius = orig_radius;
-				}
-			}
-			break;
-		case FLICKER_DARK:
-		case FLICKER_NONE:
-			return;
+	flicker(this);
+}
+
+void FLICKER_NONE(lightsource*) {}
+void FLICKER_LIGHT(lightsource *l) {
+	if (l->frame > 0) {
+		l->frame--;
+		if (l->frame == 0) {
+			l->frame = -1-rand4();
+			l->intensity = l->orig_intensity >> 1;
+		}
+	} else {
+		l->frame++;
+		if (l->frame == 0) {
+			l->frame = 1+(rand8()%128);
+			l->r = l->orig_r;
+			l->g = l->orig_g;
+			l->b = l->orig_b;
+			l->intensity = l->orig_intensity;
+		}
+	}
+}
+void FLICKER_RADIUS(lightsource *l) {
+	if (l->frame > 0) {
+		l->frame--;
+		if (l->frame == 0) {
+			l->frame = -1-(rand32()%5);
+			int32 factor = 2*rand8();
+			l->radius = l->orig_radius - ((l->orig_radius*factor)>>12);
+			l->intensity = l->orig_intensity - ((l->orig_intensity*factor)>>12);
+		}
+	} else {
+		l->frame++;
+		if (l->frame == 0) {
+			l->frame = 1+(rand4()&0x7);
+			l->radius = l->orig_radius;
+		}
 	}
 }
