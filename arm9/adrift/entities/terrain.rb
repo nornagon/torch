@@ -31,7 +31,7 @@ end
 terrain 'water' do
   char '~'
   color 5, 14, 23
-  solid
+  solid; flyable
 end
 
 terrain 'fire' do

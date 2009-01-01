@@ -26,6 +26,7 @@ void Creature::init(u16 _type) {
 	melee = desc()->melee;
 	resilience = desc()->resilience;
 	hp = max_hp();
+	light = NULL;
 }
 
 void Creature::behave() {
@@ -33,7 +34,14 @@ void Creature::behave() {
 		cooldown--;
 		return;
 	}
+	doBehaviour();
+	if (light) {
+		light->x = x<<12;
+		light->y = y<<12;
+	}
+}
 
+void Creature::doBehaviour() {
 	if (!desc()->peaceful) {
 		if (adjacent(game.player.x, game.player.y, x, y)) {
 			monster_hit_you(this);
@@ -45,7 +53,7 @@ void Creature::behave() {
 		    within(game.player.x, game.player.y, x, y, 6)) {
 			bresenstate st(x, y, game.player.x, game.player.y);
 			st.step();
-			if (game.map.walkable(st.posx(), st.posy())) {
+			if (canMove(st.posx(), st.posy())) {
 				move(st.posx(), st.posy());
 				cooldown += desc()->cooldown / 2;
 				return;
@@ -60,7 +68,7 @@ void Creature::behave() {
 		if (within(game.player.x, game.player.y, x, y, 6)) {
 			bresenstate st(0,0, x - game.player.x, y - game.player.y);
 			st.step();
-			if (game.map.walkable(x + st.posx(), y + st.posy())) {
+			if (canMove(x + st.posx(), y + st.posy())) {
 				move(x + st.posx(), y + st.posy());
 				cooldown += desc()->cooldown / 2;
 				return;
@@ -70,7 +78,7 @@ void Creature::behave() {
 	if (desc()->wanders) {
 		s16 x_ = x, y_ = y;
 		randwalk(x_,y_);
-		if (game.map.walkable(x_,y_)) {
+		if (canMove(x_,y_)) {
 			move(x_,y_);
 			acted();
 			return;
@@ -110,6 +118,13 @@ void Creature::regenerate() {
 	} else regen_cooldown--;
 }
 
+bool Creature::canMove(s16 xp, s16 yp) {
+	if (desc()->flying)
+		return game.map.flyable(xp,yp);
+	else
+		return game.map.walkable(xp,yp);
+}
+
 void Creature::move(s16 _x, s16 _y) {
 	assert(!game.map.occupied(_x,_y));
 	assert(game.map.at(x,y)->creature == this);
@@ -117,4 +132,9 @@ void Creature::move(s16 _x, s16 _y) {
 	c->creature = NULL;
 	game.map.at(_x,_y)->creature = this;
 	setPos(_x,_y);
+}
+
+Creature::~Creature() {
+	game.map.lights.remove(light);
+	if (light) delete light;
 }

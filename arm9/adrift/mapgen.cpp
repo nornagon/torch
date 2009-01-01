@@ -415,6 +415,24 @@ void SpawnCreatures() {
 			game.map.spawn(LABRADOR, x, y);
 		} else i--;
 	}
+
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			if (!game.map.occupied(x,y) &&
+			    game.map.at(x,y)->type == WATER &&
+			    (rand8() & 0x3f) == 0) {
+			  Creature *wisp = new Creature(WILL_O_WISP);
+			  wisp->setPos(x,y);
+			  game.map.at(x,y)->creature = wisp;
+			  game.map.monsters.push(wisp);
+			  lightsource *li = new lightsource(3<<12,0,1<<11,1<<12);
+			  li->orig_intensity = li->intensity = 1<<11;
+			  li->x = x<<12; li->y = y<<12;
+				game.map.lights.push(li);
+				wisp->light = li;
+			}
+		}
+	}
 }
 
 static inline void startTimer() {

@@ -39,8 +39,7 @@ Adrift::Adrift() {
 }
 
 void Map::spawn(u16 type, s16 x, s16 y) {
-	Creature* c = new Creature;
-	c->init(type);
+	Creature* c = new Creature(type);
 	c->setPos(x,y);
 	assert(!occupied(x,y));
 	at(x,y)->creature = c;
