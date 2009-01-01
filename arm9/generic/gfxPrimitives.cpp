@@ -22,6 +22,32 @@ void randwalk(s16 &x, s16 &y) {
 void hollowCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y, void *info), void *info) {
 	s16 left, right, top, bottom;
 	s16 x1, y1, x2, y2;
+
+	/*
+	 * Get clipping boundary
+	 */
+	left = 0;
+	right = torch.buf.getw() - 1;
+	top = 0;
+	bottom = torch.buf.geth() - 1;
+
+	/*
+	 * Test if bounding box of circle is visible
+	 */
+	x1 = x - r;
+	x2 = x + r;
+	y1 = y - r;
+	y2 = y + r;
+	if ((x1 < left) && (x2 < left)) return;
+	if ((x1 > right) && (x2 > right)) return;
+	if ((y1 < top) && (y2 < top)) return;
+	if ((y1 > bottom) && (y2 > bottom)) return;
+
+	hollowCircleNoClip(x,y,r,func,info);
+}
+
+void hollowCircleNoClip(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y, void *info), void *info) {
+	s16 x1, y1, x2, y2;
 	s16 cx = 0;
 	s16 cy = r;
 	s16 ocx = (s32) 0xffff;
@@ -46,25 +72,10 @@ void hollowCircle(s16 x, s16 y, s16 r, void (*func)(s16 x, s16 y, void *info), v
 		return;
 	}
 
-	/*
-	 * Get clipping boundary
-	 */
-	left = 0;
-	right = torch.buf.getw() - 1;
-	top = 0;
-	bottom = torch.buf.geth() - 1;
-
-	/*
-	 * Test if bounding box of circle is visible
-	 */
 	x1 = x - r;
 	x2 = x + r;
 	y1 = y - r;
 	y2 = y + r;
-	if ((x1 < left) && (x2 < left)) return;
-	if ((x1 > right) && (x2 > right)) return;
-	if ((y1 < top) && (y2 < top)) return;
-	if ((y1 > bottom) && (y2 > bottom)) return;
 
 	/*
 	 * Draw
@@ -240,4 +251,10 @@ void bresenham(s16 x0, s16 y0, s16 x1, s16 y1, void (*func)(s16 x, s16 y, void *
 			error -= deltax;
 		}
 	}
+}
+
+void extractComponents(u16 color, int &r, int &g, int &b) {
+	r = color & 0x1f;
+	g = (color & 0x3e0) >> 5;
+	b = (color & 0x7c00) >> 10;
 }

@@ -8,11 +8,25 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include "gfxPrimitives.h"
 #ifdef NATIVE
 #include "native.h"
 #endif
 
-inline void pixel(u16* surf, u8 x, u8 y, u16 color) {
+inline void pixel(u16* surf, u8 x, u8 y, u16 color, int32 alpha=1<<12) {
+	if (alpha < 1<<12) {
+		u16 targ_color = surf[y*256+x];
+		int rt, gt, bt; // target
+		extractComponents(targ_color, rt,gt,bt);
+		int rs, gs, bs; // source
+		//if (rt != 0 && gt != 0 && bt != 0) printf("alpha %d,%d,%d to %d,%d,%d", rs, gs, bs, rt, gt, bt);
+		extractComponents(color, rs,gs,bs);
+		int rf, gf, bf; // final
+		rf = ((rt * ((1<<12)-alpha)) >> 12) + ((rs * alpha) >> 12);
+		gf = ((gt * ((1<<12)-alpha)) >> 12) + ((gs * alpha) >> 12);
+		bf = ((bt * ((1<<12)-alpha)) >> 12) + ((bs * alpha) >> 12);
+		color = RGB15(rf,gf,bf);
+	}
 	surf[y*256+x] = color|BIT(15);
 }
 
@@ -204,9 +218,47 @@ void inventory() {
 #endif
 }
 
+struct pixel_i_helper {
+	u16 *target;
+	int32 alpha;
+	u16 color;
+};
+void pixel_i(s16 x, s16 y, void *info) {
+	pixel_i_helper *p = (pixel_i_helper*)info;
+	if (x >= 0 && x < 256 && y >= 0 && y < 192)
+		pixel(p->target, x,y, p->color, p->alpha);
+}
+
+void refresh_map_i(s16 x, s16 y, void *info) {
+	pixel_i_helper *p = (pixel_i_helper*)info;
+	int offx = torch.buf.getw() / 2 - 256/2,
+	    offy = torch.buf.geth() / 2 - 192/2;
+	if (game.map.contains(x,y)) {
+		u16 color = game.map.at(x,y)->desc()->color;
+		if (x == game.player.x && y == game.player.y)
+			color = RGB15(31,31,31);
+		else if (game.map.at(x,y)->desc()->forgettable)
+			color = 0;
+		else {
+			u32 r = color & 0x001f,
+					g = (color & 0x03e0) >> 5,
+					b = (color & 0x7c00) >> 10;
+			int32 recall = torch.buf.at(x,y)->recall;
+			r = (r * recall) >> 12;
+			g = (g * recall) >> 12;
+			b = (b * recall) >> 12;
+			color = RGB15(r,g,b);
+		}
+		pixel(p->target, x - offx, y - offy, color);
+	}
+}
+
 void overview() {
 #ifndef NATIVE
 	text_console_disable();
+
+	int offx = torch.buf.getw() / 2 - 256/2,
+	    offy = torch.buf.geth() / 2 - 192/2;
 
 	u16* subscr = (u16*)BG_BMP_RAM_SUB(0);
 	text_display_clear();
@@ -228,25 +280,34 @@ void overview() {
 					b = (b * recall) >> 12;
 					color = RGB15(r,g,b);
 				}
-				pixel(subscr,
-				      x - torch.buf.getw() / 2 + 256/2,
-				      y - torch.buf.geth() / 2 + 192/2,
-				      color);
+				pixel(subscr, x - offx, y - offy, color);
 			}
 		}
 	}
 
 	int playerfade = 0;
+	int rad = 0;
 	while (1) {
 		u32 held = 0;
 		scanKeys();
 		held = keysHeld();
+
 		int32 k = (COS[playerfade] >> 1) + (1<<11);
 		u16 color = RGB15((31 * k) >> 12, (31 * k) >> 12, (31 * k) >> 12);
-		pixel(subscr, game.player.x - torch.buf.getw() / 2 + 256/2,
-									game.player.y - torch.buf.geth() / 2 + 192/2,
+		pixel(subscr, game.player.x - offx,
+									game.player.y - offy,
 									color);
 		playerfade = (playerfade + 8) % 0x1ff;
+
+		struct pixel_i_helper p;
+		p.target = subscr;
+		p.alpha = 1<<10;
+		k = (COS[(playerfade+0xff)%0x1ff] >> 1) + (1<<11);
+		p.color = RGB15((31 * k) >> 12, (31 * k) >> 12, (31 * k) >> 12);
+		hollowCircleNoClip(game.player.x, game.player.y, rad, refresh_map_i, &p);
+		rad = playerfade / 64;
+		hollowCircleNoClip(game.player.x - offx, game.player.y - offy, rad, pixel_i, &p);
+
 		if (!(held & KEY_L)) break;
 		swiWaitForVBlank();
 	}
