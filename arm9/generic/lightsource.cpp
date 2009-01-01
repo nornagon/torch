@@ -47,7 +47,8 @@ void lightsource::set(DIRECTION dir, int32 radius_, int32 angle_, int32 r_, int3
 }
 
 void lightsource::update_flicker() {
-	flicker(this);
+	if (flicker)
+		flicker(this);
 }
 
 void FLICKER_NONE(lightsource*) {}

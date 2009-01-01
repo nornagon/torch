@@ -8,9 +8,11 @@ creature 'player' do
   color 31, 31, 31
   strength 4
   agility 4
-  resilience 4
+  resilience 7
   aim 4
   melee 4
+
+  natural 2..4
 end
 
 creature 'venus fly trap' do
