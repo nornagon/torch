@@ -10,9 +10,9 @@ DataStream::DataStream(): fd(0), ownfd(false)
 DataStream::DataStream(FILE *f): fd(f), ownfd(false)
 {}
 
-DataStream::DataStream(const char *filename)
+DataStream::DataStream(const char *filename, const char *mode)
 {
-	fd = fopen(filename, "ab+");
+	fd = fopen(filename, mode);
 	ownfd = true;
 }
 

@@ -167,13 +167,15 @@ DEF_EXERCISE(melee)
 
 DataStream& operator <<(DataStream& s, Player& p)
 {
-	s << (u32)0xcafebabe;
+	s << (Creature&)p;
+	s << p.strength_xp << p.agility_xp << p.resilience_xp << p.aim_xp << p.melee_xp;
+	s << p.bag;
 	return s;
 }
 DataStream& operator >>(DataStream& s, Player& p)
 {
-	u32 x;
-	s >> x;
-	assert(x == 0xcafebabe);
+	s >> (Creature&)p;
+	s >> p.strength_xp >> p.agility_xp >> p.resilience_xp >> p.aim_xp >> p.melee_xp;
+	s >> p.bag;
 	return s;
 }

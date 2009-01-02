@@ -11,7 +11,7 @@ class DataStream {
 	public:
 	DataStream();
 	DataStream(FILE*);
-	DataStream(const char *filename); // opens filename in mode a+
+	DataStream(const char *filename, const char *mode);
 	~DataStream();
 
 	FILE *getfd();
@@ -32,24 +32,30 @@ class DataStream {
 	DataStream &operator >>(u16&);
 	DataStream &operator <<(u32);
 	DataStream &operator >>(u32&);
+
+	DataStream &operator <<(bool);
+	DataStream &operator >>(bool&);
 };
 
 inline DataStream& DataStream::operator <<(u8 i)
 { return *this << (s8)i; }
-
-inline DataStream& DataStream::operator <<(u16 i)
-{ return *this << (s16)i; }
-
-inline DataStream& DataStream::operator <<(u32 i)
-{ return *this << (s32)i; }
-
 inline DataStream& DataStream::operator >>(u8 &i)
 { return *this >> (s8&)i; }
 
+inline DataStream& DataStream::operator <<(u16 i)
+{ return *this << (s16)i; }
 inline DataStream& DataStream::operator >>(u16 &i)
 { return *this >> (s16&)i; }
 
+inline DataStream& DataStream::operator <<(u32 i)
+{ return *this << (s32)i; }
 inline DataStream& DataStream::operator >>(u32 &i)
 { return *this >> (s32&)i; }
+
+// justified since sizeof(bool) = 1 >.>
+inline DataStream& DataStream::operator <<(bool i)
+{ return *this << (s8)i; }
+inline DataStream& DataStream::operator >>(bool &i)
+{ return *this >> (s8&)i; }
 
 #endif /* DATASTREAM_H */

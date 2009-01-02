@@ -46,13 +46,7 @@ class Map {
 		Map() { cells = 0; w = h = 0; }
 		Map(s16 w_, s16 h_) { resize(w_,h_); }
 
-		void resize(s16 _w, s16 _h) {
-			if (cells) delete [] cells;
-			w = _w; h = _h;
-			cells = new Cell[w*h];
-			block.resize(w,h);
-			reset();
-		}
+		void resize(s16 _w, s16 _h);
 		void reset();
 
 		inline Cell *at(s16 x, s16 y) {
@@ -104,12 +98,9 @@ struct Adrift {
 
 	int cooldown;
 
-	friend DataStream& operator <<(DataStream&, Adrift&);
-	friend DataStream& operator >>(DataStream&, Adrift&);
+	void save(const char *filename);
+	void load(const char *filename);
 };
-
-DataStream& operator <<(DataStream&, Adrift&);
-DataStream& operator >>(DataStream&, Adrift&);
 
 extern Adrift game;
 

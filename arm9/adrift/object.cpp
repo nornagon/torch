@@ -26,3 +26,17 @@ void stack_item_push(List<Object> &container, Object *obj) {
 	}
 	if (obj) container.push(obj);
 }
+
+DataStream& operator <<(DataStream& s, Object &o)
+{
+	s << o.type << o.quantity;
+	s << o.orientation;
+	return s;
+}
+
+DataStream& operator >>(DataStream& s, Object &o)
+{
+	s >> o.type >> o.quantity;
+	s >> o.orientation;
+	return s;
+}

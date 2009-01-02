@@ -5,6 +5,7 @@
 #include "entities/creature.h"
 #include "list.h"
 #include "lightsource.h"
+#include "datastream.h"
 
 struct Creature : public listable<Creature> {
 	POOLED(Creature)
@@ -40,6 +41,11 @@ struct Creature : public listable<Creature> {
 	void behave();
 
 	~Creature();
+
+	friend DataStream& operator <<(DataStream&, Creature&);
+	friend DataStream& operator >>(DataStream&, Creature&);
 };
+DataStream& operator <<(DataStream&, Creature&);
+DataStream& operator >>(DataStream&, Creature&);
 
 #endif /* CREATURE_H */

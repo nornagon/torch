@@ -135,6 +135,32 @@ void Creature::move(s16 _x, s16 _y) {
 }
 
 Creature::~Creature() {
-	game.map.lights.remove(light);
-	if (light) delete light;
+	if (light) {
+		if (game.map.lights.remove(light))
+			delete light;
+		else
+			printf("WARNING: something removed a creature %d's light without letting it know!\n", type);
+	}
+}
+
+DataStream& operator <<(DataStream& s, Creature &c)
+{
+	s << c.type;
+	s << c.x << c.y;
+	s << c.cooldown << c.regen_cooldown;
+	s << c.hp;
+	s << c.strength << c.agility << c.resilience << c.aim << c.melee;
+	// TODO: serialize light
+	return s;
+}
+
+DataStream& operator >>(DataStream& s, Creature &c)
+{
+	s >> c.type;
+	s >> c.x >> c.y;
+	s >> c.cooldown >> c.regen_cooldown;
+	s >> c.hp;
+	s >> c.strength >> c.agility >> c.resilience >> c.aim >> c.melee;
+	// TODO: light
+	return s;
 }

@@ -16,7 +16,12 @@ struct Object : public listable<Object> {
 	u16 type;
 	u16 quantity;
 	DIRECTION orientation;
+
+	friend DataStream& operator <<(DataStream&, Object&);
+	friend DataStream& operator >>(DataStream&, Object&);
 };
+DataStream& operator <<(DataStream&, Object&);
+DataStream& operator >>(DataStream&, Object&);
 
 Object *addObject(s16 x, s16 y, u16 type);
 void stack_item_push(List<Object> &container, Object *obj);

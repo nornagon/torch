@@ -38,15 +38,31 @@ Adrift::Adrift() {
 	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
 }
 
-DataStream& operator <<(DataStream& s, Adrift &a) {
-	s << a.player;
-	s << a.map;
-	return s;
+void Adrift::save(const char *filename) {
+	DataStream s(filename, "wb");
+	s << map;
+	s << player;
 }
-DataStream& operator >>(DataStream& s, Adrift &a) {
-	s >> a.player;
-	s >> a.map;
-	return s;
+void Adrift::load(const char *filename) {
+	DataStream s(filename, "rb");
+	s >> map;
+	s >> player;
+	for (int y = 0; y < map.geth(); y++) {
+		for (int x = 0; x < map.getw(); x++) {
+			if (map.at(x,y)->creature) {
+				map.monsters.push(map.at(x,y)->creature);
+			}
+		}
+	}
+	assert(!game.map.at(player.x,player.y)->creature);
+	game.map.at(player.x,player.y)->creature = (Creature*)&game.player;
+
+	torch.buf.resize(map.getw(), map.geth());
+	torch.buf.scroll.x = game.player.x - 16;
+	torch.buf.scroll.y = game.player.y - 12;
+	torch.buf.bounded(torch.buf.scroll.x, torch.buf.scroll.y);
+	torch.dirty_screen();
+	torch.reset_luminance();
 }
 
 void Map::spawn(u16 type, s16 x, s16 y) {
@@ -61,20 +77,42 @@ void Map::reset() {
 	for (s16 y = 0; y < h; y++)
 		for (s16 x = 0; x < w; x++)
 			at(x,y)->reset();
+	monsters.delete_all();
 	lights.delete_all();
 	animations.delete_all();
-	monsters.delete_all();
 	projectiles.delete_all();
+}
+
+void Map::resize(s16 _w, s16 _h) {
+	if (cells) delete [] cells;
+	w = _w; h = _h;
+	cells = new Cell[w*h];
+	block.resize(w,h);
+	reset();
 }
 
 DataStream& operator <<(DataStream& s, Map &m) {
 	s << m.w;
 	s << m.h;
+	for (int y = 0; y < m.h; y++) {
+		for (int x = 0; x < m.w; x++) {
+			s << *m.at(x,y);
+		}
+	}
 	return s;
 }
 DataStream& operator >>(DataStream& s, Map &m) {
 	s >> m.w;
 	s >> m.h;
+	m.resize(m.w, m.h);
+	for (int y = 0; y < m.h; y++) {
+		for (int x = 0; x < m.w; x++) {
+			s >> *m.at(x,y);
+			if (m.at(x,y)->desc()->opaque)
+				m.block.at(x,y)->opaque = true;
+		}
+	}
+	m.block.refresh_blocked_from();
 	return s;
 }
 
@@ -190,6 +228,19 @@ void process_keys() {
 			}
 			return;
 		}
+
+#ifdef NATIVE
+		if (down & KEY_R) {
+			printf("Saving... ");
+			fflush(stdout);
+			game.save("blah.adrift");
+			printf("done\n");
+			printf("Loading... ");
+			fflush(stdout);
+			game.load("blah.adrift");
+			printf("done\n");
+		}
+#endif
 
 		if (keys & KEY_Y) {
 			if (get_items()) return;

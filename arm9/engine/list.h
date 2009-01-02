@@ -26,6 +26,7 @@
 #include <cstddef> // for size_t
 #include <cstdlib>
 #include "assert.h"
+#include "datastream.h"
 
 #define POOLED(T) \
 	private: \
@@ -52,7 +53,12 @@
 	}
 
 
+// C++ rocks
 template <class T> struct List;
+template <class T> class listable;
+template <class T> DataStream& operator <<(DataStream&, List<T>&);
+template <class T> DataStream& operator >>(DataStream&, List<T>&);
+
 
 template <class T, unsigned int blockSize = 32>
 class Pool {
@@ -87,6 +93,9 @@ template <class T>
 class listable {
 	listable *__next;
 	friend class List<T>;
+	friend DataStream& operator << <T>(DataStream&, List<T>&);
+	friend DataStream& operator >> <T>(DataStream&, List<T>&);
+
 	public:
 		T* next() {
 			return static_cast<T*>(__next);
@@ -154,6 +163,37 @@ struct List {
 			while (T* k = pop())
 				delete k;
 		}
+
+		friend DataStream& operator << <T>(DataStream&, List<T>&);
+		friend DataStream& operator >> <T>(DataStream&, List<T>&);
 };
+
+template <class T>
+DataStream& operator <<(DataStream& s, List<T>& l) {
+	s << l.length();
+	for (listable<T> *k = l.mHead; k; k = k->__next)
+		s << *(T*)k;
+	return s;
+}
+template <class T>
+DataStream& operator >>(DataStream& s, List<T>& l) {
+	l.delete_all();
+	int length;
+	s >> length;
+	listable<T> *last = NULL;
+	for (int i = 0; i < length; i++) {
+		T* k = new T;
+		s >> *k;
+		listable<T> *n = static_cast<listable<T>*>(k);
+		n->__next = NULL;
+		if (!last) {
+			l.mHead = n;
+			last = n;
+		} else {
+			last->__next = n;
+		}
+	}
+	return s;
+}
 
 #endif /* LIST_H */
