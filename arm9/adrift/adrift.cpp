@@ -102,6 +102,7 @@ void Map::resize(s16 _w, s16 _h) {
 DataStream& operator <<(DataStream& s, Map &m) {
 	s << m.w;
 	s << m.h;
+	s << m.lights;
 	for (int y = 0; y < m.h; y++) {
 		for (int x = 0; x < m.w; x++) {
 			s << *m.at(x,y);
@@ -113,6 +114,7 @@ DataStream& operator >>(DataStream& s, Map &m) {
 	s >> m.w;
 	s >> m.h;
 	m.resize(m.w, m.h);
+	s >> m.lights;
 	for (int y = 0; y < m.h; y++) {
 		for (int x = 0; x < m.w; x++) {
 			s >> *m.at(x,y);

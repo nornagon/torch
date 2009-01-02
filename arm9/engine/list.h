@@ -133,6 +133,30 @@ struct List {
 			return remove(static_cast<listable<T>*>(ptr));
 		}
 
+		// returns -1 if ptr was not found in the list
+		int indexOf(listable<T> *ptr) {
+			int idx = 0;
+			for (listable<T> *k = mHead; k; k = k->__next) {
+				if (k == ptr) return idx;
+				idx++;
+			}
+			return -1;
+		}
+		inline int indexOf(T *ptr) {
+			return indexOf(static_cast<listable<T>*>(ptr));
+		}
+
+		// asserts on out-of-bounds
+		T *getnth(int n) {
+			listable<T>* k = mHead;
+			for (int i = 0; i < n; i++) {
+				assert(k);
+				k = k->next();
+			}
+			assert(k);
+			return (T*)k;
+		}
+
 		inline void push(listable<T> *x) {
 			x->__next = mHead;
 			mHead = x;

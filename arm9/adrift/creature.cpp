@@ -151,10 +151,11 @@ DataStream& operator <<(DataStream& s, Creature &c)
 	s << c.hp;
 	s << c.strength << c.agility << c.resilience << c.aim << c.melee;
 	if (c.light) {
-		s << true;
-		s << *c.light;
+		int idx = game.map.lights.indexOf(c.light);
+		assert(idx >= 0);
+		s << idx;
 	} else {
-		s << false;
+		s << (int)-1;
 	}
 	return s;
 }
@@ -166,11 +167,10 @@ DataStream& operator >>(DataStream& s, Creature &c)
 	s >> c.cooldown >> c.regen_cooldown;
 	s >> c.hp;
 	s >> c.strength >> c.agility >> c.resilience >> c.aim >> c.melee;
-	bool has_light;
-	s >> has_light;
-	if (has_light) {
-		c.light = new lightsource;
-		s >> *c.light;
-	}
+	int light_idx;
+	s >> light_idx;
+	if (light_idx >= 0) {
+		c.light = game.map.lights.getnth(light_idx);
+	} else c.light = NULL;
 	return s;
 }

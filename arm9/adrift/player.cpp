@@ -23,6 +23,7 @@ void Player::drop(Object *o) {
 
 void Player::exist() {
 	clear();
+	assert(!light);
 	light = new lightsource(7<<12, (int32)(1.00*(1<<12)), (int32)(0.90*(1<<12)), (int32)(0.85*(1<<12)));
 	light->flicker = FLICKER_RADIUS;
 }
@@ -168,13 +169,17 @@ DEF_EXERCISE(melee)
 DataStream& operator <<(DataStream& s, Player& p)
 {
 	s << (Creature&)p;
+	s << *p.light;
 	s << p.strength_xp << p.agility_xp << p.resilience_xp << p.aim_xp << p.melee_xp;
 	s << p.bag;
 	return s;
 }
 DataStream& operator >>(DataStream& s, Player& p)
 {
+	p.clear();
 	s >> (Creature&)p;
+	p.light = new lightsource;
+	s >> *p.light;
 	s >> p.strength_xp >> p.agility_xp >> p.resilience_xp >> p.aim_xp >> p.melee_xp;
 	s >> p.bag;
 	return s;
