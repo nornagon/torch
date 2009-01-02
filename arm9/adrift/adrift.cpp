@@ -38,6 +38,17 @@ Adrift::Adrift() {
 	fov_sight = build_fov_settings(sight_opaque, apply_sight, FOV_SHAPE_SQUARE);
 }
 
+DataStream& operator <<(DataStream& s, Adrift &a) {
+	s << a.player;
+	s << a.map;
+	return s;
+}
+DataStream& operator >>(DataStream& s, Adrift &a) {
+	s >> a.player;
+	s >> a.map;
+	return s;
+}
+
 void Map::spawn(u16 type, s16 x, s16 y) {
 	Creature* c = new Creature(type);
 	c->setPos(x,y);
@@ -54,6 +65,17 @@ void Map::reset() {
 	animations.delete_all();
 	monsters.delete_all();
 	projectiles.delete_all();
+}
+
+DataStream& operator <<(DataStream& s, Map &m) {
+	s << m.w;
+	s << m.h;
+	return s;
+}
+DataStream& operator >>(DataStream& s, Map &m) {
+	s >> m.w;
+	s >> m.h;
+	return s;
 }
 
 bool isvowel(char c) {

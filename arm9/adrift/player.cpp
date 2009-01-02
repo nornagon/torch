@@ -164,3 +164,16 @@ DEF_EXERCISE(aim)
 DEF_EXERCISE(melee)
 
 #undef DEF_EXERCISE
+
+DataStream& operator <<(DataStream& s, Player& p)
+{
+	s << (u32)0xcafebabe;
+	return s;
+}
+DataStream& operator >>(DataStream& s, Player& p)
+{
+	u32 x;
+	s >> x;
+	assert(x == 0xcafebabe);
+	return s;
+}

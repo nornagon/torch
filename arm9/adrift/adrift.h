@@ -16,6 +16,7 @@
 #include "player.h"
 #include "util.h"
 #include "bresenstate.h"
+#include "datastream.h"
 
 #include "entities/terrain.h"
 
@@ -87,7 +88,12 @@ class Map {
 		inline s16 geth() { return h; }
 
 		void spawn(u16 type, s16 x, s16 y);
+
+		friend DataStream& operator <<(DataStream&, Map&);
+		friend DataStream& operator >>(DataStream&, Map&);
 };
+DataStream& operator <<(DataStream&, Map&);
+DataStream& operator >>(DataStream&, Map&);
 
 struct Adrift {
 	Adrift();
@@ -97,7 +103,13 @@ struct Adrift {
 	fov_settings_type *fov_light, *fov_sight;
 
 	int cooldown;
+
+	friend DataStream& operator <<(DataStream&, Adrift&);
+	friend DataStream& operator >>(DataStream&, Adrift&);
 };
+
+DataStream& operator <<(DataStream&, Adrift&);
+DataStream& operator >>(DataStream&, Adrift&);
 
 extern Adrift game;
 

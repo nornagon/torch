@@ -1,12 +1,13 @@
 #ifndef PLAYER_H
 #define PLAYER_H 1
 
+#include <nds/jtypes.h>
 #include "list.h"
 #include "object.h"
 #include "creature.h"
 #include "lightsource.h"
 #include "direction.h"
-#include <nds/jtypes.h>
+#include "datastream.h"
 
 struct Player : public Creature {
 	UNPOOLED
@@ -47,6 +48,11 @@ struct Player : public Creature {
 	void exercise_resilience(int n = 1);
 	void exercise_aim(int n = 1);
 	void exercise_melee(int n = 1);
+
+	friend DataStream& operator <<(DataStream&, Player&);
+	friend DataStream& operator >>(DataStream&, Player&);
 };
+DataStream& operator <<(DataStream&, Player&);
+DataStream& operator >>(DataStream&, Player&);
 
 #endif /* PLAYER_H */
