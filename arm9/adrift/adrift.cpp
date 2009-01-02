@@ -65,6 +65,14 @@ void Adrift::load(const char *filename) {
 	torch.reset_luminance();
 }
 
+Map::~Map() {
+	monsters.delete_all();
+	lights.delete_all();
+	animations.delete_all();
+	projectiles.delete_all();
+	if (cells) delete [] cells;
+}
+
 void Map::spawn(u16 type, s16 x, s16 y) {
 	Creature* c = new Creature(type);
 	c->setPos(x,y);

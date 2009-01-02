@@ -45,6 +45,7 @@ class Map {
 
 		Map() { cells = 0; w = h = 0; }
 		Map(s16 w_, s16 h_) { resize(w_,h_); }
+		~Map();
 
 		void resize(s16 _w, s16 _h);
 		void reset();
