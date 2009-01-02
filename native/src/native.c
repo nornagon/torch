@@ -65,10 +65,15 @@ uint32 dsKeyForSDLKey(SDLKey key) {
 	switch (key) {
 		case 'a': return KEY_A;
 		case 'b': return KEY_B;
+		case 'x': return KEY_X;
+		case 'y': return KEY_Y;
+		case 'r': return KEY_R;
+		case 'l': return KEY_L;
 		case SDLK_LEFT: return KEY_LEFT;
 		case SDLK_RIGHT: return KEY_RIGHT;
 		case SDLK_UP: return KEY_UP;
 		case SDLK_DOWN: return KEY_DOWN;
+		case SDLK_RETURN: return KEY_START;
 		case SDLK_RSHIFT: return KEY_SELECT;
 		default: break;
 	}
