@@ -39,8 +39,6 @@
 		return __getPool().alloc(); \
 	} \
 	inline void operator delete(void *mem) { \
-		T* o = (T*)mem; \
-		o->~T(); \
 		__getPool().free((T*)mem); \
 	}
 
