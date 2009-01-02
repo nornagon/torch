@@ -7,6 +7,9 @@
 #include <malloc.h>
 #include <string.h>
 #include <stdio.h>
+#ifndef NATIVE
+#include <nds/timers.h>
+#endif
 
 #include "gfxPrimitives.h"
 #include "assert.h"
