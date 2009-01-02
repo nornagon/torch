@@ -4,13 +4,18 @@
 #include <nds/jtypes.h>
 #include "direction.h"
 #include "list.h"
+#include "datastream.h"
 
 enum LIGHT_TYPE {
-	LIGHT_POINT,
+	LIGHT_POINT = 0,
 	LIGHT_BEAM,
 };
 
 typedef void(*FLICKER_TYPE)(struct lightsource*);
+
+// if you define a custom flicker type, it must be registered with
+// addFlickerType for serialisation *BEFORE LOADING* to work correctly
+void addFlickerType(FLICKER_TYPE);
 
 // lightsource holds information about a specific light source, as well as
 // intermediate information used by processes that alter the light source (such
@@ -36,7 +41,11 @@ struct lightsource : public listable<lightsource> {
 	s32 frame; // animation state
 
 	void update_flicker();
+	friend DataStream& operator <<(DataStream&, lightsource&);
+	friend DataStream& operator >>(DataStream&, lightsource&);
 };
+DataStream& operator <<(DataStream&, lightsource&);
+DataStream& operator >>(DataStream&, lightsource&);
 
 void FLICKER_NONE(lightsource*);
 void FLICKER_RADIUS(lightsource*);

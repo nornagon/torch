@@ -3,17 +3,47 @@
 #include "mersenne.h"
 #include <malloc.h>
 #include <string.h>
+#include <deque>
+
+static std::deque<FLICKER_TYPE> flickerTypes;
+static bool flickerTypesInitialized = false;
+
+static void initializeFlickerTypes() {
+	if (flickerTypesInitialized) return;
+	flickerTypes.push_front(FLICKER_DARK);
+	flickerTypes.push_front(FLICKER_LIGHT);
+	flickerTypes.push_front(FLICKER_RADIUS);
+	flickerTypes.push_front(FLICKER_NONE);
+	flickerTypesInitialized = true;
+}
+
+void addFlickerType(FLICKER_TYPE f) {
+	flickerTypes.push_back(f);
+}
+
+static u8 flickerTypeIndex(FLICKER_TYPE f) {
+	u8 i = 0;
+	std::deque<FLICKER_TYPE>::iterator iter;
+	for (iter = flickerTypes.begin();
+	     iter != flickerTypes.end() && *iter != f;
+	     iter++, i++);
+	assert(iter != flickerTypes.end());
+	return i;
+}
 
 lightsource::lightsource() {
+	initializeFlickerTypes();
 	memset(this, 0, sizeof(lightsource));
 }
 
 lightsource::lightsource(int32 radius, int32 r, int32 g, int32 b) {
+	initializeFlickerTypes();
 	memset(this, 0, sizeof(lightsource));
 	set(radius, r, g, b);
 };
 
 lightsource::lightsource(DIRECTION dir, int32 radius, int32 angle, int32 r, int32 g, int32 b) {
+	initializeFlickerTypes();
 	memset(this, 0, sizeof(lightsource));
 	set(dir, radius, angle, r, g, b);
 };
@@ -70,6 +100,7 @@ void FLICKER_LIGHT(lightsource *l) {
 		}
 	}
 }
+void FLICKER_DARK(lightsource*) {}
 void FLICKER_RADIUS(lightsource *l) {
 	if (l->frame > 0) {
 		l->frame--;
@@ -86,4 +117,47 @@ void FLICKER_RADIUS(lightsource *l) {
 			l->radius = l->orig_radius;
 		}
 	}
+}
+
+// for some reason C++ was automatically casting LIGHT_TYPE to something
+// sensible for operator<<, but not for operator>>...
+DataStream& operator <<(DataStream& s, LIGHT_TYPE l)
+{
+	s << (u8) l;
+	return s;
+}
+DataStream& operator >>(DataStream& s, LIGHT_TYPE &l)
+{
+	u8 tmp;
+	s >> tmp;
+	l = (LIGHT_TYPE)tmp;
+	return s;
+}
+
+DataStream& operator <<(DataStream& s, lightsource &l)
+{
+	s << l.x << l.y;
+	s << l.orig_r << l.orig_g << l.orig_b << l.orig_intensity;
+	s << l.r << l.g << l.b << l.intensity;
+	s << l.type;
+	s << l.radius << l.orig_radius;
+	s << l.angle;
+	s << l.direction;
+	s << flickerTypeIndex(l.flicker);
+	return s;
+}
+
+DataStream& operator >>(DataStream& s, lightsource &l)
+{
+	s >> l.x >> l.y;
+	s >> l.orig_r >> l.orig_g >> l.orig_b >> l.orig_intensity;
+	s >> l.r >> l.g >> l.b >> l.intensity;
+	s >> l.type;
+	s >> l.radius >> l.orig_radius;
+	s >> l.angle;
+	s >> l.direction;
+	u8 flickerIndex;
+	s >> flickerIndex;
+	l.flicker = flickerTypes[flickerIndex];
+	return s;
 }

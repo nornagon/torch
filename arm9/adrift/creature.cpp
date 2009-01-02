@@ -150,7 +150,12 @@ DataStream& operator <<(DataStream& s, Creature &c)
 	s << c.cooldown << c.regen_cooldown;
 	s << c.hp;
 	s << c.strength << c.agility << c.resilience << c.aim << c.melee;
-	// TODO: serialize light
+	if (c.light) {
+		s << true;
+		s << *c.light;
+	} else {
+		s << false;
+	}
 	return s;
 }
 
@@ -161,6 +166,11 @@ DataStream& operator >>(DataStream& s, Creature &c)
 	s >> c.cooldown >> c.regen_cooldown;
 	s >> c.hp;
 	s >> c.strength >> c.agility >> c.resilience >> c.aim >> c.melee;
-	// TODO: light
+	bool has_light;
+	s >> has_light;
+	if (has_light) {
+		c.light = new lightsource;
+		s >> *c.light;
+	}
 	return s;
 }
