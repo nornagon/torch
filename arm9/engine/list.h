@@ -178,10 +178,10 @@ DataStream& operator <<(DataStream& s, List<T>& l) {
 template <class T>
 DataStream& operator >>(DataStream& s, List<T>& l) {
 	l.delete_all();
-	int length;
+	unsigned int length;
 	s >> length;
 	listable<T> *last = NULL;
-	for (int i = 0; i < length; i++) {
+	for (unsigned int i = 0; i < length; i++) {
 		T* k = new T;
 		s >> *k;
 		listable<T> *n = static_cast<listable<T>*>(k);
@@ -191,8 +191,10 @@ DataStream& operator >>(DataStream& s, List<T>& l) {
 			last = n;
 		} else {
 			last->__next = n;
+			last = n;
 		}
 	}
+	assert(l.length() == length);
 	return s;
 }
 
