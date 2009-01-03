@@ -22,14 +22,22 @@ DataStream::~DataStream()
 		fclose(fd);
 }
 
-size_t DataStream::read(void *ptr, size_t size, size_t nmemb) {
+size_t DataStream::read(void *ptr, size_t size, size_t nmemb)
+{
 	assert(fd);
 	return fread(ptr, size, nmemb, fd);
 }
 
-size_t DataStream::write(const void *ptr, size_t size, size_t nmemb) {
+size_t DataStream::write(const void *ptr, size_t size, size_t nmemb)
+{
 	assert(fd);
 	return fwrite(ptr, size, nmemb, fd);
+}
+
+long DataStream::tell() const
+{
+	assert(fd);
+	return ftell(fd);
 }
 
 bool DataStream::eof() const
@@ -62,6 +70,12 @@ size_t ZDataStream::write(const void *ptr, size_t size, size_t nmemb)
 {
 	assert(gz);
 	return gzwrite(gz, ptr, size*nmemb);
+}
+
+long ZDataStream::tell() const
+{
+	assert(gz);
+	return gztell(gz);
 }
 
 bool ZDataStream::eof() const

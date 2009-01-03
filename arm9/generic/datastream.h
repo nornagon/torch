@@ -17,6 +17,7 @@ class DataStream {
 
 	virtual size_t write(const void *ptr, size_t size, size_t nmemb);
 	virtual size_t read(void *ptr, size_t size, size_t nmemb);
+	virtual long tell() const;
 	virtual bool eof() const;
 
 	DataStream &operator <<(s8);
@@ -47,6 +48,7 @@ class ZDataStream : public DataStream {
 	virtual size_t write(const void *ptr, size_t size, size_t nmemb);
 	virtual size_t read(void *ptr, size_t size, size_t nmemb);
 	virtual bool eof() const;
+	virtual long tell() const;
 };
 
 inline DataStream& DataStream::operator <<(u8 i)

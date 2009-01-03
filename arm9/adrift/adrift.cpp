@@ -60,13 +60,6 @@ void Adrift::load(const char *filename) {
 		}
 	}
 	s >> player;
-	for (int y = 0; y < map.geth(); y++) {
-		for (int x = 0; x < map.getw(); x++) {
-			if (map.at(x,y)->creature) {
-				map.monsters.push(map.at(x,y)->creature);
-			}
-		}
-	}
 	assert(!game.map.at(player.x,player.y)->creature);
 	game.map.at(player.x,player.y)->creature = (Creature*)&game.player;
 

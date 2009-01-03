@@ -127,6 +127,10 @@ bool Creature::canMove(s16 xp, s16 yp) {
 
 void Creature::move(s16 _x, s16 _y) {
 	assert(!game.map.occupied(_x,_y));
+	if (game.map.at(x,y)->creature != this) {
+		printf("uh-oh: creature %d at %d,%d is not itself\n", type, x, y);
+	}
+	assert(game.map.occupied(x,y));
 	assert(game.map.at(x,y)->creature == this);
 	Cell *c = game.map.at(x,y);
 	c->creature = NULL;

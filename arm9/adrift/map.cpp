@@ -38,6 +38,7 @@ DataStream& operator <<(DataStream& s, Map &m) {
 	s << m.w;
 	s << m.h;
 	s << m.lights;
+	s << m.monsters;
 	for (int y = 0; y < m.h; y++) {
 		for (int x = 0; x < m.w; x++) {
 			s << *m.at(x,y);
@@ -50,12 +51,16 @@ DataStream& operator >>(DataStream& s, Map &m) {
 	s >> m.h;
 	m.resize(m.w, m.h);
 	s >> m.lights;
+	s >> m.monsters;
 	for (int y = 0; y < m.h; y++) {
 		for (int x = 0; x < m.w; x++) {
 			s >> *m.at(x,y);
 			if (m.at(x,y)->desc()->opaque)
 				m.block.at(x,y)->opaque = true;
 		}
+	}
+	for (Creature *k = m.monsters.head(); k; k = k->next()) {
+		m.at(k->x, k->y)->creature = k;
 	}
 	m.block.refresh_blocked_from();
 	return s;
