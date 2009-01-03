@@ -11,7 +11,7 @@ struct Object : public listable<Object> {
 	POOLED(Object)
 
 	public:
-	Object(): type(0), quantity(1) {}
+	Object(): type(0), quantity(1), orientation(D_NONE) {}
 	const ObjectDesc* desc() { return &objectdesc[type]; }
 	u16 type;
 	u16 quantity;

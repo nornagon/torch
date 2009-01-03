@@ -41,11 +41,24 @@ Adrift::Adrift() {
 void Adrift::save(const char *filename) {
 	ZDataStream s(filename, "wb");
 	s << map;
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			s << torch.buf.at(x,y)->recall;
+		}
+	}
 	s << player;
 }
 void Adrift::load(const char *filename) {
 	ZDataStream s(filename, "rb");
 	s >> map;
+	torch.buf.resize(map.getw(), map.geth());
+	for (int y = 0; y < torch.buf.geth(); y++) {
+		for (int x = 0; x < torch.buf.getw(); x++) {
+			mapel *m = torch.buf.at(x,y);
+			s >> m->recall;
+			recalled_appearance(x, y, &m->ch, &m->col);
+		}
+	}
 	s >> player;
 	for (int y = 0; y < map.geth(); y++) {
 		for (int x = 0; x < map.getw(); x++) {
@@ -57,7 +70,6 @@ void Adrift::load(const char *filename) {
 	assert(!game.map.at(player.x,player.y)->creature);
 	game.map.at(player.x,player.y)->creature = (Creature*)&game.player;
 
-	torch.buf.resize(map.getw(), map.geth());
 	torch.buf.scroll.x = game.player.x - 16;
 	torch.buf.scroll.y = game.player.y - 12;
 	torch.buf.bounded(torch.buf.scroll.x, torch.buf.scroll.y);

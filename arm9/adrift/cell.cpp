@@ -17,7 +17,7 @@ Cell::~Cell() {
 DataStream& operator <<(DataStream& s, Cell& c)
 {
 	s << c.type;
-	//s << c.objects;
+	s << c.objects;
 	if (c.creature && c.creature->type != PLAYER) {
 		s << true;
 		s << *c.creature;
@@ -29,7 +29,7 @@ DataStream& operator <<(DataStream& s, Cell& c)
 DataStream& operator >>(DataStream& s, Cell& c)
 {
 	s >> c.type;
-	//s >> c.objects;
+	s >> c.objects;
 	bool has_creature;
 	s >> has_creature;
 	if (has_creature) {
