@@ -25,7 +25,4 @@ struct Adrift {
 
 extern Adrift game;
 
-void recalc_visible(s16 x, s16 y);
-void recalc_recall(s16 x, s16 y);
-
 #endif /* ADRIFT_H */
