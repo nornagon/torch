@@ -3,6 +3,7 @@
 
 #include <nds/jtypes.h>
 #include <stdio.h>
+#include "zlib.h"
 
 class DataStream {
 	FILE *fd;
@@ -12,12 +13,11 @@ class DataStream {
 	DataStream();
 	DataStream(FILE*);
 	DataStream(const char *filename, const char *mode);
-	~DataStream();
+	virtual ~DataStream();
 
-	FILE *getfd();
-	FILE *setfd(FILE*);
-
-	bool eof() const;
+	virtual size_t write(const void *ptr, size_t size, size_t nmemb);
+	virtual size_t read(void *ptr, size_t size, size_t nmemb);
+	virtual bool eof() const;
 
 	DataStream &operator <<(s8);
 	DataStream &operator >>(s8&);
@@ -35,6 +35,18 @@ class DataStream {
 
 	DataStream &operator <<(bool);
 	DataStream &operator >>(bool&);
+};
+
+class ZDataStream : public DataStream {
+	gzFile gz;
+
+	public:
+	ZDataStream(const char *filename, const char *mode);
+	virtual ~ZDataStream();
+
+	virtual size_t write(const void *ptr, size_t size, size_t nmemb);
+	virtual size_t read(void *ptr, size_t size, size_t nmemb);
+	virtual bool eof() const;
 };
 
 inline DataStream& DataStream::operator <<(u8 i)

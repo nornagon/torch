@@ -39,12 +39,12 @@ Adrift::Adrift() {
 }
 
 void Adrift::save(const char *filename) {
-	DataStream s(filename, "wb");
+	ZDataStream s(filename, "wb");
 	s << map;
 	s << player;
 }
 void Adrift::load(const char *filename) {
-	DataStream s(filename, "rb");
+	ZDataStream s(filename, "rb");
 	s >> map;
 	s >> player;
 	for (int y = 0; y < map.geth(); y++) {
@@ -178,7 +178,6 @@ void process_keys() {
 			return;
 		}
 
-#ifdef NATIVE
 		if (down & KEY_R) {
 			printf("Saving... ");
 			fflush(stdout);
@@ -189,7 +188,6 @@ void process_keys() {
 			game.load("blah.adrift");
 			printf("done\n");
 		}
-#endif
 
 		if (keys & KEY_Y) {
 			if (get_items()) return;

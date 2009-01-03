@@ -14,6 +14,7 @@ FILE (GLOB world_src ${SRC}/arm9/adrift/*.cpp)
 FILE (GLOB native_src ${SRC}/native/src/*.cpp ${SRC}/native/src/*.c)
 FILE (GLOB generic_src ${SRC}/arm9/generic/*.cpp ${SRC}/arm9/generic/*.c)
 FILE (GLOB main_src ${SRC}/arm9/source/*.cpp ${SRC}/arm9/source/*.c)
+FILE (GLOB zlib_src ${SRC}/arm9/zlib/*.c)
 SET (generated_files
 	${GEN}/object.h
 	${GEN}/object.cpp
@@ -45,6 +46,7 @@ SET(torch_sources
 	${engine_src}
 	${native_src}
 	${generic_src}
+	${zlib_src}
 	${main_src}
 	${generated_files}
 	)

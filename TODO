@@ -1,4 +1,3 @@
-* serialisation
 * sub-tile light origins (maybe prod puyo)
 * move by touchscreen?
 * bring stuff to generic/
@@ -14,5 +13,4 @@ actual stuff
 	- revamp to A = WoW-like monster tabbing; touch-to-attack
 - lake detail
 	- reeds
-	- willowisp
 - fix \x00 bug in text engine

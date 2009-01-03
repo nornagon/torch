@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "assert.h"
 
-#define CHECK_STREAM_PRECOND assert(fd)
+/* DataStream */
 
 DataStream::DataStream(): fd(0), ownfd(false)
 {}
@@ -18,54 +18,93 @@ DataStream::DataStream(const char *filename, const char *mode)
 
 DataStream::~DataStream()
 {
-	if (ownfd)
+	if (ownfd && fd)
 		fclose(fd);
+}
+
+size_t DataStream::read(void *ptr, size_t size, size_t nmemb) {
+	assert(fd);
+	return fread(ptr, size, nmemb, fd);
+}
+
+size_t DataStream::write(const void *ptr, size_t size, size_t nmemb) {
+	assert(fd);
+	return fwrite(ptr, size, nmemb, fd);
 }
 
 bool DataStream::eof() const
 {
-	CHECK_STREAM_PRECOND;
+	assert(fd);
 	return feof(fd);
 }
 
+
+/* ZDataStream */
+
+ZDataStream::ZDataStream(const char *filename, const char *mode)
+{
+	gz = gzopen(filename, mode);
+	assert(gz);
+}
+
+ZDataStream::~ZDataStream()
+{
+	gzclose(gz);
+}
+
+size_t ZDataStream::read(void *ptr, size_t size, size_t nmemb)
+{
+	assert(gz);
+	return gzread(gz, ptr, size*nmemb);
+}
+
+size_t ZDataStream::write(const void *ptr, size_t size, size_t nmemb)
+{
+	assert(gz);
+	return gzwrite(gz, ptr, size*nmemb);
+}
+
+bool ZDataStream::eof() const
+{
+	assert(gz);
+	return gzeof(gz);
+}
+
+
+/* inserters/extractors */
+
 DataStream& DataStream::operator <<(s8 i)
 {
-	CHECK_STREAM_PRECOND;
-	fwrite(&i, 1, 1, fd);
+	write(&i, 1, 1);
 	return *this;
 }
 
 DataStream& DataStream::operator <<(s16 i)
 {
-	CHECK_STREAM_PRECOND;
-	fwrite(&i, 2, 1, fd);
+	write(&i, 2, 1);
 	return *this;
 }
 
 DataStream& DataStream::operator <<(s32 i)
 {
-	CHECK_STREAM_PRECOND;
-	fwrite(&i, 4, 1, fd);
+	write(&i, 4, 1);
 	return *this;
 }
 
 DataStream& DataStream::operator >>(s8 &i)
 {
-	CHECK_STREAM_PRECOND;
-	fread(&i, 1, 1, fd);
+	read(&i, 1, 1);
 	return *this;
 }
 
 DataStream& DataStream::operator >>(s16 &i)
 {
-	CHECK_STREAM_PRECOND;
-	fread(&i, 2, 1, fd);
+	read(&i, 2, 1);
 	return *this;
 }
 
 DataStream& DataStream::operator >>(s32 &i)
 {
-	CHECK_STREAM_PRECOND;
-	fread(&i, 4, 1, fd);
+	read(&i, 4, 1);
 	return *this;
 }

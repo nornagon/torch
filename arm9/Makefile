@@ -20,8 +20,8 @@ ifeq ($(strip $(WORLD)),)
 endif
 
 BUILD    := build/$(WORLD)
-SOURCES  := engine source generic $(WORLD)
-INCLUDES := include engine generic $(WORLD)
+SOURCES  := engine source generic zlib $(WORLD)
+INCLUDES := include engine generic zlib $(WORLD)
 DATA     :=
 GRAPHICS := graphics
 
@@ -46,7 +46,7 @@ LDFLAGS = -specs=ds_arm9.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS := -lnds9
+LIBS := -lfat -lnds9
  
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
