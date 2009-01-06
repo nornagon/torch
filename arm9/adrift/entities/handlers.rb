@@ -12,5 +12,5 @@ end
 default :natural => [1..2]
 
 default :color => [31,0,31]
-default :char => '?'
+default :char => ['?']
 default :animation => nil

@@ -150,8 +150,14 @@ if $0 == __FILE__
   $handlers = {}
   $defaults = {}
 
-  def handler field, type, &blk
-    $handlers[field] = [type, blk]
+  # handler :damage, 's16 damage_min, damage_max' do ... end
+  # handler 'object.h' do "enum { ... }" end
+  def handler field, type=nil, &blk
+    if type.nil?
+      $handlers[field] = blk
+    else
+      $handlers[field] = [type, blk]
+    end
   end
 
   def default assoc
@@ -164,8 +170,15 @@ if $0 == __FILE__
 
   $entities.each do |kind,defns|
     flds = fields(defns).sort_by do |k,ty|
-      ty.to_s == "TrueClass" ? 1 : 0
-    end
+      t = $handlers[k] ? $handlers[k][0] : ty.to_c("")
+      length = case t
+               when /bool/: 1
+               when /\*/: 32 # pointer
+               when /(\d+)/: $1.to_i # s32, s16, etc
+               else 8
+               end
+      length
+    end.reverse
     File.open "#{kind}.h", "w" do |io|
       io.puts "#ifndef ENTITY_#{kind.to_c}_H"
       io.puts "#define ENTITY_#{kind.to_c}_H"
@@ -196,6 +209,10 @@ if $0 == __FILE__
       end
       io.puts "};"
       io.puts
+      if $handlers["#{kind}.h"]
+        io.puts $handlers["#{kind}.h"].call
+        io.puts
+      end
       io.puts "#endif"
     end
     File.open "#{kind}.cpp", "w" do |io|
