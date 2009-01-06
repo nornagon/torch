@@ -12,9 +12,10 @@ struct Object : public listable<Object> {
 
 	public:
 	Object(): type(0), quantity(1), orientation(D_NONE) {}
+	Object(u16 type);
 	const ObjectDesc* desc() { return &objectdesc[type]; }
 	u16 type;
-	u16 quantity;
+	u8 quantity;
 	DIRECTION orientation;
 
 	friend DataStream& operator <<(DataStream&, Object&);

@@ -1,9 +1,12 @@
 #include "object.h"
 #include "adrift.h"
 
+Object::Object(u16 _type): type(_type), quantity(1), orientation(D_NONE)
+{
+}
+
 Object *addObject(s16 x, s16 y, u16 type) {
-	Object *on = new Object;
-	on->type = type;
+	Object *on = new Object(type);
 	stack_item_push(game.map.at(x,y)->objects, on);
 	return on;
 }

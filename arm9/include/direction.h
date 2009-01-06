@@ -2,7 +2,7 @@
 #define DIRECTION_H 1
 
 // a direction can be stored in 4 bits.
-typedef unsigned int DIRECTION;
+typedef unsigned char DIRECTION;
 #define D_NONE  0
 #define D_NORTH 1
 #define D_SOUTH 2
