@@ -323,8 +323,27 @@ void playerdeath() {
 
 void statusbar() {
 #ifndef NATIVE
-	u16* subscr = (u16*)BG_BMP_RAM_SUB(0);
+	static u16* subscr = (u16*)BG_BMP_RAM_SUB(0);
+	static int hptw = textwidth("HP:");
+	int hp = game.player.hp, max = game.player.max_hp();
+	char buf[8];
 	memset(&subscr[256*(192-9)], 0, 256*9*2);
-	tprintf(2,192-9,0xffff, "HP:%d/%d", game.player.hp, game.player.max_hp());
+
+	tprintf(2,192-9, 0xffff, "HP:");
+
+	u16 color = RGB15(0,31,0);
+	if (hp <= (max*(int32)(0.5*(1<<12)))>>12) {
+		// hp <= 50% max ==> red
+		color = RGB15(31,0,0);
+	} else if (hp <= (max*(int32)(0.75*(1<<12)))>>12) {
+		// hp <= 75% max ==> yellow
+		color = RGB15(31,31,0);
+	}
+	color |= BIT(15);
+
+	sniprintf(buf, 8, "%d", hp);
+	tprintf(2+hptw,192-9, color, buf);
+	int curoff = textwidth(buf);
+	tprintf(2+hptw+curoff,192-9,0xffff, "/%d", max);
 #endif
 }
