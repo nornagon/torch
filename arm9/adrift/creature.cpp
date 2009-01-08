@@ -29,6 +29,31 @@ void Creature::init(u16 _type) {
 	light = NULL;
 }
 
+s16 Creature::max_hp() {
+	return resilience*2 + strength + agility;
+}
+
+void Creature::setPos(s16 xp, s16 yp) {
+	x = xp; y = yp;
+}
+
+void Creature::acted() {
+	cooldown += desc()->cooldown;
+}
+
+void Creature::regenerate() {
+	if (regen_cooldown <= 0) {
+		if (hp < max_hp()) {
+			int hp_gain = 1 + (rand32() % (1 + resilience / 8));
+			if (hp_gain + hp >= max_hp())
+				hp = max_hp();
+			else
+				hp += hp_gain;
+		}
+		regen_cooldown += 20+rand4()*2;
+	} else regen_cooldown--;
+}
+
 void Creature::behave() {
 	if (cooldown > 0) {
 		cooldown--;
@@ -103,19 +128,6 @@ void Creature::doBehaviour() {
 				}
 			}
 	}
-}
-
-void Creature::regenerate() {
-	if (regen_cooldown <= 0) {
-		if (hp < max_hp()) {
-			int hp_gain = 1 + (rand32() % (1 + resilience / 8));
-			if (hp_gain + hp >= max_hp())
-				hp = max_hp();
-			else
-				hp += hp_gain;
-		}
-		regen_cooldown += 20+rand4()*2;
-	} else regen_cooldown--;
 }
 
 bool Creature::canMove(s16 xp, s16 yp) {
