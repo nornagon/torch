@@ -4,6 +4,8 @@
 #ifdef NATIVE
 #include "native.h"
 #include <stdlib.h>
+#else
+#include "text.h"
 #endif
 
 #ifdef __cplusplus
@@ -17,6 +19,7 @@ void _assert(const char *file, int line, const char *func, const char *expr, boo
 		printf("\n");
 		abort();
 #else
+		text_console_enable();
 		while (1) swiWaitForVBlank();
 #endif
 	}
