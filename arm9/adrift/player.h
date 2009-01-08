@@ -13,6 +13,8 @@ struct Player : public Creature {
 	UNPOOLED
 
 	public:
+	Player();
+
 	List<Object> bag; // inventory
 	Creature *target; // currently targetted creature for seek and destroy
 	lightsource *light;
@@ -21,6 +23,9 @@ struct Player : public Creature {
 	// player's bag -- make sure to check they haven't dropped it or similar
 	// before throwing!
 	Object *projectile;
+
+	Object *equipment[E_NUMSLOTS];
+	bool isEquipped(Object *o);
 
 	// initialise and create a new light source.
 	void exist();
@@ -38,6 +43,7 @@ struct Player : public Creature {
 	void use(Object *item);
 	void eat(Object *item);
 	void drink(Object *item);
+	void equip(Object *item);
 
 	// 'throw' was reserved :(
 	void chuck(s16 destx, s16 desty);
@@ -51,6 +57,11 @@ struct Player : public Creature {
 
 	friend DataStream& operator <<(DataStream&, Player&);
 	friend DataStream& operator >>(DataStream&, Player&);
+
+	private:
+	// removes an item from the player's inventory, unequipping it if necessary.
+	// asserts that the bag contains the object.
+	void removeFromBag(Object *obj);
 };
 DataStream& operator <<(DataStream&, Player&);
 DataStream& operator >>(DataStream&, Player&);

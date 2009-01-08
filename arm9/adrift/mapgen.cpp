@@ -28,80 +28,6 @@ static void set_tile_i(s16 x, s16 y, void* type) {
 	set_tile(x,y,(int)type);
 }
 
-// The algorithm here is to start at a middle point and throw out radial lines
-// of random length. I think some Angband variant used it to draw lakes; this
-// function uses it to draw two circles of trees (with some hacks for ensuring
-// it's possible to get in and out of them).
-/*void haunted_grove(s16 cx, s16 cy) {
-	int r0 = 7, r1 = 15;
-	int w0 = 3, w1 = 4;
-
-	unsigned int playerpos = ((rand32() & 0x1ff) / 8) * 8;
-	for (unsigned int t = 0; t < 0x1ff; t += 8) {
-		int r = rand32() % 5;
-		int x = COS[t], y = SIN[t];
-		bresenham(cx, cy, cx + ((x*r) >> 12), cy + ((y*r) >> 12), set_tile, (void*)WATER);
-		if (t == playerpos) {
-			unsigned int extra = rand8() % 3;
-			game.player.x = cx + ((x*(5+extra)) >> 12);
-			game.player.y = cy + ((y*(5+extra)) >> 12);
-		}
-	}
-
-	for (unsigned int t = 0; t < 0x1ff; t += 4) {
-		int r = (rand8() & 3) + r0;
-		int x = COS[t], y = SIN[t];
-		if (t % 16 != 0)
-			bresenham(cx + ((x*r) >> 12), cy + ((y*r) >> 12),
-			               cx + ((x*(r+w0)) >> 12), cy + ((y*(r+w0)) >> 12), set_tile, (void*)TREE);
-	}
-	unsigned int firepos = ((rand32() & 0x1ff) / 4) * 4;
-	for (unsigned int t = 0; t < 0x1ff; t += 4) {
-		int x = COS[t], y = SIN[t];
-		if (t == firepos) {
-			int px = cx + ((x*(r0+w0+1)) >> 12),
-			    py = cy + ((y*(r0+w0+1)) >> 12);
-			set_tile(px, py, (void*)FIRE);
-			lightsource *l = new_light(8<<12, (int)(0.9*(1<<12)), (int)(0.3*(1<<12)), (int)(0.1*(1<<12)));
-			l->x = px<<12; l->y = py<<12;
-			game.map.lights.push(l);
-		}
-	}
-	for (unsigned int t = 0; t < 0x1ff; t += 2) {
-		int a = rand8();
-		int r = (a & 3) + r1; a >>= 2;
-		int x = COS[t], y = SIN[t];
-		if (t % 16 > (a & 3))
-			bresenham(cx + ((x*r) >> 12), cy + ((y*r) >> 12),
-			               cx + ((x*(r+w1)) >> 12), cy + ((y*(r+w1)) >> 12), set_tile, (void*)TREE);
-	}
-	u16 k = rand16() & 0x1ff;
-	int x = COS[k], y = SIN[k];
-	bresenham(cx + ((x*r0) >> 12), cy + ((y*r0) >> 12),
-	               cx + ((x*(r0+w0)) >> 12), cy + ((y*(r0+w0)) >> 12), set_tile, (void*)GROUND);
-	k = rand16() & 0x1ff;
-	x = COS[k]; y = SIN[k];
-	bresenham(cx + ((x*r1) >> 12), cy + ((y*r1) >> 12),
-	               cx + ((x*(r1+w1)) >> 12), cy + ((y*(r1+w1)) >> 12), set_tile, (void*)GROUND);
-
-	int nTraps = 4 + (rand16() % 10);
-	for (int i = 0; i < nTraps; i++) {
-		int x, y;
-		do {
-			int theta = rand16() & 0x1ff;
-			int r = r0 + w0 + (rand16() % 6);
-			x = cx + ((COS[theta]*r) >> 12), y = cy + ((SIN[theta]*r) >> 12);
-		} while (!(game.map.at(x,y)->type == GROUND && !game.map.occupied(x,y)));
-		Node<Creature> trap(new NodeV<Creature>);
-		trap->type = VENUS_FLY_TRAP;
-		trap->hp = creaturedesc[trap->type].max_hp;
-		trap->cooldown = 0;
-		trap->setPos(x,y);
-		game.map.at(x,y)->creature = trap;
-		game.monsters.push(trap);
-	}
-}*/
-
 void drop_rock(s16 x, s16 y, void *info) {
 	Cell *l = game.map.at(x,y);
 	if (rand32() % 10 == 0 && !game.map.solid(x,y)) {
@@ -110,16 +36,6 @@ void drop_rock(s16 x, s16 y, void *info) {
 		stack_item_push(l->objects, on);
 	}
 }
-
-// drop rocks in the vicinity around a specified point
-/*void drop_rocks(s16 ax, s16 ay, int r) {
-	for (unsigned int t = 0; t < 0x1ff; t += 4) {
-		int x = COS[t], y = SIN[t];
-		if (t % 16 != 0)
-			bresenham(ax + ((x*r) >> 12), ay + ((y*r) >> 12),
-			               ax + ((x*(r+4)) >> 12), ay + ((y*(r+4)) >> 12), drop_rock, NULL);
-	}
-}*/
 
 struct Point : public listable<Point> {
 	POOLED(Point)
@@ -511,8 +427,7 @@ void generate_terrarium() {
 	for (int i = 0; i < 60; i++) {
 		s16 x = rand32() % torch.buf.getw(), y = rand32() % torch.buf.geth();
 		if (!game.map.solid(x,y)) {
-			Object *on = new Object;
-			on->type = ROCK;
+			Object *on = new Object(ROCK);
 			stack_item_push(game.map.at(x,y)->objects, on);
 		} else i--;
 	}
@@ -526,6 +441,13 @@ void generate_terrarium() {
 
 	game.player.setPos(x,y);
 	game.map.at(x,y)->creature = &game.player;
+
+	Object *on = new Object(BATON);
+	stack_item_push(game.map.at(x,y)->objects, on);
+	on = new Object(LEATHER_JACKET);
+	stack_item_push(game.map.at(x,y)->objects, on);
+	on = new Object(PAIR_OF_BLUNDSTONE_BOOTS);
+	stack_item_push(game.map.at(x,y)->objects, on);
 
 	x = cx; y = cy;
 

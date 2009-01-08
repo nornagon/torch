@@ -89,6 +89,9 @@ void perform(Object *obj, ACTION act) {
 		case ACT_DRINK:
 			game.player.drink(obj);
 			break;
+		case ACT_EQUIP:
+			game.player.equip(obj);
+			break;
 		default:
 			break;
 	}
@@ -98,6 +101,7 @@ struct menuitem {
 	const char *text;
 	ACTION action;
 } itemmenu[] = {
+	{ "Equip", ACT_EQUIP },
 	{ "Eat", ACT_EAT },
 	{ "Drink", ACT_DRINK },
 	{ "Use", ACT_USE },
@@ -121,6 +125,7 @@ bool withitem(Object *obj) {
 		for (menuitem* k = itemmenu; k->text; k++) {
 			bool validaction = false;
 			switch (k->action) {
+				case ACT_EQUIP: validaction = obj->desc()->equip < E_NUMSLOTS; break;
 				case ACT_EAT:   validaction = obj->desc()->edible; break;
 				case ACT_DRINK: validaction = obj->desc()->drinkable; break;
 				case ACT_USE:   validaction = obj->desc()->usable; break;
@@ -150,6 +155,19 @@ bool withitem(Object *obj) {
 #endif
 }
 
+const char *equipdesc(Object *o) {
+	switch (o->desc()->equip) {
+		case E_WEAPON: return " (wielded)";
+
+		case E_HEAD:
+		case E_WRIST:
+		case E_FEET:
+		case E_BODY:   return " (worn)";
+	}
+	assert(!"Impossible equipment location");
+	return NULL;
+}
+
 void inventory() {
 #ifndef NATIVE
 	int selected = 0;
@@ -177,22 +195,27 @@ void inventory() {
 
 		Object *o = game.player.bag.head();
 
-		// push o up to the start
+		// push o up to the start of the on-screen section of the inventory
 		int i = 0;
 		for (; i < start; i++) o = o->next();
 
 		for (i = 0; i < 19 && o; i++, o = o->next()) {
 			const char *name = o->desc()->name;
 			u16 color = selected == i+start ? RGB15(31,31,31) : RGB15(18,18,18);
+			const char *equiptext = "";
+			if (game.player.isEquipped(o)) {
+				color = selected == i+start ? RGB15(0,31,0) : RGB15(0,18,0);
+				equiptext = equipdesc(o);
+			}
 			if (o->quantity == 1)
-				tprintf(17, 12+i*9, color, "%s", name);
+				tprintf(17, 12+i*9, color, "%s%s", name, equiptext);
 			else if (o->desc()->plural)
-				tprintf(17, 12+i*9, color, "%d %s", o->quantity, o->desc()->plural);
+				tprintf(17, 12+i*9, color, "%d %s%s", o->quantity, o->desc()->plural, equiptext);
 			else
-				tprintf(17, 12+i*9, color, "%d %ss", o->quantity, name);
+				tprintf(17, 12+i*9, color, "%d %ss%s", o->quantity, name, equiptext);
 			if (i+start == selected) {
 				sel = o;
-				tprintf(8, 12+i*9, color, "*");
+				tprintf(8, 12+i*9, 0xffff, "*");
 			}
 		}
 		u32 keys = waitkey();
@@ -339,7 +362,6 @@ void statusbar() {
 		// hp <= 75% max ==> yellow
 		color = RGB15(31,31,0);
 	}
-	color |= BIT(15);
 
 	sniprintf(buf, 8, "%d", hp);
 	tprintf(2+hptw,192-9, color, buf);

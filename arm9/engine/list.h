@@ -145,6 +145,9 @@ struct List {
 		inline int indexOf(T *ptr) {
 			return indexOf(static_cast<listable<T>*>(ptr));
 		}
+		inline bool contains(T *ptr) {
+			return indexOf(ptr) >= 0;
+		}
 
 		// asserts on out-of-bounds
 		T *getnth(int n) {

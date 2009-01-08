@@ -43,3 +43,25 @@ object 'bottle of water' do
   stackable
   drinkable
 end
+
+
+subEntity 'weapon', object do equip :weapon; char '/'; end
+subEntity 'body', object do equip :body; char '}' end
+subEntity 'helmet', object do equip :head; char '^' end
+subEntity 'wrist', object do equip :wrist; char '=' end
+subEntity 'boots', object do equip :feet; char ';' end
+
+weapon 'baton' do
+  color 31,28,0
+  damage 4..6
+end
+
+body 'leather jacket' do
+  color 17,10,0
+  armor 5
+end
+
+boots 'pair of Blundstone boots' do
+  color 10,10,10
+  armor 4
+end

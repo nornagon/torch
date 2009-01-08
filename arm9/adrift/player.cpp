@@ -6,19 +6,8 @@
 
 #include "entities/creature.h"
 
-// drops the object if it's in the player's bag
-void Player::drop(Object *o) {
-	if (!bag.remove(o)) return;
-	game.map.at(x, y)->objects.push(o);
-	if (o->quantity == 1)
-		iprintf("You drop a %s\n", o->desc()->name);
-	else {
-		if (o->desc()->plural) {
-			iprintf("You drop %d %s\n", o->quantity, o->desc()->plural);
-		} else {
-			iprintf("You drop %d %ss\n", o->quantity, o->desc()->name);
-		}
-	}
+Player::Player() {
+	clear();
 }
 
 void Player::exist() {
@@ -34,6 +23,7 @@ void Player::clear() {
 	light = NULL;
 	target = NULL;
 	projectile = NULL;
+	for (int i = 0; i < E_NUMSLOTS; i++) equipment[i] = NULL;
 	bag.delete_all();
 	strength_xp = agility_xp = resilience_xp = melee_xp = aim_xp = 0;
 }
@@ -68,6 +58,7 @@ void Player::moveDir(DIRECTION dir, bool run) {
 			if (dpX && dpY) game.cooldown = 3;
 			else game.cooldown = 2;
 		} else {
+			// TODO: walking should result in faster regeneration than running...
 			if (dpX && dpY) game.cooldown = 7;
 			else game.cooldown = 5;
 		}
@@ -87,15 +78,6 @@ void Player::moveDir(DIRECTION dir, bool run) {
 	}
 }
 
-/*
-void Player::setPos(s16 x, s16 y) {
-	assert(!game.map.occupied(x,y));
-	game.map.at(x,y) = obj;
-	obj->x = x;
-	obj->y = y;
-}
-*/
-
 void Player::use(Object *item) {
 	switch (item->type) {
 		case ROCK:
@@ -110,18 +92,40 @@ void Player::use(Object *item) {
 	}
 }
 
+// drops the object from the player's bag
+void Player::drop(Object *o) {
+	removeFromBag(o);
+	game.map.at(x, y)->objects.push(o);
+	if (o->quantity == 1)
+		iprintf("You drop a %s\n", o->desc()->name);
+	else {
+		if (o->desc()->plural) {
+			iprintf("You drop %d %s\n", o->quantity, o->desc()->plural);
+		} else {
+			iprintf("You drop %d %ss\n", o->quantity, o->desc()->name);
+		}
+	}
+}
+
 void Player::eat(Object *item) {
 	iprintf("You eat the %s.\n", item->desc()->name);
 	item->quantity--;
 	if (item->quantity <= 0)
-		bag.remove(item);
+		removeFromBag(item);
 }
 
 void Player::drink(Object *item) {
 	iprintf("You drink the %s.\n", item->desc()->name);
 	item->quantity--;
 	if (item->quantity <= 0)
-		bag.remove(item);
+		removeFromBag(item);
+}
+
+void Player::equip(Object *item) {
+	assert(bag.contains(item));
+	u8 slot = item->desc()->equip;
+	assert(slot < E_NUMSLOTS);
+	equipment[slot] = item;
 }
 
 void Player::chuck(s16 destx, s16 desty) {
@@ -139,13 +143,26 @@ void Player::chuck(s16 destx, s16 desty) {
 
 	projectile->quantity--;
 	if (projectile->quantity <= 0) { // ran out of stuff
-		bag.remove(projectile);
+		removeFromBag(projectile);
 		delete projectile;
 		projectile = NULL;
 	}
 
 	game.map.projectiles.push(thrown);
 	cooldown += 6;
+}
+
+void Player::removeFromBag(Object *obj) {
+	assert(bag.contains(obj));
+	u8 slot = obj->desc()->equip;
+	if (slot < E_NUMSLOTS && equipment[slot] == obj)
+		equipment[slot] = NULL;
+	bag.remove(obj);
+}
+
+bool Player::isEquipped(Object *obj) {
+	u8 slot = obj->desc()->equip;
+	return slot < E_NUMSLOTS && equipment[slot] == obj;
 }
 
 #define DEF_EXERCISE(stat) \
