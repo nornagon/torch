@@ -204,6 +204,15 @@ DataStream& operator <<(DataStream& s, Creature &c)
 		s << (int)-1;
 	}
 	s << c.bag;
+	for (int i = 0; i < E_NUMSLOTS; i++) {
+		if (c.equipment[i]) {
+			int idx = c.bag.indexOf(c.equipment[i]);
+			assert(idx >= 0);
+			s << idx;
+		} else {
+			s << (int)-1;
+		}
+	}
 	return s;
 }
 
@@ -220,5 +229,14 @@ DataStream& operator >>(DataStream& s, Creature &c)
 		c.light = game.map.lights.getnth(light_idx);
 	} else c.light = NULL;
 	s >> c.bag;
+	for (int i = 0; i < E_NUMSLOTS; i++) {
+		int idx;
+		s >> idx;
+		if (idx >= 0) {
+			c.equipment[i] = c.bag.getnth(idx);
+		} else {
+			c.equipment[i] = NULL;
+		}
+	}
 	return s;
 }
