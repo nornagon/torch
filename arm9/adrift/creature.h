@@ -3,9 +3,11 @@
 
 #include <nds/jtypes.h>
 #include "entities/creature.h"
+#include "entities/object.h"
 #include "list.h"
-#include "lightsource.h"
 #include "datastream.h"
+struct Object;
+struct lightsource;
 
 struct Creature : public listable<Creature> {
 	POOLED(Creature)
@@ -17,6 +19,8 @@ struct Creature : public listable<Creature> {
 	s32 hp;
 	s32 strength, agility, resilience, aim, melee;
 	lightsource *light;
+	List<Object> bag;
+	Object *equipment[E_NUMSLOTS];
 
 	public: // functions
 	Creature();
@@ -30,6 +34,14 @@ struct Creature : public listable<Creature> {
 	bool canMove(s16 xp, s16 yp); // can the creature move to (xp,yp)?
 	void move(s16 xp, s16 yp);    // moves the creature, updating map cells
 	void setPos(s16 xp, s16 yp);  // sets x,y values (convenience)
+
+	void drop(Object *item);    // remove an item from bag and drop it at current x,y
+	void equip(Object *item);   // equip item. must be in bag.
+	bool isEquipped(Object *o); // true if the given item is equippable and equipped
+
+	// removes an item from the creature's inventory, unequipping it if necessary.
+	// object must be in bag.
+	void removeFromBag(Object *obj);
 
 	void acted();      // bumps cooldown
 	void regenerate(); // regenerate health, or bump regen_cooldown

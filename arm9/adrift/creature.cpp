@@ -5,6 +5,8 @@
 #include "util.h"
 #include "combat.h"
 #include "gfxPrimitives.h" // for randwalk
+#include "lightsource.h"
+#include "object.h"
 #include <stdio.h>
 
 #include "entities/creature.h"
@@ -27,6 +29,8 @@ void Creature::init(u16 _type) {
 	resilience = desc()->resilience;
 	hp = max_hp();
 	light = NULL;
+	for (int i = 0; i < E_NUMSLOTS; i++) equipment[i] = NULL;
+	bag.delete_all();
 }
 
 s16 Creature::max_hp() {
@@ -52,6 +56,32 @@ void Creature::regenerate() {
 		}
 		regen_cooldown += 20+rand4()*2;
 	} else regen_cooldown--;
+}
+
+// drops the object from the creature's bag
+void Creature::drop(Object *o) {
+	removeFromBag(o);
+	game.map.at(x, y)->objects.push(o);
+}
+
+void Creature::equip(Object *item) {
+	assert(bag.contains(item));
+	u8 slot = item->desc()->equip;
+	assert(slot < E_NUMSLOTS);
+	equipment[slot] = item;
+}
+
+bool Creature::isEquipped(Object *obj) {
+	u8 slot = obj->desc()->equip;
+	return slot < E_NUMSLOTS && equipment[slot] == obj;
+}
+
+void Creature::removeFromBag(Object *obj) {
+	assert(bag.contains(obj));
+	u8 slot = obj->desc()->equip;
+	if (slot < E_NUMSLOTS && equipment[slot] == obj)
+		equipment[slot] = NULL;
+	bag.remove(obj);
 }
 
 void Creature::behave() {
@@ -173,6 +203,7 @@ DataStream& operator <<(DataStream& s, Creature &c)
 	} else {
 		s << (int)-1;
 	}
+	s << c.bag;
 	return s;
 }
 
@@ -188,5 +219,6 @@ DataStream& operator >>(DataStream& s, Creature &c)
 	if (light_idx >= 0) {
 		c.light = game.map.lights.getnth(light_idx);
 	} else c.light = NULL;
+	s >> c.bag;
 	return s;
 }

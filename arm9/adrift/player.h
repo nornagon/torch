@@ -12,11 +12,14 @@
 struct Player : public Creature {
 	UNPOOLED
 
-	public:
-	Player();
-
-	List<Object> bag; // inventory
+	public: // data members
 	Creature *target; // currently targetted creature for seek and destroy
+	// overrides the light in Creature, since the player light is Different(TM).
+	// In particular, the player's light is not part of the game.map.lights list,
+	// since for performance reasons it is calculated during initial sight FOV
+	// traversal in order to avoid a second identical FOV calculation for the
+	// player light as opposed to the player's sight (i.e. what the player can
+	// and cannot see).
 	lightsource *light;
 
 	// what the player is ready to throw. a reference to some object in the
@@ -24,8 +27,10 @@ struct Player : public Creature {
 	// before throwing!
 	Object *projectile;
 
-	Object *equipment[E_NUMSLOTS];
-	bool isEquipped(Object *o);
+	s32 strength_xp, agility_xp, resilience_xp, aim_xp, melee_xp;
+
+	public: // functions
+	Player();
 
 	// initialise and create a new light source.
 	void exist();
@@ -43,12 +48,10 @@ struct Player : public Creature {
 	void use(Object *item);
 	void eat(Object *item);
 	void drink(Object *item);
-	void equip(Object *item);
 
 	// 'throw' was reserved :(
 	void chuck(s16 destx, s16 desty);
 
-	s32 strength_xp, agility_xp, resilience_xp, aim_xp, melee_xp;
 	void exercise_strength(int n = 1);
 	void exercise_agility(int n = 1);
 	void exercise_resilience(int n = 1);
@@ -57,11 +60,6 @@ struct Player : public Creature {
 
 	friend DataStream& operator <<(DataStream&, Player&);
 	friend DataStream& operator >>(DataStream&, Player&);
-
-	private:
-	// removes an item from the player's inventory, unequipping it if necessary.
-	// asserts that the bag contains the object.
-	void removeFromBag(Object *obj);
 };
 DataStream& operator <<(DataStream&, Player&);
 DataStream& operator >>(DataStream&, Player&);

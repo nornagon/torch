@@ -23,8 +23,6 @@ void Player::clear() {
 	light = NULL;
 	target = NULL;
 	projectile = NULL;
-	for (int i = 0; i < E_NUMSLOTS; i++) equipment[i] = NULL;
-	bag.delete_all();
 	strength_xp = agility_xp = resilience_xp = melee_xp = aim_xp = 0;
 }
 
@@ -78,6 +76,18 @@ void Player::moveDir(DIRECTION dir, bool run) {
 	}
 }
 
+void Player::drop(Object *item) {
+	iprintf("You drop ");
+	if (item->quantity == 1)
+		iprintf("a %s", item->desc()->name);
+	else if (item->desc()->plural)
+		iprintf("%d %s", item->quantity, item->desc()->plural);
+	else
+		iprintf("%d %ss", item->quantity, item->desc()->name);
+	iprintf(".\n");
+	Creature::drop(item);
+}
+
 void Player::use(Object *item) {
 	switch (item->type) {
 		case ROCK:
@@ -89,21 +99,6 @@ void Player::use(Object *item) {
 			break;
 		default:
 			break;
-	}
-}
-
-// drops the object from the player's bag
-void Player::drop(Object *o) {
-	removeFromBag(o);
-	game.map.at(x, y)->objects.push(o);
-	if (o->quantity == 1)
-		iprintf("You drop a %s\n", o->desc()->name);
-	else {
-		if (o->desc()->plural) {
-			iprintf("You drop %d %s\n", o->quantity, o->desc()->plural);
-		} else {
-			iprintf("You drop %d %ss\n", o->quantity, o->desc()->name);
-		}
 	}
 }
 
@@ -119,13 +114,6 @@ void Player::drink(Object *item) {
 	item->quantity--;
 	if (item->quantity <= 0)
 		removeFromBag(item);
-}
-
-void Player::equip(Object *item) {
-	assert(bag.contains(item));
-	u8 slot = item->desc()->equip;
-	assert(slot < E_NUMSLOTS);
-	equipment[slot] = item;
 }
 
 void Player::chuck(s16 destx, s16 desty) {
@@ -152,19 +140,6 @@ void Player::chuck(s16 destx, s16 desty) {
 	cooldown += 6;
 }
 
-void Player::removeFromBag(Object *obj) {
-	assert(bag.contains(obj));
-	u8 slot = obj->desc()->equip;
-	if (slot < E_NUMSLOTS && equipment[slot] == obj)
-		equipment[slot] = NULL;
-	bag.remove(obj);
-}
-
-bool Player::isEquipped(Object *obj) {
-	u8 slot = obj->desc()->equip;
-	return slot < E_NUMSLOTS && equipment[slot] == obj;
-}
-
 #define DEF_EXERCISE(stat) \
 	void Player::exercise_##stat(int n) { \
 		game.player.stat##_xp++; \
@@ -188,7 +163,6 @@ DataStream& operator <<(DataStream& s, Player& p)
 	s << (Creature&)p;
 	s << *p.light;
 	s << p.strength_xp << p.agility_xp << p.resilience_xp << p.aim_xp << p.melee_xp;
-	s << p.bag;
 	return s;
 }
 DataStream& operator >>(DataStream& s, Player& p)
@@ -198,6 +172,5 @@ DataStream& operator >>(DataStream& s, Player& p)
 	p.light = new lightsource;
 	s >> *p.light;
 	s >> p.strength_xp >> p.agility_xp >> p.resilience_xp >> p.aim_xp >> p.melee_xp;
-	s >> p.bag;
 	return s;
 }
