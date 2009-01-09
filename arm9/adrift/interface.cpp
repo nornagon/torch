@@ -116,6 +116,8 @@ bool withitem(Object *obj) {
 	text_display_clear();
 	if (obj->quantity == 1) {
 		printcenter(40, 0xffff, "%s", obj->desc()->name);
+	} else if (obj->desc()->plural) {
+		printcenter(40, 0xffff, "%d %s", obj->quantity, obj->desc()->plural);
 	} else {
 		printcenter(40, 0xffff, "%d %ss", obj->quantity, obj->desc()->name);
 	}
